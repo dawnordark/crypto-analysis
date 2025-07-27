@@ -17,7 +17,7 @@
             justify-content: space-between; 
             align-items: center; 
             padding: 15px; 
-            background: #1a1a极速赛车开奖网
+            background: #1a1a1a; 
             border-radius: 12px; 
             margin-bottom: 15px; 
             border: 1px solid #2a2a2a; 
@@ -36,7 +36,7 @@
         }
         .header h1 { 
             font-size: 20px; 
-            margin-bottom: 5px; 
+            margin-bottom: 5极速赛车开奖网
             color: #ffcc00; 
             text-align: left;
         }
@@ -403,7 +403,10 @@
                             <span class="info-value">{{ nextAnalysisTime || '计算中...' }}</span>
                         </div>
                         <div v-if="analysisTime > 0" class="info-row">
-                            <span class极速赛车开奖网
+                            <span class="info-label">分析耗时:</span>
+                            <span class="info-value">{{ analysisTime.toFixed(2) }}秒</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 阻力位查询区域 -->
@@ -455,7 +458,7 @@
                                             <div class="resistance-values">
                                                 <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
                                                     {{ level ? level.toFixed(4) : '-' }}
-                                                </div>
+                                                </极速赛车开奖网
                                             </div>
                                         </td>
                                     </tr>
@@ -550,7 +553,7 @@
 
                             <!-- 阻力位/支撑位展示 -->
                             <div v-if="activeResistance === coin.symbol" class="resistance-levels">
-                                <div class="resistance-title">
+                                <div class极速赛车开奖网
                                     <span>阻力位/支撑位分析</span>
                                 </div>
                                 <table class="resistance-table">
@@ -697,7 +700,7 @@
                     <div v-if="loading && shortTermActive.length === 0" class="loading">
                         <span class="loading-spinner"></span>分析中...
                     </div>
-                    <div v-else-if="shortTermActive.length === 0" class="empty-list">暂无数据</div>
+                    <div v-else-if="short极速赛车开奖网
                     <div v-for="coin in shortTermActive" :key="coin.symbol + 'short'">
                         <div class="coin-item">
                             <div class="coin-header">
@@ -1228,7 +1231,7 @@
                             const scaleY = chartHeight / (maxValue - minValue + padding * 2);
                             
                             // 绘制背景
-                            ctx.fillStyle = '#121212';
+                            ctx.fillStyle = #121212;
                             ctx.fillRect(0, 0, chartWidth, chartHeight);
                             
                             // 绘制网格
