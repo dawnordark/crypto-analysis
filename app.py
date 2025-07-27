@@ -17,21 +17,19 @@ from binance.client import Client
 
 # 配置详细日志
 logging.basicConfig(
-    level=logging.DEBUG,  # 更详细的日志级别
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('app.log')  # 同时输出到文件
+        logging.FileHandler('app.log')
     ]
 )
 logger = logging.getLogger(__name__)
 
-# 获取当前文件所在目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 
-# Binance API 配置 - 使用环境变量
+# Binance API 配置
 API_KEY = os.environ.get('BINANCE_API_KEY', 'your_api_key_here')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', 'your_api_secret_here')
 client = None
@@ -42,26 +40,19 @@ data_cache = {
     "daily_rising": [],
     "short_term_active": [],
     "all_cycle_rising": [],
-    "analysis_time": 0
+    "analysis_time": 0,
+    "next_analysis_time": None
 }
 
-# 只读数据缓存
 current_data_cache = data_cache.copy()
-
-# 持仓量数据缓存 {symbol: {period: {data: ..., next_update: ...}}}
 oi_data_cache = {}
-
-# 阻力位数据缓存 {symbol: {interval: levels, expiration}}
 resistance_cache = {}
-RESISTANCE_CACHE_EXPIRATION = 24 * 3600  # 24小时缓存
+RESISTANCE_CACHE_EXPIRATION = 24 * 3600
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
-
-# 线程池执行器
 executor = ThreadPoolExecutor(max_workers=10)
 
-# 周期设置 (分钟)
 PERIOD_MINUTES = {
     '5m': 5,
     '15m': 15,
@@ -74,13 +65,9 @@ PERIOD_MINUTES = {
     '1d': 1440
 }
 
-# 阻力位分析周期
 RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M']
-
-# 所有分析周期
 ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
-# 初始化数据库 - 添加详细日志
 def init_db():
     try:
         logger.debug("🛠️ 开始初始化数据库...")
@@ -101,6 +88,7 @@ def init_db():
                         short_term_active TEXT,
                         all_cycle_rising TEXT,
                         analysis_time REAL,
+                        next_analysis_time TEXT,
                         resistance_data TEXT)''')
             conn.commit()
             logger.info("✅ 数据库表创建成功")
@@ -121,7 +109,6 @@ def init_db():
             logger.critical(f"🔥 无法修复数据库: {str(e2)}")
             logger.critical(traceback.format_exc())
 
-# 保存数据到数据库 - 添加详细日志
 def save_to_db(data):
     try:
         logger.debug("💾 开始保存数据到数据库...")
@@ -140,17 +127,19 @@ def save_to_db(data):
                         short_term_active TEXT,
                         all_cycle_rising TEXT,
                         analysis_time REAL,
+                        next_analysis_time TEXT,
                         resistance_data TEXT)''')
             conn.commit()
 
         resistance_json = json.dumps(resistance_cache)
 
         c.execute(
-            "INSERT INTO crypto_data VALUES (NULL, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO crypto_data VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)",
             (data['last_updated'], json.dumps(data['daily_rising']),
              json.dumps(data['short_term_active']),
              json.dumps(data['all_cycle_rising']), 
              data['analysis_time'],
+             data['next_analysis_time'],
              resistance_json))
         conn.commit()
         conn.close()
@@ -158,15 +147,7 @@ def save_to_db(data):
     except Exception as e:
         logger.error(f"❌ 保存数据到数据库失败: {str(e)}")
         logger.error(traceback.format_exc())
-        try:
-            logger.warning("🔄 尝试重新初始化数据库...")
-            init_db()
-            save_to_db(data)
-        except Exception as e2:
-            logger.critical(f"🔥 无法保存数据到数据库: {str(e2)}")
-            logger.critical(traceback.format_exc())
 
-# 获取最后有效数据 - 添加详细日志
 def get_last_valid_data():
     try:
         logger.debug("🔍 尝试获取最后有效数据...")
@@ -186,7 +167,7 @@ def get_last_valid_data():
 
         if row:
             logger.debug(f"🔍 找到最后有效数据: ID={row[0]}, 时间={row[1]}")
-            resistance_data = json.loads(row[6]) if row[6] else {}
+            resistance_data = json.loads(row[7]) if row[7] else {}
             for symbol, data in resistance_data.items():
                 resistance_cache[symbol] = data
 
@@ -195,7 +176,8 @@ def get_last_valid_data():
                 'daily_rising': json.loads(row[2]),
                 'short_term_active': json.loads(row[3]),
                 'all_cycle_rising': json.loads(row[4]),
-                'analysis_time': row[5]
+                'analysis_time': row[5],
+                'next_analysis_time': row[6]
             }
         logger.debug("🔍 数据库中没有有效数据")
         return None
@@ -204,7 +186,6 @@ def get_last_valid_data():
         logger.error(traceback.format_exc())
         return None
 
-# 初始化客户端 - 添加详细日志
 def init_client():
     global client
     try:
@@ -225,16 +206,18 @@ def init_client():
     except Exception as e:
         logger.error(f"❌ 初始化Binance客户端失败: {str(e)}")
         logger.error(traceback.format_exc())
-        return False
+        # 重试机制
+        logger.info("🔄 10秒后重试初始化客户端...")
+        time.sleep(10)
+        return init_client()
 
-# 计算下一个更新时间点
 def get_next_update_time(period):
     minutes = PERIOD_MINUTES.get(period, 5)
     now = datetime.now(timezone.utc)
 
     if period.endswith('m'):
-        current_minute = now.minute
         period_minutes = int(period[:-1])
+        current_minute = now.minute
         current_period_minute = (current_minute // period_minutes) * period_minutes
         current_period_start = now.replace(minute=current_period_minute,
                                            second=0,
@@ -260,7 +243,6 @@ def get_next_update_time(period):
 
     return next_update
 
-# 获取持仓量数据 - 添加详细日志
 def get_open_interest(symbol, period, use_cache=True):
     try:
         # 验证币种格式
@@ -292,15 +274,13 @@ def get_open_interest(symbol, period, use_cache=True):
         response = requests.get(url, params=params, timeout=15)
         logger.debug(f"📡 响应状态: {response.status_code}")
 
-        # 检查响应状态
         if response.status_code != 200:
             logger.error(f"❌ 获取{symbol}的{period}持仓量失败: HTTP {response.status_code} - {response.text}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
         data = response.json()
-        logger.debug(f"📡 响应数据: {data[:1]}...")  # 只打印第一条数据避免日志过大
+        logger.debug(f"📡 响应数据: {data[:1]}...")
 
-        # 检查返回的数据格式
         if not isinstance(data, list):
             logger.error(f"❌ 无效的持仓量数据格式: {symbol} {period} - 响应: {data}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
@@ -314,7 +294,6 @@ def get_open_interest(symbol, period, use_cache=True):
         timestamps = [item['timestamp'] for item in data]
         cache_time = datetime.now(timezone.utc).isoformat()
 
-        # 添加数据验证
         if len(oi_series) < 5:
             logger.warning(f"⚠️ {symbol}的{period}持仓量数据不足: 只有{len(oi_series)}个点")
             return {'series': [], 'timestamps': [], 'cache_time': cache_time}
@@ -338,7 +317,6 @@ def get_open_interest(symbol, period, use_cache=True):
         logger.error(traceback.format_exc())
         return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
-# 检查持仓量是否创新高
 def is_latest_highest(oi_data):
     if len(oi_data) < 30:
         logger.debug("持仓量数据不足30个点")
@@ -355,7 +333,6 @@ def is_latest_highest(oi_data):
     logger.debug(f"持仓量创新高检查: 最新值={latest_value}, 历史最大值={max(prev_data)}, 结果={result}")
     return result
 
-# 计算阻力位 - 添加详细日志
 def calculate_resistance_levels(symbol):
     try:
         logger.debug(f"📊 计算阻力位: {symbol}")
@@ -437,7 +414,6 @@ def calculate_resistance_levels(symbol):
         logger.error(traceback.format_exc())
         return {}
 
-# 分析单个币种趋势 - 添加详细日志
 def analyze_symbol(symbol):
     try:
         logger.info(f"🔍 开始分析币种: {symbol}")
@@ -558,7 +534,6 @@ def analyze_symbol(symbol):
             'oi_data': {}
         }
 
-# 分析币种趋势 - 添加详细日志
 def analyze_trends():
     start_time = time.time()
     logger.info("🔍 开始分析币种趋势...")
@@ -614,7 +589,6 @@ def analyze_trends():
         'analysis_time': analysis_time
     }
 
-# 获取高交易量币种 - 添加详细日志
 def get_high_volume_symbols():
     if not client:
         if not init_client():
@@ -636,7 +610,6 @@ def get_high_volume_symbols():
         logger.error(traceback.format_exc())
         return []
 
-# 数据分析工作线程 - 添加详细日志
 def analysis_worker():
     global data_cache, current_data_cache
     logger.info("🔧 数据分析线程启动")
@@ -659,19 +632,22 @@ def analysis_worker():
                 break
 
             analysis_start = datetime.now(timezone.utc)
-            logger.info(f"⏱️ 开始更新数据 ({analysis_start.strftime('%H:%M:%S')})...")
+            logger.info(f"⏱️ 开始更新数据 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')})...")
 
             backup_cache = data_cache.copy()
             current_backup = current_data_cache.copy()
 
             try:
                 result = analyze_trends()
+                next_analysis_time = get_next_update_time('5m')
+                
                 new_data = {
                     "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     "daily_rising": result['daily_rising'],
                     "short_term_active": result['short_term_active'],
                     "all_cycle_rising": result['all_cycle_rising'],
-                    "analysis_time": result['analysis_time']
+                    "analysis_time": result['analysis_time'],
+                    "next_analysis_time": next_analysis_time.strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
                 logger.debug(f"📊 分析结果: {json.dumps(new_data, indent=2)}")
@@ -690,6 +666,12 @@ def analysis_worker():
             analysis_end = datetime.now(timezone.utc)
             analysis_duration = (analysis_end - analysis_start).total_seconds()
             logger.info(f"⏱️ 分析耗时: {analysis_duration:.2f}秒")
+            
+            # 记录下一次分析时间
+            next_time = get_next_update_time('5m')
+            wait_seconds = (next_time - analysis_end).total_seconds()
+            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            
             logger.info("=" * 50)
 
         except Exception as e:
@@ -697,7 +679,6 @@ def analysis_worker():
             logger.error(traceback.format_exc())
         analysis_queue.task_done()
 
-# 定时触发数据分析 - 添加详细日志
 def schedule_analysis():
     logger.info("⏰ 定时分析调度器启动")
     now = datetime.now(timezone.utc)
@@ -710,12 +691,12 @@ def schedule_analysis():
         next_time = now.replace(minute=next_minute, second=0, microsecond=0)
 
     initial_wait = (next_time - now).total_seconds()
-    logger.info(f"⏳ 首次分析将在 {initial_wait:.1f} 秒后开始 ({next_time.strftime('%H:%M:%S')})...")
+    logger.info(f"⏳ 首次分析将在 {initial_wait:.1f} 秒后开始 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})...")
     time.sleep(initial_wait)
 
     while True:
         analysis_start = datetime.now(timezone.utc)
-        logger.info("🔔 触发定时分析任务")
+        logger.info(f"🔔 触发定时分析任务 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')})")
         analysis_queue.put("ANALYZE")
         analysis_queue.join()
 
@@ -741,7 +722,7 @@ def schedule_analysis():
             logger.info(f"⏳ 调整等待时间: {wait_time:.1f}秒 -> {adjusted_wait:.1f}秒")
             wait_time = adjusted_wait
 
-        logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%H:%M:%S')}")
+        logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
 
 # API路由
@@ -784,7 +765,8 @@ def get_data():
             'daily_rising': current_data_cache['daily_rising'] or [],
             'short_term_active': current_data_cache['short_term_active'] or [],
             'all_cycle_rising': current_data_cache['all_cycle_rising'] or [],
-            'analysis_time': current_data_cache.get('analysis_time', 0)
+            'analysis_time': current_data_cache.get('analysis_time', 0),
+            'next_analysis_time': current_data_cache.get('next_analysis_time', "")
         }
         logger.debug(f"📡 返回数据: {json.dumps(data, indent=2)}")
         return jsonify(data)
@@ -795,7 +777,29 @@ def get_data():
             return jsonify(last_data)
         return jsonify({'error': str(e)}), 500
 
-# 添加健康检查端点
+# 阻力位API端点
+@app.route('/api/resistance_levels/<symbol>', methods=['GET'])
+def get_resistance_levels(symbol):
+    try:
+        # 验证币种格式
+        if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
+            logger.warning(f"⚠️ 无效的币种名称: {symbol}")
+            return jsonify({'error': 'Invalid symbol format'}), 400
+
+        logger.info(f"📊 获取阻力位数据: {symbol}")
+        levels = calculate_resistance_levels(symbol)
+        
+        if not levels:
+            logger.warning(f"⚠️ 未找到阻力位数据: {symbol}")
+            return jsonify({'error': 'Resistance levels not found'}), 404
+            
+        return jsonify(levels)
+    except Exception as e:
+        logger.error(f"❌ 获取阻力位数据失败: {symbol}, {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+# 健康检查端点
 @app.route('/health', methods=['GET'])
 def health_check():
     try:
@@ -814,6 +818,7 @@ def health_check():
             'database': 'ok',
             'binance': 'ok',
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
+            'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
             'worker_alive': threading.current_thread().is_alive()
         })
     except Exception as e:
@@ -821,8 +826,6 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
-
-# 其他API端点保持不变...
 
 def start_background_threads():
     # 确保静态文件夹存在
@@ -857,7 +860,6 @@ def start_background_threads():
     return True
 
 if __name__ == '__main__':
-    # 获取端口
     PORT = int(os.environ.get("PORT", 9600))
     
     logger.info("=" * 50)
@@ -866,7 +868,6 @@ if __name__ == '__main__':
     logger.info(f"🌐 服务端口: {PORT}")
     logger.info("=" * 50)
     
-    # 启动后台线程
     if start_background_threads():
         logger.info("🚀 启动服务器...")
         app.run(host='0.0.0.0', port=PORT, debug=False)
