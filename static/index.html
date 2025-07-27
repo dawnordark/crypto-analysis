@@ -88,7 +88,7 @@
             box-shadow: none;
         }
 
-        /* 新增的阻力位查询区域 */
+        /* 阻力位查询区域 */
         .resistance-query {
             flex: 1;
             min-width: 300px;
@@ -104,6 +104,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            cursor: pointer;
         }
         .query-form {
             display: flex;
@@ -140,6 +141,7 @@
             border-collapse: collapse;
             margin-top: 8px;
             font-size: 12px;
+            transition: all 0.3s ease;
         }
         .resistance-table th {
             background: #1a1a1a;
@@ -427,6 +429,10 @@
             color: #ffcc00;
             font-weight: bold;
             margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .debug-content {
             max-height: 200px;
@@ -436,6 +442,18 @@
             background: #121212;
             padding: 10px;
             border-radius: 5px;
+        }
+
+        /* 折叠样式 */
+        .collapsed {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .expanded {
+            max-height: 1000px;
+            opacity: 1;
         }
 
         @media (max-width: 768px) {
@@ -476,6 +494,10 @@
                             <span class="info-label">页面刷新时间:</span>
                             <span class="info-value">{{ pageRefreshTime || '--:--:--' }}</span>
                         </div>
+                        <div class="info-row">
+                            <span class="info-label">下次分析时间:</span>
+                            <span class="info-value">{{ nextAnalysisTime || '计算中...' }}</span>
+                        </div>
                         <div v-if="analysisTime > 0" class="info-row">
                             <span class="info-label">分析耗时:</span>
                             <span class="info-value">{{ analysisTime.toFixed(2) }}秒</span>
@@ -483,62 +505,67 @@
                     </div>
                 </div>
 
-                <!-- 新增阻力位查询区域 -->
+                <!-- 阻力位查询区域 -->
                 <div class="resistance-query">
-                    <div class="resistance-title">
+                    <div class="resistance-title" @click="toggleResistanceQuery">
                         阻力位/支撑位查询
+                        <span class="toggle-icon">{{ showResistanceQuery ? '▲' : '▼' }}</span>
                     </div>
-                    <div class="query-form">
-                        <input 
-                            type="text" 
-                            class="query-input" 
-                            placeholder="输入币种简称（如 BTC）"
-                            v-model="resistanceQuery"
-                            @keyup.enter="queryResistanceLevels"
-                        >
-                        <button 
-                            class="query-btn" 
-                            @click="queryResistanceLevels"
-                            :disabled="queryLoading"
-                        >
-                            <span v-if="!queryLoading">实时分析</span>
-                            <span v-else>分析中...</span>
-                        </button>
-                    </div>
+                    
+                    <div :class="showResistanceQuery ? 'expanded' : 'collapsed'">
+                        <div class="query-form">
+                            <input 
+                                type="text" 
+                                class="query-input" 
+                                placeholder="输入币种简称（如 BTC）"
+                                v-model="resistanceQuery"
+                                @keyup.enter="queryResistanceLevels"
+                                @input="formatSymbolInput"
+                            >
+                            <button 
+                                class="query-btn" 
+                                @click="queryResistanceLevels"
+                                :disabled="queryLoading"
+                            >
+                                <span v-if="!queryLoading">实时分析</span>
+                                <span v-else>分析中...</span>
+                            </button>
+                        </div>
 
-                    <div v-if="queryResult" class="resistance-result">
-                        <table class="resistance-table">
-                            <thead>
-                                <tr>
-                                    <th>时间周期</th>
-                                    <th>阻力位</th>
-                                    <th>支撑位</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="(levels, interval) in queryResult.levels" :key="interval">
-                                    <td class="resistance-period">{{ interval }}</td>
-                                    <td class="resistance-value">
-                                        <div class="resistance-values">
-                                            <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
-                                                {{ level ? level.toFixed(4) : '-' }}
+                        <div v-if="queryResult" class="resistance-result">
+                            <table class="resistance-table">
+                                <thead>
+                                    <tr>
+                                        <th>时间周期</th>
+                                        <th>阻力位</th>
+                                        <th>支撑位</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(levels, interval) in queryResult.levels" :key="interval">
+                                        <td class="resistance-period">{{ interval }}</td>
+                                        <td class="resistance-value">
+                                            <div class="resistance-values">
+                                                <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
+                                                    {{ level ? level.toFixed(4) : '-' }}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td class="support-value">
-                                        <div class="resistance-values">
-                                            <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
-                                                {{ level ? level.toFixed(4) : '-' }}
+                                        </td>
+                                        <td class="support-value">
+                                            <div class="resistance-values">
+                                                <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
+                                                    {{ level ? level.toFixed(4) : '-' }}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
 
-                    <div v-if="queryError" class="error">
-                        {{ queryError }}
+                        <div v-if="queryError" class="error">
+                            {{ queryError }}
+                        </div>
                     </div>
                 </div>
 
@@ -845,10 +872,14 @@
 
         <!-- 调试面板 -->
         <div class="debug-panel">
-            <div class="debug-title">调试信息</div>
-            <div class="debug-content">
+            <div class="debug-title" @click="toggleDebugPanel">
+                调试信息
+                <span class="toggle-icon">{{ showDebugPanel ? '▲' : '▼' }}</span>
+            </div>
+            <div class="debug-content" :class="showDebugPanel ? 'expanded' : 'collapsed'">
                 <div>当前数据状态:</div>
                 <div>最后更新时间: {{ lastUpdated || '无' }}</div>
+                <div>下次分析时间: {{ nextAnalysisTime || '无' }}</div>
                 <div>全周期上涨数量: {{ allCycleRising.length }}</div>
                 <div>日线上涨数量: {{ dailyRising.length }}</div>
                 <div>短期活跃数量: {{ shortTermActive.length }}</div>
@@ -867,6 +898,7 @@
                     el: '#app',
                     data: {
                         lastUpdated: null,
+                        nextAnalysisTime: null,
                         pageRefreshTime: null,
                         dailyRising: [],
                         shortTermActive: [],
@@ -895,11 +927,13 @@
                         requestQueue: {},
                         chartLibLoaded: false,
 
-                        // 阻力位查询相关的新增数据
+                        // 阻力位查询相关
                         resistanceQuery: '',
                         queryResult: null,
                         queryError: null,
-                        queryLoading: false
+                        queryLoading: false,
+                        showResistanceQuery: true,
+                        showDebugPanel: false
                     },
                     computed: {
                         filteredDailyRising() {
@@ -922,7 +956,22 @@
                         this.fetchData();
                     },
                     methods: {
-                        // 阻力位查询方法
+                        // 格式化币种输入
+                        formatSymbolInput() {
+                            this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z]/g, '');
+                        },
+                        
+                        // 切换阻力位查询区域显示
+                        toggleResistanceQuery() {
+                            this.showResistanceQuery = !this.showResistanceQuery;
+                        },
+                        
+                        // 切换调试面板显示
+                        toggleDebugPanel() {
+                            this.showDebugPanel = !this.showDebugPanel;
+                        },
+                        
+                        // 阻力位查询
                         queryResistanceLevels() {
                             if (!this.resistanceQuery) {
                                 this.queryError = '请输入币种简称';
@@ -930,7 +979,7 @@
                             }
 
                             // 转换为大写，并添加USDT后缀
-                            const symbol = this.resistanceQuery.trim().toUpperCase() + 'USDT';
+                            const symbol = this.resistanceQuery.trim() + 'USDT';
 
                             // 检查格式，确保只包含字母
                             if (!/^[A-Z]{3,15}USDT$/.test(symbol)) {
@@ -943,7 +992,7 @@
                             this.queryResult = null;
                             this.statusMessage = `正在查询 ${symbol} 的阻力位/支撑位...`;
 
-                            axios.get(`/api/resistance_levels/${symbol}`, { timeout: 5000 })
+                            axios.get(`/api/resistance_levels/${symbol}`, { timeout: 10000 })
                                 .then(response => {
                                     console.log("阻力位查询结果:", response.data);
                                     this.queryResult = {
@@ -956,9 +1005,13 @@
                                 .catch(error => {
                                     console.error("阻力位查询失败:", error);
                                     
-                                    const errorMsg = error.response?.data?.error || 
-                                                   error.message || 
-                                                   '未知错误';
+                                    let errorMsg = '未知错误';
+                                    if (error.response) {
+                                        errorMsg = error.response.data.error || error.response.statusText;
+                                    } else if (error.message) {
+                                        errorMsg = error.message;
+                                    }
+                                    
                                     this.queryError = `查询失败: ${errorMsg}`;
                                     this.queryLoading = false;
                                     this.statusMessage = '阻力位/支撑位查询失败';
@@ -1009,7 +1062,7 @@
                                 return;
                             }
 
-                            axios.get(`/api/resistance_levels/${symbol}`, { timeout: 5000 })
+                            axios.get(`/api/resistance_levels/${symbol}`, { timeout: 10000 })
                                 .then(response => {
                                     console.log("获取阻力位数据:", response.data);
                                     this.$set(this.resistanceLevels, symbol, response.data);
@@ -1018,9 +1071,13 @@
                                 .catch(error => {
                                     console.error("获取阻力位失败:", error);
                                     
-                                    const errorMsg = error.response?.data?.error || 
-                                                   error.message || 
-                                                   '未知错误';
+                                    let errorMsg = '未知错误';
+                                    if (error.response) {
+                                        errorMsg = error.response.data.error || error.response.statusText;
+                                    } else if (error.message) {
+                                        errorMsg = error.message;
+                                    }
+                                    
                                     this.error = `获取阻力位/支撑位失败: ${errorMsg}`;
                                     this.resistanceLevelsLoading = false;
                                 });
@@ -1046,12 +1103,13 @@
                             this.statusMessage = "获取数据中...";
                             this.pageRefreshTime = this.formatTime(new Date());
 
-                            axios.get('/api/data', { timeout: 10000 })
+                            axios.get('/api/data', { timeout: 15000 })
                                 .then(response => {
                                     console.log("API响应数据:", response.data);
                                     
                                     // 修复数据绑定问题
                                     this.lastUpdated = response.data.last_updated;
+                                    this.nextAnalysisTime = response.data.next_analysis_time;
                                     this.dailyRising = Array.isArray(response.data.daily_rising) ? 
                                         response.data.daily_rising : [];
                                     this.shortTermActive = Array.isArray(response.data.short_term_active) ? 
@@ -1071,9 +1129,12 @@
                                 .catch(error => {
                                     console.error("API请求失败:", error);
                                     
-                                    const errorMsg = error.response?.data?.error || 
-                                                   error.message || 
-                                                   '未知错误';
+                                    let errorMsg = '未知错误';
+                                    if (error.response) {
+                                        errorMsg = error.response.data.error || error.response.statusText;
+                                    } else if (error.message) {
+                                        errorMsg = error.message;
+                                    }
 
                                     this.error = '数据获取失败: ' + errorMsg;
                                     this.loading = false;
@@ -1119,13 +1180,7 @@
                                     delete this.chartInstances[chartId];
                                 }
 
-                                // 2. 移除canvas元素
-                                const canvas = document.getElementById(`oiChart-${chartId}`);
-                                if (canvas) {
-                                    canvas.remove();
-                                }
-
-                                // 3. 重置加载状态
+                                // 2. 重置加载状态
                                 this.$set(this.chartLoading, chartId, false);
                             }
 
@@ -1141,10 +1196,7 @@
 
                             // 检查缓存
                             if (this.chartDataCache[cacheKey]) {
-                                // 添加延迟以确保DOM更新完成
-                                setTimeout(() => {
-                                    this.renderOiChart(symbol, period, this.chartDataCache[cacheKey], chartId);
-                                }, 50);
+                                this.renderOiChart(symbol, period, this.chartDataCache[cacheKey], chartId);
                                 return;
                             }
 
@@ -1168,11 +1220,7 @@
                                         // 仅当该图表仍然是活动状态时才渲染
                                         if (this.activeOiChart.chartId === chartId) {
                                             this.chartDataCache[cacheKey] = response.data;
-
-                                            // 添加延迟以确保DOM更新完成
-                                            setTimeout(() => {
-                                                this.renderOiChart(symbol, period, response.data, chartId);
-                                            }, 50);
+                                            this.renderOiChart(symbol, period, response.data, chartId);
                                         }
                                         delete this.requestQueue[chartId];
                                     })
@@ -1180,9 +1228,13 @@
                                         console.error("获取持仓量图表失败:", error);
                                         
                                         if (this.activeOiChart.chartId === chartId) {
-                                            const errorMsg = error.response?.data?.error || 
-                                                           error.message || 
-                                                           '未知错误';
+                                            let errorMsg = '未知错误';
+                                            if (error.response) {
+                                                errorMsg = error.response.data.error || error.response.statusText;
+                                            } else if (error.message) {
+                                                errorMsg = error.message;
+                                            }
+                                            
                                             this.error = `获取持仓量图表失败: ${errorMsg}`;
                                             this.$set(this.chartLoading, chartId, false);
                                         }
@@ -1227,9 +1279,6 @@
                                 data.data.length === 0 || data.labels.length === 0) {
                                 this.error = `无有效持仓量数据: ${symbol} ${period}`;
                                 this.$set(this.chartLoading, chartId, false);
-                                
-                                // 回退到显示原始数据
-                                this.showDataFallback(symbol, period, data, chartId);
                                 return;
                             }
 
@@ -1240,9 +1289,6 @@
                                 console.error("创建图表失败:", e);
                                 this.error = `创建图表失败: ${e.message || e}`;
                                 this.$set(this.chartLoading, chartId, false);
-
-                                // 回退到显示原始数据
-                                this.showDataFallback(symbol, period, data, chartId);
                             }
                         },
                         createChart(ctx, symbol, period, data, chartId) {
@@ -1322,24 +1368,6 @@
                             ctx.fillText(`${symbol} ${period}持仓量`, chartWidth / 2, 20);
                             
                             this.$set(this.chartLoading, chartId, false);
-                        },
-                        showDataFallback(symbol, period, data, chartId) {
-                            const container = document.querySelector(`.chart-container[data-chart-id="${chartId}"]`);
-                            if (container) {
-                                container.innerHTML = `
-                                    <div class="data-fallback">
-                                        <h4>${symbol} ${period}持仓量数据</h4>
-                                        <div class="data-points">
-                                            ${data.data.map((val, i) => `
-                                                <div class="data-point">
-                                                    <span>${data.labels[i] || '时间点'+(i+1)}</span>
-                                                    <strong>${val.toLocaleString()}</strong>
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-                                `;
-                            }
                         }
                     }
                 });
