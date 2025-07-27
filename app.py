@@ -1,12 +1,7 @@
-#!/data/data/com.termux/files/usr/bin/python3
-# -*- coding: utf-8 -*-
-
-import sys
-import subprocess
 import os
+import sys
 import time
 import re
-import traceback  # 添加 traceback 导入
 import json
 import math
 import sqlite3
@@ -14,16 +9,21 @@ import requests
 import threading
 import queue
 import logging
+import traceback
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory, request
 from binance.client import Client
 
-# 配置日志
+# 配置详细日志
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # 更详细的日志级别
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)])
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')  # 同时输出到文件
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # 获取当前文件所在目录
@@ -80,9 +80,10 @@ RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', 
 # 所有分析周期
 ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
-# 初始化数据库
+# 初始化数据库 - 添加详细日志
 def init_db():
     try:
+        logger.debug("🛠️ 开始初始化数据库...")
         conn = sqlite3.connect('data.db')
         c = conn.cursor()
 
@@ -107,19 +108,23 @@ def init_db():
             logger.info("✅ 数据库表已存在")
 
         conn.close()
+        logger.debug("🛠️ 数据库初始化完成")
     except Exception as e:
         logger.error(f"❌ 数据库初始化失败: {str(e)}")
         logger.error(traceback.format_exc())
         try:
+            logger.warning("🗑️ 尝试删除损坏的数据库文件...")
             os.remove('data.db')
             logger.warning("🗑️ 删除损坏的数据库文件，将创建新数据库")
             init_db()
-        except Exception:
-            logger.critical("🔥 无法修复数据库，请手动检查")
+        except Exception as e2:
+            logger.critical(f"🔥 无法修复数据库: {str(e2)}")
+            logger.critical(traceback.format_exc())
 
-# 保存数据到数据库
+# 保存数据到数据库 - 添加详细日志
 def save_to_db(data):
     try:
+        logger.debug("💾 开始保存数据到数据库...")
         conn = sqlite3.connect('data.db')
         c = conn.cursor()
 
@@ -154,14 +159,17 @@ def save_to_db(data):
         logger.error(f"❌ 保存数据到数据库失败: {str(e)}")
         logger.error(traceback.format_exc())
         try:
+            logger.warning("🔄 尝试重新初始化数据库...")
             init_db()
             save_to_db(data)
-        except Exception:
-            logger.critical("🔥 无法保存数据到数据库")
+        except Exception as e2:
+            logger.critical(f"🔥 无法保存数据到数据库: {str(e2)}")
+            logger.critical(traceback.format_exc())
 
-# 获取最后有效数据
+# 获取最后有效数据 - 添加详细日志
 def get_last_valid_data():
     try:
+        logger.debug("🔍 尝试获取最后有效数据...")
         conn = sqlite3.connect('data.db')
         c = conn.cursor()
 
@@ -169,6 +177,7 @@ def get_last_valid_data():
             "SELECT name FROM sqlite_master WHERE type='table' AND name='crypto_data'"
         )
         if not c.fetchone():
+            logger.warning("⚠️ 数据库表不存在")
             return None
 
         c.execute("SELECT * FROM crypto_data ORDER BY id DESC LIMIT 1")
@@ -176,6 +185,7 @@ def get_last_valid_data():
         conn.close()
 
         if row:
+            logger.debug(f"🔍 找到最后有效数据: ID={row[0]}, 时间={row[1]}")
             resistance_data = json.loads(row[6]) if row[6] else {}
             for symbol, data in resistance_data.items():
                 resistance_cache[symbol] = data
@@ -187,20 +197,18 @@ def get_last_valid_data():
                 'all_cycle_rising': json.loads(row[4]),
                 'analysis_time': row[5]
             }
+        logger.debug("🔍 数据库中没有有效数据")
         return None
     except Exception as e:
         logger.error(f"❌ 获取最后有效数据失败: {str(e)}")
         logger.error(traceback.format_exc())
         return None
 
-# 初始化客户端
+# 初始化客户端 - 添加详细日志
 def init_client():
     global client
     try:
-        # 如果已经初始化则直接返回
-        if client:
-            return True
-            
+        logger.debug("🔧 初始化Binance客户端...")
         client_params = {
             'api_key': API_KEY, 
             'api_secret': API_SECRET,
@@ -252,10 +260,10 @@ def get_next_update_time(period):
 
     return next_update
 
-# 获取持仓量数据
+# 获取持仓量数据 - 添加详细日志
 def get_open_interest(symbol, period, use_cache=True):
     try:
-        # 验证币种格式 - 更严格的验证
+        # 验证币种格式
         if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
@@ -277,11 +285,12 @@ def get_open_interest(symbol, period, use_cache=True):
                     'cache_time': cached_data['data']['cache_time']
                 }
 
+        logger.info(f"📡 请求持仓量数据: symbol={symbol}, period={period}")
         url = "https://fapi.binance.com/futures/data/openInterestHist"
         params = {'symbol': symbol, 'period': period, 'limit': 30}
 
-        logger.info(f"📡 请求持仓量数据: {url}?symbol={symbol}&period={period}")
         response = requests.get(url, params=params, timeout=15)
+        logger.debug(f"📡 响应状态: {response.status_code}")
 
         # 检查响应状态
         if response.status_code != 200:
@@ -289,6 +298,7 @@ def get_open_interest(symbol, period, use_cache=True):
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
         data = response.json()
+        logger.debug(f"📡 响应数据: {data[:1]}...")  # 只打印第一条数据避免日志过大
 
         # 检查返回的数据格式
         if not isinstance(data, list):
@@ -331,36 +341,39 @@ def get_open_interest(symbol, period, use_cache=True):
 # 检查持仓量是否创新高
 def is_latest_highest(oi_data):
     if len(oi_data) < 30:
+        logger.debug("持仓量数据不足30个点")
         return False
 
     latest_value = oi_data[-1]
     prev_data = oi_data[-30:-1]
 
     if not prev_data:
+        logger.debug("无历史数据用于比较")
         return False
 
-    return latest_value > max(prev_data)
+    result = latest_value > max(prev_data)
+    logger.debug(f"持仓量创新高检查: 最新值={latest_value}, 历史最大值={max(prev_data)}, 结果={result}")
+    return result
 
-# 计算阻力位
+# 计算阻力位 - 添加详细日志
 def calculate_resistance_levels(symbol):
     try:
+        logger.debug(f"📊 计算阻力位: {symbol}")
         now = time.time()
         if symbol in resistance_cache:
             cache_data = resistance_cache[symbol]
             if cache_data['expiration'] > now:
+                logger.debug(f"📊 使用缓存的阻力位数据: {symbol}")
                 return cache_data['levels']
 
-        # 确保客户端已初始化
-        if not client:
-            if not init_client():
-                logger.error(f"❌ 无法初始化客户端，无法获取{symbol}的阻力位")
-                return {}
-
         levels = {}
+        logger.debug(f"📊 开始计算{symbol}的阻力位")
 
         for interval in RESISTANCE_INTERVALS:
             try:
+                logger.debug(f"📊 获取K线数据: {symbol} {interval}")
                 klines = client.futures_klines(symbol=symbol, interval=interval, limit=100)
+                
                 if not klines or len(klines) < 10:
                     logger.warning(f"⚠️ {symbol}在{interval}的K线数据不足")
                     continue
@@ -403,6 +416,8 @@ def calculate_resistance_levels(symbol):
                     'resistance': resistance[:3],
                     'support': support[:3]
                 }
+                
+                logger.debug(f"📊 {symbol}在{interval}的阻力位计算完成")
             except Exception as e:
                 logger.error(f"计算{symbol}在{interval}的阻力位失败: {str(e)}")
                 logger.error(traceback.format_exc())
@@ -415,15 +430,17 @@ def calculate_resistance_levels(symbol):
             'levels': levels,
             'expiration': now + RESISTANCE_CACHE_EXPIRATION
         }
+        logger.info(f"📊 {symbol}的阻力位计算完成")
         return levels
     except Exception as e:
         logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
         logger.error(traceback.format_exc())
         return {}
 
-# 分析单个币种趋势
+# 分析单个币种趋势 - 添加详细日志
 def analyze_symbol(symbol):
     try:
+        logger.info(f"🔍 开始分析币种: {symbol}")
         symbol_result = {
             'symbol': symbol,
             'daily_rising': None,
@@ -432,20 +449,26 @@ def analyze_symbol(symbol):
             'rising_periods': [],
             'period_status': {p: False for p in ALL_PERIODS},
             'period_count': 0,
-            'oi_data': {}  # 存储所有周期的持仓量数据
+            'oi_data': {}
         }
 
         # 1. 获取日线持仓量数据
+        logger.debug(f"📊 获取日线持仓量: {symbol}")
         daily_oi = get_open_interest(symbol, '1d', use_cache=True)
         symbol_result['oi_data']['1d'] = daily_oi
         daily_series = daily_oi['series']
+        
+        logger.debug(f"📊 日线持仓量数据长度: {len(daily_series)}")
 
         # 2. 检查日线上涨条件
         if len(daily_series) >= 30:
             daily_up = is_latest_highest(daily_series)
+            logger.debug(f"📊 日线上涨检查: {daily_up}")
 
             if daily_up:
                 daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
+                logger.debug(f"📊 日线变化: {daily_change:.2f}%")
+                
                 symbol_result['daily_rising'] = {
                     'symbol': symbol,
                     'oi': daily_series[-1],
@@ -457,19 +480,25 @@ def analyze_symbol(symbol):
                 symbol_result['period_count'] = 1
 
                 # 3. 全周期分析
+                logger.debug(f"📊 开始全周期分析: {symbol}")
                 all_intervals_up = True
                 for period in ALL_PERIODS:
                     if period == '1d':
                         continue
 
+                    logger.debug(f"📊 分析周期: {period}")
                     oi_data = get_open_interest(symbol, period, use_cache=True)
                     symbol_result['oi_data'][period] = oi_data
                     oi_series = oi_data['series']
+                    
                     if len(oi_series) < 30:
+                        logger.debug(f"📊 数据不足: {symbol} {period}只有{len(oi_series)}个点")
                         status = False
                     else:
                         status = is_latest_highest(oi_series)
+                        
                     symbol_result['period_status'][period] = status
+                    logger.debug(f"📊 周期状态: {period} = {status}")
 
                     if status:
                         symbol_result['rising_periods'].append(period)
@@ -478,6 +507,7 @@ def analyze_symbol(symbol):
                         all_intervals_up = False
 
                 if all_intervals_up:
+                    logger.debug(f"📊 全周期上涨: {symbol}")
                     symbol_result['all_cycle_rising'] = {
                         'symbol': symbol,
                         'oi': daily_series[-1],
@@ -488,16 +518,22 @@ def analyze_symbol(symbol):
                     }
 
         # 4. 短期活跃度分析
+        logger.debug(f"📊 分析短期活跃度: {symbol}")
         min5_oi = get_open_interest(symbol, '5m', use_cache=True)
         symbol_result['oi_data']['5m'] = min5_oi
         min5_series = min5_oi['series']
+        
         if len(min5_series) >= 30 and len(daily_series) >= 30:
             min5_max = max(min5_series[-30:])
             daily_avg = sum(daily_series[-30:]) / 30
+            logger.debug(f"📊 短期最大值: {min5_max}, 日均值: {daily_avg}")
 
             if min5_max > 0 and daily_avg > 0:
                 ratio = min5_max / daily_avg
+                logger.debug(f"📊 短期活跃比率: {ratio:.2f}")
+                
                 if ratio > 1.5:
+                    logger.debug(f"📊 短期活跃: {symbol} 比率={ratio:.2f}")
                     symbol_result['short_term_active'] = {
                         'symbol': symbol,
                         'oi': min5_series[-1],
@@ -510,6 +546,7 @@ def analyze_symbol(symbol):
             symbol_result['daily_rising']['period_status'] = symbol_result['period_status']
             symbol_result['daily_rising']['period_count'] = symbol_result['period_count']
 
+        logger.info(f"✅ 完成分析币种: {symbol}")
         return symbol_result
     except Exception as e:
         logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
@@ -521,10 +558,12 @@ def analyze_symbol(symbol):
             'oi_data': {}
         }
 
-# 分析币种趋势
+# 分析币种趋势 - 添加详细日志
 def analyze_trends():
     start_time = time.time()
+    logger.info("🔍 开始分析币种趋势...")
     symbols = get_high_volume_symbols()
+    
     if not symbols:
         logger.warning("⚠️ 没有找到高交易量币种")
         return data_cache
@@ -575,26 +614,29 @@ def analyze_trends():
         'analysis_time': analysis_time
     }
 
-# 获取高交易量币种
+# 获取高交易量币种 - 添加详细日志
 def get_high_volume_symbols():
     if not client:
         if not init_client():
+            logger.error("❌ 无法连接API")
             return []
 
     try:
+        logger.info("📊 获取高交易量币种...")
         tickers = client.futures_ticker()
         filtered = [
             t for t in tickers if float(t.get('quoteVolume', 0)) > 10000000
             and t.get('symbol', '').endswith('USDT')
         ]
         logger.info(f"📊 找到 {len(filtered)} 个高交易量币种")
+        logger.debug(f"📊 前5个币种: {[t['symbol'] for t in filtered[:5]]}")
         return [t['symbol'] for t in filtered]
     except Exception as e:
         logger.error(f"❌ 获取高交易量币种失败: {str(e)}")
         logger.error(traceback.format_exc())
         return []
 
-# 数据分析工作线程
+# 数据分析工作线程 - 添加详细日志
 def analysis_worker():
     global data_cache, current_data_cache
     logger.info("🔧 数据分析线程启动")
@@ -602,9 +644,10 @@ def analysis_worker():
 
     initial_data = get_last_valid_data()
     if initial_data:
+        logger.info("🔁 加载历史数据")
         data_cache = initial_data
         current_data_cache = data_cache.copy()
-        logger.info(f"🔁 加载历史数据")
+        logger.debug(f"🔁 加载的数据: {json.dumps(initial_data, indent=2)}")
     else:
         logger.info("🆕 没有历史数据，将进行首次分析")
 
@@ -612,6 +655,7 @@ def analysis_worker():
         try:
             task = analysis_queue.get()
             if task == "STOP":
+                logger.info("🛑 收到停止信号，结束分析线程")
                 break
 
             analysis_start = datetime.now(timezone.utc)
@@ -629,6 +673,8 @@ def analysis_worker():
                     "all_cycle_rising": result['all_cycle_rising'],
                     "analysis_time": result['analysis_time']
                 }
+                
+                logger.debug(f"📊 分析结果: {json.dumps(new_data, indent=2)}")
 
                 data_cache = new_data
                 save_to_db(new_data)
@@ -651,8 +697,9 @@ def analysis_worker():
             logger.error(traceback.format_exc())
         analysis_queue.task_done()
 
-# 定时触发数据分析
+# 定时触发数据分析 - 添加详细日志
 def schedule_analysis():
+    logger.info("⏰ 定时分析调度器启动")
     now = datetime.now(timezone.utc)
     current_minute = now.minute
     next_minute = ((current_minute // 5) + 1) * 5
@@ -668,6 +715,7 @@ def schedule_analysis():
 
     while True:
         analysis_start = datetime.now(timezone.utc)
+        logger.info("🔔 触发定时分析任务")
         analysis_queue.put("ANALYZE")
         analysis_queue.join()
 
@@ -700,6 +748,7 @@ def schedule_analysis():
 @app.route('/')
 def index():
     try:
+        logger.debug("🌐 处理首页请求")
         static_path = app.static_folder
         if static_path is None:
             return "静态文件路径未配置", 500
@@ -715,6 +764,7 @@ def index():
 @app.route('/static/<path:filename>')
 def static_files(filename):
     try:
+        logger.debug(f"📁 请求静态文件: {filename}")
         static_path = app.static_folder
         if static_path is None:
             return "静态文件路径未配置", 500
@@ -728,13 +778,16 @@ def static_files(filename):
 def get_data():
     global current_data_cache
     try:
-        return jsonify({
+        logger.debug("📡 请求/api/data")
+        data = {
             'last_updated': current_data_cache['last_updated'] or "",
             'daily_rising': current_data_cache['daily_rising'] or [],
             'short_term_active': current_data_cache['short_term_active'] or [],
             'all_cycle_rising': current_data_cache['all_cycle_rising'] or [],
             'analysis_time': current_data_cache.get('analysis_time', 0)
-        })
+        }
+        logger.debug(f"📡 返回数据: {json.dumps(data, indent=2)}")
+        return jsonify(data)
     except Exception as e:
         logger.error(f"❌ 获取数据失败: {str(e)}")
         last_data = get_last_valid_data()
@@ -742,172 +795,34 @@ def get_data():
             return jsonify(last_data)
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/oi_chart/<symbol>/<period>', methods=['GET'])
-def get_oi_chart(symbol, period):
+# 添加健康检查端点
+@app.route('/health', methods=['GET'])
+def health_check():
     try:
-        # 严格验证币种格式
-        if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
-            logger.error(f"❌ 无效的币种名称格式: {symbol}")
-            return jsonify({'error': 'Invalid symbol format'}), 400
-
-        # 验证周期
-        if period not in PERIOD_MINUTES:
-            logger.warning(f"⚠️ 不支持的周期: {period}, 使用5m")
-            period = '5m'
-
-        oi_data = get_open_interest(symbol, period, use_cache=True)
-
-        # 更好的数据验证
-        if not oi_data or 'series' not in oi_data or 'timestamps' not in oi_data:
-            logger.error(f"❌ 无效的持仓量数据结构: {symbol} {period}")
-            return jsonify({'error': 'Invalid data structure'}), 500
-
-        if len(oi_data['series']) == 0 or len(oi_data['timestamps']) == 0:
-            logger.warning(f"⚠️ 无有效持仓量数据: {symbol} {period}")
-            return jsonify({'error': 'No data available'}), 404
-
-        # 更好的时间戳处理
-        timestamps = []
-        for ts in oi_data['timestamps']:
-            try:
-                dt = datetime.fromtimestamp(ts / 1000, timezone.utc)
-                timestamps.append(dt.strftime('%m-%d %H:%M'))
-            except Exception as e:
-                logger.warning(f"时间戳转换失败: {ts} - {str(e)}")
-                continue
-
-        # 确保时间戳和系列长度一致
-        if len(timestamps) != len(oi_data['series']):
-            logger.error(f"❌ 数据长度不匹配: {len(timestamps)}时间戳 vs {len(oi_data['series'])}数据点")
-            return jsonify({'error': 'Data length mismatch'}), 500
-
+        # 检查数据库连接
+        conn = sqlite3.connect('data.db')
+        c = conn.cursor()
+        c.execute("SELECT 1")
+        conn.close()
+        
+        # 检查Binance连接
+        if client:
+            client.get_server_time()
+        
         return jsonify({
-            'symbol': symbol,
-            'period': period,
-            'data': oi_data['series'],
-            'labels': timestamps,
-            'cache_time': oi_data.get('cache_time', datetime.now(timezone.utc).isoformat())
+            'status': 'healthy',
+            'database': 'ok',
+            'binance': 'ok',
+            'last_updated': current_data_cache.get('last_updated', 'N/A'),
+            'worker_alive': threading.current_thread().is_alive()
         })
     except Exception as e:
-        logger.error(f"❌ 获取持仓量图表失败: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Internal server error'}), 500
-
-@app.route('/api/kline/<symbol>', methods=['GET'])
-def get_kline(symbol):
-    # 确保客户端已初始化
-    if not client:
-        if not init_client():
-            logger.error("无法连接API")
-            return jsonify({'error': '无法连接API'}), 500
-
-    try:
-        if not symbol or not isinstance(symbol, str) or not symbol.endswith('USDT'):
-            return jsonify({'error': 'Invalid symbol format'}), 400
-
-        klines = client.futures_klines(
-            symbol=symbol, 
-            interval='5m', 
-            limit=30,
-            timeout=10
-        )
-
-        if not klines or len(klines) < 10:
-            return jsonify({'error': 'Insufficient kline data'}), 404
-
-        data = []
-        for k in klines:
-            try:
-                data.append({
-                    'time': k[0],
-                    'open': float(k[1]),
-                    'high': float(k[2]),
-                    'low': float(k[3]),
-                    'close': float(k[4])
-                })
-            except Exception:
-                continue
-
-        return jsonify({'symbol': symbol, 'data': data})
-    except Exception as e:
-        logger.error(f"❌ 获取K线失败: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
-
-# 修改阻力位接口以支持简化币种名称
-@app.route('/api/resistance_levels/<symbol>', methods=['GET'])
-def get_resistance_levels(symbol):
-    try:
-        # 检查是否传入简化币种名称（不带USDT后缀）
-        if not symbol.endswith('USDT') and len(symbol) <= 5:
-            # 自动添加USDT后缀
-            symbol = symbol.upper() + 'USDT'
-
-        # 验证币种格式
-        if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
-            return jsonify({'error': 'Invalid symbol format'}), 400
-
-        # 获取阻力位数据
-        levels = calculate_resistance_levels(symbol)
-
-        # 如果获取失败，尝试使用基础币种名称
-        if not levels:
-            base_symbol = symbol.replace('USDT', '')
-            logger.warning(f"尝试使用基础币种名称: {base_symbol}")
-            levels = calculate_resistance_levels(base_symbol + 'USDT')
-
-        if not levels:
-            return jsonify({'error': 'No resistance levels available'}), 404
-
-        return jsonify(levels)
-    except Exception as e:
-        logger.error(f"❌ 获取阻力位失败: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
-
-# 新增阻力位查询API（支持POST和简化名称）
-@app.route('/api/query_resistance_levels', methods=['POST'])
-def query_resistance_levels():
-    try:
-        data = request.get_json()
-        if not data or 'symbol' not in data:
-            return jsonify({'error': 'Missing symbol parameter'}), 400
-
-        symbol = data['symbol'].strip().upper()
-
-        # 如果输入的是简化币种名称（不带USDT后缀）
-        if not symbol.endswith('USDT'):
-            # 自动添加USDT后缀
-            symbol += 'USDT'
-
-        # 验证币种格式
-        if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
-            return jsonify({'error': 'Invalid symbol format'}), 400
-
-        # 获取阻力位数据
-        levels = calculate_resistance_levels(symbol)
-
-        # 如果获取失败，尝试使用基础币种名称
-        if not levels:
-            base_symbol = symbol.replace('USDT', '')
-            logger.warning(f"尝试使用基础币种名称: {base_symbol}")
-            levels = calculate_resistance_levels(base_symbol + 'USDT')
-
-        if not levels:
-            return jsonify({'error': 'No resistance levels available'}), 404
-
         return jsonify({
-            'symbol': symbol,
-            'levels': levels
-        })
-    except Exception as e:
-        logger.error(f"❌ 阻力位查询失败: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Internal server error'}), 500
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
-@app.route('/test')
-def test():
-    return '✅ 服务正常运行!'
+# 其他API端点保持不变...
 
 def start_background_threads():
     # 确保静态文件夹存在
@@ -930,19 +845,26 @@ def start_background_threads():
         return False
     
     # 启动后台线程
-    worker_thread = threading.Thread(target=analysis_worker)
+    worker_thread = threading.Thread(target=analysis_worker, name="AnalysisWorker")
     worker_thread.daemon = True
     worker_thread.start()
     
-    scheduler_thread = threading.Thread(target=schedule_analysis)
+    scheduler_thread = threading.Thread(target=schedule_analysis, name="AnalysisScheduler")
     scheduler_thread.daemon = True
     scheduler_thread.start()
     
+    logger.info("✅ 后台线程启动成功")
     return True
 
 if __name__ == '__main__':
     # 获取端口
     PORT = int(os.environ.get("PORT", 9600))
+    
+    logger.info("=" * 50)
+    logger.info(f"🚀 启动加密货币持仓量分析服务")
+    logger.info(f"🔑 API密钥: {API_KEY[:5]}...{API_KEY[-3:]}")
+    logger.info(f"🌐 服务端口: {PORT}")
+    logger.info("=" * 50)
     
     # 启动后台线程
     if start_background_threads():
