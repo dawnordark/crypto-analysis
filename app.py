@@ -1,7 +1,12 @@
-import os
+#!/data/data/com.termux/files/usr/bin/python3
+# -*- coding: utf-8 -*-
+
 import sys
+import subprocess
+import os
 import time
 import re
+import traceback  # 添加 traceback 导入
 import json
 import math
 import sqlite3
@@ -192,6 +197,10 @@ def get_last_valid_data():
 def init_client():
     global client
     try:
+        # 如果已经初始化则直接返回
+        if client:
+            return True
+            
         client_params = {
             'api_key': API_KEY, 
             'api_secret': API_SECRET,
@@ -340,6 +349,12 @@ def calculate_resistance_levels(symbol):
             cache_data = resistance_cache[symbol]
             if cache_data['expiration'] > now:
                 return cache_data['levels']
+
+        # 确保客户端已初始化
+        if not client:
+            if not init_client():
+                logger.error(f"❌ 无法初始化客户端，无法获取{symbol}的阻力位")
+                return {}
 
         levels = {}
 
@@ -780,6 +795,7 @@ def get_oi_chart(symbol, period):
 
 @app.route('/api/kline/<symbol>', methods=['GET'])
 def get_kline(symbol):
+    # 确保客户端已初始化
     if not client:
         if not init_client():
             logger.error("无法连接API")
