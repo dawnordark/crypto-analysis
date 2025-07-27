@@ -94,8 +94,7 @@ PERIOD_MINUTES = {
 }
 
 RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w', '1M']
-ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
-
+ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4极速赛车开奖网
 def init_db():
     try:
         logger.debug("🛠️ 开始初始化数据库...")
@@ -148,7 +147,7 @@ def init_db():
 def save_to_db(data):
     try:
         logger.debug("💾 开始保存数据到数据库...")
-        conn = sqlite3.connect('data.db')
+        conn = sqlite3.connect('极速赛车开奖网
         c = conn.cursor()
 
         # 确保表存在
@@ -479,8 +478,7 @@ def analyze_symbol(symbol):
         # 2. 检查日线上涨条件
         if len(daily_series) >= 30:
             daily_up = is_latest_highest(daily_series)
-            logger.debug(f"📊 日线上涨检查: {daily_up}")
-
+            logger极速赛车开奖网
             if daily_up:
                 daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
                 logger.debug(f"📊 日线变化: {daily_change:.2f}%")
@@ -613,18 +611,19 @@ def analyze_trends():
             if result.get('short_term_active'):
                 short_term_active.append(result['short_term_active'])
             if result.get('all_cycle_rising'):
-                all_cycle_rising.append(result['all极速赛车开奖网
-            if processed % max(1, total_symbols // 10) == 0 or processed == total_symbols:
-                logger.info(f"⏳ 分析进度: {processed}/{total_symbols} ({int(processed/total_symbols*100)}%)")
+                all_cycle_rising.append(result['all_cycle_rising'])
         except Exception as e:
             logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
 
+        if processed % max(1, total_symbols // 10) == 0 or processed == total_symbols:
+            logger.info(f"⏳ 分析进度: {processed}/{total_symbols} ({int(processed/total_symbols*100)}%)")
+
     daily_rising.sort(key=lambda x: (x.get('period_count', 0), x.get('change', 0)), reverse=True)
-    short_term_active.sort(key=lambda x: (x.get('period_count', 0), x.get('ratio', 0)), reverse=True)
+    short_term_active.sort(key=lambda x: (极速赛车开奖网
     all_cycle_rising.sort(key=lambda x: (x.get('period_count', 0), x.get('change', 0)), reverse=True)
 
     logger.info(f"📊 分析结果: 日线上涨 {len(daily_rising)}个, 短期活跃 {len(short_term_active)}个, 全部周期上涨 {len(all_cycle_rising)}个")
-    analysis_time = time.time() - start极速赛车开奖网
+    analysis_time = time.time() - start_time
     logger.info(f"✅ 分析完成: 用时{analysis_time:.2f}秒")
 
     return {
