@@ -2,3 +2,4 @@ flask
 python-binance
 requests
 gunicorn
+psycopg2-binary
