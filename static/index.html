@@ -3,11 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>持仓量分析</title>
+    <title>持仓量分析系统</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/dist/date-fns.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
@@ -419,6 +416,28 @@
             font-weight: bold;
         }
 
+        .debug-panel {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #2a2a2a;
+        }
+        .debug-title {
+            color: #ffcc00;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .debug-content {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            background: #121212;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
         @media (max-width: 768px) {
             .list-container { flex-direction: column; }
             .header-content { flex-direction: column; }
@@ -823,6 +842,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- 调试面板 -->
+        <div class="debug-panel">
+            <div class="debug-title">调试信息</div>
+            <div class="debug-content">
+                <div>当前数据状态:</div>
+                <div>最后更新时间: {{ lastUpdated || '无' }}</div>
+                <div>全周期上涨数量: {{ allCycleRising.length }}</div>
+                <div>日线上涨数量: {{ dailyRising.length }}</div>
+                <div>短期活跃数量: {{ shortTermActive.length }}</div>
+                <div>分析耗时: {{ analysisTime }}秒</div>
+                <div>加载状态: {{ loading ? '加载中' : '完成' }}</div>
+                <div>错误信息: {{ error || '无' }}</div>
+                <div>状态消息: {{ statusMessage || '无' }}</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -868,13 +903,22 @@
                     },
                     computed: {
                         filteredDailyRising() {
-                            const allCycleSymbols = new Set(this.allCycleRising.map(c => c.symbol));
-                            return this.dailyRising.filter(coin => !allCycleSymbols.has(coin.symbol));
+                            if (!this.dailyRising || !this.allCycleRising) {
+                                return [];
+                            }
+                            
+                            const allCycleSymbols = new Set(
+                                this.allCycleRising.map(c => c.symbol)
+                            );
+                            
+                            return this.dailyRising.filter(coin => 
+                                !allCycleSymbols.has(coin.symbol)
+                            );
                         }
                     },
                     mounted() {
+                        console.log("Vue实例已挂载，开始加载数据...");
                         this.pageRefreshTime = this.formatTime(new Date());
-                        this.initChartLibrary();
                         this.fetchData();
                     },
                     methods: {
@@ -901,6 +945,7 @@
 
                             axios.get(`/api/resistance_levels/${symbol}`, { timeout: 5000 })
                                 .then(response => {
+                                    console.log("阻力位查询结果:", response.data);
                                     this.queryResult = {
                                         symbol: symbol,
                                         levels: response.data
@@ -909,6 +954,8 @@
                                     this.statusMessage = '阻力位/支撑位查询成功';
                                 })
                                 .catch(error => {
+                                    console.error("阻力位查询失败:", error);
+                                    
                                     const errorMsg = error.response?.data?.error || 
                                                    error.message || 
                                                    '未知错误';
@@ -964,10 +1011,13 @@
 
                             axios.get(`/api/resistance_levels/${symbol}`, { timeout: 5000 })
                                 .then(response => {
+                                    console.log("获取阻力位数据:", response.data);
                                     this.$set(this.resistanceLevels, symbol, response.data);
                                     this.resistanceLevelsLoading = false;
                                 })
                                 .catch(error => {
+                                    console.error("获取阻力位失败:", error);
+                                    
                                     const errorMsg = error.response?.data?.error || 
                                                    error.message || 
                                                    '未知错误';
@@ -976,11 +1026,13 @@
                                 });
                         },
                         formatNumber(num) {
+                            if (!num) return "0";
                             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
                             if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
                             return num.toFixed(2);
                         },
                         formatTime(date) {
+                            if (!date) return "--:--:--";
                             return date.toLocaleTimeString('zh-CN', {
                                 hour: '2-digit',
                                 minute: '2-digit',
@@ -988,6 +1040,7 @@
                             });
                         },
                         fetchData() {
+                            console.log("开始获取数据...");
                             this.loading = true;
                             this.error = null;
                             this.statusMessage = "获取数据中...";
@@ -995,15 +1048,29 @@
 
                             axios.get('/api/data', { timeout: 10000 })
                                 .then(response => {
+                                    console.log("API响应数据:", response.data);
+                                    
+                                    // 修复数据绑定问题
                                     this.lastUpdated = response.data.last_updated;
-                                    this.dailyRising = response.data.daily_rising || [];
-                                    this.shortTermActive = response.data.short_term_active || [];
-                                    this.allCycleRising = response.data.all_cycle_rising || [];
+                                    this.dailyRising = Array.isArray(response.data.daily_rising) ? 
+                                        response.data.daily_rising : [];
+                                    this.shortTermActive = Array.isArray(response.data.short_term_active) ? 
+                                        response.data.short_term_active : [];
+                                    this.allCycleRising = Array.isArray(response.data.all_cycle_rising) ? 
+                                        response.data.all_cycle_rising : [];
                                     this.analysisTime = response.data.analysis_time || 0;
+                                    
                                     this.loading = false;
                                     this.statusMessage = "数据已加载";
+                                    
+                                    // 添加调试信息
+                                    console.log("日线上涨数量:", this.dailyRising.length);
+                                    console.log("短期活跃数量:", this.shortTermActive.length);
+                                    console.log("全周期上涨数量:", this.allCycleRising.length);
                                 })
                                 .catch(error => {
+                                    console.error("API请求失败:", error);
+                                    
                                     const errorMsg = error.response?.data?.error || 
                                                    error.message || 
                                                    '未知错误';
@@ -1012,25 +1079,6 @@
                                     this.loading = false;
                                     this.statusMessage = "使用缓存数据";
                                 });
-                        },
-                        initChartLibrary() {
-                            // 检查Chart.js是否已加载
-                            if (typeof Chart !== 'undefined') {
-                                this.chartLibLoaded = true;
-                                return;
-                            }
-
-                            // 动态加载Chart.js
-                            const script = document.createElement('script');
-                            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js';
-                            script.onload = () => {
-                                this.chartLibLoaded = true;
-                                console.log('Chart.js 动态加载成功');
-                            };
-                            script.onerror = () => {
-                                this.error = '无法加载图表库，请检查网络连接';
-                            };
-                            document.head.appendChild(script);
                         },
                         toggleOiChart(symbol, period) {
                             const chartId = `${symbol}-${period}`;
@@ -1115,6 +1163,8 @@
                                     }
                                 })
                                     .then(response => {
+                                        console.log("持仓量图表数据:", response.data);
+                                        
                                         // 仅当该图表仍然是活动状态时才渲染
                                         if (this.activeOiChart.chartId === chartId) {
                                             this.chartDataCache[cacheKey] = response.data;
@@ -1127,6 +1177,8 @@
                                         delete this.requestQueue[chartId];
                                     })
                                     .catch(error => {
+                                        console.error("获取持仓量图表失败:", error);
+                                        
                                         if (this.activeOiChart.chartId === chartId) {
                                             const errorMsg = error.response?.data?.error || 
                                                            error.message || 
@@ -1175,105 +1227,15 @@
                                 data.data.length === 0 || data.labels.length === 0) {
                                 this.error = `无有效持仓量数据: ${symbol} ${period}`;
                                 this.$set(this.chartLoading, chartId, false);
+                                
+                                // 回退到显示原始数据
+                                this.showDataFallback(symbol, period, data, chartId);
                                 return;
                             }
 
                             try {
-                                // 检查Chart库是否可用
-                                if (typeof Chart === 'undefined') {
-                                    throw new Error('图表库未加载');
-                                }
-
-                                // 计算图表数据
-                                const maxValue = Math.max(...data.data);
-                                const minValue = Math.min(...data.data);
-                                const range = maxValue - minValue;
-                                const padding = range * 0.1;
-
-                                let unit = '';
-                                let divisor = 1;
-                                if (maxValue >= 1000000) {
-                                    unit = 'M';
-                                    divisor = 1000000;
-                                } else if (maxValue >= 1000) {
-                                    unit = 'K';
-                                    divisor = 1000;
-                                }
-
-                                // 创建图表
-                                this.chartInstances[chartId] = new Chart(ctx, {
-                                    type: 'bar',
-                                    data: {
-                                        labels: data.labels,
-                                        datasets: [{
-                                            label: `${symbol} ${period}持仓量`,
-                                            data: data.data.map(v => v / divisor),
-                                            backgroundColor: 'rgba(52, 152, 219, 0.7)',
-                                            borderColor: 'rgba(52, 152, 219, 1)',
-                                            borderWidth: 1,
-                                            barPercentage: 0.8,
-                                            categoryPercentage: 0.6
-                                        }]
-                                    },
-                                    options: {
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        animation: {
-                                            duration: 300
-                                        },
-                                        plugins: { 
-                                            legend: { display: false },
-                                            tooltip: {
-                                                backgroundColor: 'rgba(30, 30, 30, 0.9)',
-                                                titleColor: '#3498db',
-                                                bodyColor: '#ffffff',
-                                                borderColor: '#2a2a2a',
-                                                callbacks: {
-                                                    label: function(context) {
-                                                        return `${symbol} ${period}持仓量: ${context.raw.toFixed(2)}${unit}`;
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        scales: { 
-                                            x: { 
-                                                grid: { 
-                                                    display: false,
-                                                    color: 'rgba(42, 42, 42, 0.5)' 
-                                                },
-                                                ticks: { 
-                                                    maxRotation: 0, 
-                                                    maxTicksLimit: 10,
-                                                    color: '#9aa0a6',
-                                                    font: { size: 9 }
-                                                }
-                                            },
-                                            y: {
-                                                min: (minValue - padding) / divisor,
-                                                max: (maxValue + padding) / divisor,
-                                                grid: { 
-                                                    color: 'rgba(42, 42, 42, 0.5)',
-                                                    drawBorder: false
-                                                },
-                                                ticks: {
-                                                    color: '#9aa0a6',
-                                                    // 修复精度问题：根据数值大小动态调整小数位数
-                                                    callback: function(value) {
-                                                        // 数值大于100时显示整数，小于100时显示2位小数
-                                                        if (value > 100) {
-                                                            return value.toFixed(0) + unit;
-                                                        } else {
-                                                            return value.toFixed(2) + unit;
-                                                        }
-                                                    },
-                                                    font: { size: 9 }
-                                                }
-                                            }
-                                        }
-                                    }
-                                });
-
-                                this.$set(this.chartLoading, chartId, false);
+                                // 尝试创建图表
+                                this.createChart(ctx, symbol, period, data, chartId);
                             } catch (e) {
                                 console.error("创建图表失败:", e);
                                 this.error = `创建图表失败: ${e.message || e}`;
@@ -1282,6 +1244,84 @@
                                 // 回退到显示原始数据
                                 this.showDataFallback(symbol, period, data, chartId);
                             }
+                        },
+                        createChart(ctx, symbol, period, data, chartId) {
+                            // 计算图表数据
+                            const maxValue = Math.max(...data.data);
+                            const minValue = Math.min(...data.data);
+                            const range = maxValue - minValue;
+                            const padding = range * 0.1;
+
+                            let unit = '';
+                            let divisor = 1;
+                            if (maxValue >= 1000000) {
+                                unit = 'M';
+                                divisor = 1000000;
+                            } else if (maxValue >= 1000) {
+                                unit = 'K';
+                                divisor = 1000;
+                            }
+
+                            // 创建简单的柱状图
+                            const barWidth = 10;
+                            const spacing = 5;
+                            const maxBars = Math.min(30, data.data.length);
+                            const chartWidth = (barWidth + spacing) * maxBars;
+                            const chartHeight = 200;
+                            
+                            // 计算比例
+                            const scaleY = chartHeight / (maxValue - minValue + padding * 2);
+                            
+                            // 绘制背景
+                            ctx.fillStyle = '#121212';
+                            ctx.fillRect(0, 0, chartWidth, chartHeight);
+                            
+                            // 绘制网格
+                            ctx.strokeStyle = '#2a2a2a';
+                            ctx.lineWidth = 1;
+                            
+                            // 水平网格线
+                            for (let i = 0; i <= 5; i++) {
+                                const y = i * (chartHeight / 5);
+                                ctx.beginPath();
+                                ctx.moveTo(0, y);
+                                ctx.lineTo(chartWidth, y);
+                                ctx.stroke();
+                            }
+                            
+                            // 绘制柱状图
+                            for (let i = 0; i < maxBars; i++) {
+                                const value = data.data[i];
+                                const x = i * (barWidth + spacing);
+                                const barHeight = (value - minValue + padding) * scaleY;
+                                
+                                ctx.fillStyle = '#3498db';
+                                ctx.fillRect(x, chartHeight - barHeight, barWidth, barHeight);
+                                
+                                // 添加值标签
+                                ctx.fillStyle = '#ffffff';
+                                ctx.font = '10px Arial';
+                                ctx.fillText(
+                                    divisor > 1 ? (value / divisor).toFixed(2) + unit : value.toFixed(0), 
+                                    x, 
+                                    chartHeight - barHeight - 5
+                                );
+                                
+                                // 添加时间标签
+                                if (i % 5 === 0 && data.labels[i]) {
+                                    ctx.fillStyle = '#cccccc';
+                                    ctx.font = '9px Arial';
+                                    ctx.fillText(data.labels[i], x, chartHeight + 15);
+                                }
+                            }
+                            
+                            // 添加标题
+                            ctx.fillStyle = '#3498db';
+                            ctx.font = 'bold 14px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(`${symbol} ${period}持仓量`, chartWidth / 2, 20);
+                            
+                            this.$set(this.chartLoading, chartId, false);
                         },
                         showDataFallback(symbol, period, data, chartId) {
                             const container = document.querySelector(`.chart-container[data-chart-id="${chartId}"]`);
