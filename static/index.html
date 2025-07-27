@@ -176,8 +176,21 @@
             background: rgba(255, 255, 255, 0.05);
         }
 
-        .list-container { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
-        .list { flex: 1; min-width: 300px; background: #1a1a1a; border-radius: 12px; padding: 15px; border: 1px solid #2a2a2a; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .list-container { 
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .list { 
+            background: #1a1a1a; 
+            border-radius: 12px; 
+            padding: 15px; 
+            border: 1px solid #2a2a2a; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+        }
         .list-title { 
             font-size: 16px; 
             font-weight: bold; 
@@ -191,7 +204,19 @@
             justify-content: center;
             align-items: center;
         }
-        .list-desc { font-size: 12px; color: #999999; text-align: center; margin-top: -10px; margin-bottom: 10px; }
+        .list-desc { 
+            font-size: 12px; 
+            color: #999999; 
+            text-align: center; 
+            margin-top: -10px; 
+            margin-bottom: 10px; 
+        }
+
+        .coin-list {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
 
         .coin-item { 
             display: flex; 
@@ -218,6 +243,11 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+        .symbol-usdt {
+            font-size: 12px;
+            color: #999;
+            margin-left: 2px;
         }
         .coin-details { display: flex; font-size: 13px; margin-bottom: 8px; }
         .coin-oi { color: #cccccc; }
@@ -337,8 +367,36 @@
             align-items: center;
         }
 
-        .empty-list { text-align: center; padding: 20px; color: #999999; font-style: italic; font-size: 14px; }
-        .loading { text-align: center; padding: 20px; color: #3498db; }
+        .empty-list { 
+            text-align: center; 
+            padding: 30px; 
+            background: #1e1e1e;
+            border-radius: 8px;
+            color: #666666; 
+            font-style: italic; 
+            font-size: 14px; 
+        }
+        .loading { 
+            text-align: center; 
+            padding: 20px; 
+            color: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #3498db;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
         .error { 
             text-align: center; 
             padding: 10px; 
@@ -391,31 +449,33 @@
             background: rgba(231, 76, 60, 0.4);
         }
 
-        /* 添加数据回退样式 */
-        .data-fallback {
-            padding: 15px;
-            max-height: 250px;
-            overflow-y: auto;
+        /* 电脑端优化样式 */
+        @media (min-width: 1200px) {
+            .list-container { 
+                grid-template-columns: repeat(3, 1fr);
+            }
+            .list {
+                min-width: auto;
+                height: 100%;
+            }
+            .coin-list {
+                max-height: 70vh;
+            }
+            .header-content {
+                flex-wrap: nowrap;
+            }
+            .resistance-query {
+                min-width: 400px;
+            }
         }
-        .data-points {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 10px;
-        }
-        .data-point {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 8px;
-            border-radius: 6px;
-            font-size: 12px;
-        }
-        .data-point span {
-            display: block;
-            color: #aaa;
-            margin-bottom: 4px;
-        }
-        .data-point strong {
-            color: #ffcc00;
-            font-weight: bold;
+
+        @media (min-width: 992px) and (max-width: 1199px) {
+            .list-container { 
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .list:last-child {
+                grid-column: span 2;
+            }
         }
 
         .debug-panel {
@@ -594,14 +654,19 @@
                     <span class="toggle-icon">{{ lists.allCycleRising ? '▲' : '▼' }}</span>
                 </div>
                 <div class="list-desc">(包含5分钟周期)</div>
-                <div v-if="lists.allCycleRising">
-                    <div v-if="loading && allCycleRising.length === 0" class="loading">分析中...</div>
-                    <div v-else-if="allCycleRising.length === 0" class="empty-list">无数据</div>
+                <div class="coin-list" v-if="lists.allCycleRising">
+                    <div v-if="loading && allCycleRising.length === 0" class="loading">
+                        <span class="loading-spinner"></span>分析中...
+                    </div>
+                    <div v-else-if="allCycleRising.length === 0" class="empty-list">暂无数据</div>
                     <div v-for="coin in allCycleRising" :key="coin.symbol + 'allcycle'">
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div class="coin-info">
-                                    <div class="coin-name">{{ coin.symbol }}</div>
+                                    <div class="coin-name">
+                                        {{ formatSymbol(coin.symbol) }}
+                                        <span class="symbol-usdt">USDT</span>
+                                    </div>
                                     <div class="coin-details">
                                         <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
                                         <span class="coin-change positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
@@ -687,15 +752,20 @@
                     日线上涨 ({{ filteredDailyRising.length }})
                     <span class="toggle-icon">{{ lists.dailyRising ? '▲' : '▼' }}</span>
                 </div>
-                <div class="list-desc">(日线持仓量创新高，且不在全部周期上涨列表)</div>
-                <div v-if="lists.dailyRising">
-                    <div v-if="loading && filteredDailyRising.length === 0" class="loading">分析中...</div>
-                    <div v-else-if="filteredDailyRising.length === 0" class="empty-list">无数据</div>
+                <div class="list-desc">(日线持仓量创新高)</div>
+                <div class="coin-list" v-if="lists.dailyRising">
+                    <div v-if="loading && filteredDailyRising.length === 0" class="loading">
+                        <span class="loading-spinner"></span>分析中...
+                    </div>
+                    <div v-else-if="filteredDailyRising.length === 0" class="empty-list">暂无数据</div>
                     <div v-for="coin in filteredDailyRising" :key="coin.symbol + 'daily'">
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div class="coin-info">
-                                    <div class="coin-name">{{ coin.symbol }}</div>
+                                    <div class="coin-name">
+                                        {{ formatSymbol(coin.symbol) }}
+                                        <span class="symbol-usdt">USDT</span>
+                                    </div>
                                     <div class="coin-details">
                                         <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
                                         <span class="coin-change positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
@@ -782,14 +852,19 @@
                     <span class="toggle-icon">{{ lists.shortTermActive ? '▲' : '▼' }}</span>
                 </div>
                 <div class="list-desc">(5分钟持仓量异常波动)</div>
-                <div v-if="lists.shortTermActive">
-                    <div v-if="loading && shortTermActive.length === 0" class="loading">分析中...</div>
-                    <div v-else-if="shortTermActive.length === 0" class="empty-list">无数据</div>
+                <div class="coin-list" v-if="lists.shortTermActive">
+                    <div v-if="loading && shortTermActive.length === 0" class="loading">
+                        <span class="loading-spinner"></span>分析中...
+                    </div>
+                    <div v-else-if="shortTermActive.length === 0" class="empty-list">暂无数据</div>
                     <div v-for="coin in shortTermActive" :key="coin.symbol + 'short'">
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div class="coin-info">
-                                    <div class="coin-name">{{ coin.symbol }}</div>
+                                    <div class="coin-name">
+                                        {{ formatSymbol(coin.symbol) }}
+                                        <span class="symbol-usdt">USDT</span>
+                                    </div>
                                     <div class="coin-details">
                                         <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
                                         <span class="coin-change positive">比率: {{ coin.ratio }}</span>
@@ -958,7 +1033,7 @@
                     methods: {
                         // 格式化币种输入
                         formatSymbolInput() {
-                            this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z]/g, '');
+                            this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
                         },
                         
                         // 切换阻力位查询区域显示
@@ -979,10 +1054,10 @@
                             }
 
                             // 转换为大写，并添加USDT后缀
-                            const symbol = this.resistanceQuery.trim() + 'USDT';
+                            const symbol = this.resistanceQuery.trim().toUpperCase() + 'USDT';
 
-                            // 检查格式，确保只包含字母
-                            if (!/^[A-Z]{3,15}USDT$/.test(symbol)) {
+                            // 检查格式
+                            if (!/^[A-Z0-9]{2,10}USDT$/.test(symbol)) {
                                 this.queryError = '无效的币种简称';
                                 return;
                             }
@@ -1087,6 +1162,9 @@
                             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
                             if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
                             return num.toFixed(2);
+                        },
+                        formatSymbol(symbol) {
+                            return symbol.replace('USDT', '');
                         },
                         formatTime(date) {
                             if (!date) return "--:--:--";
