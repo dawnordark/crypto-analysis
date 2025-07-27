@@ -278,7 +278,7 @@ def get_next_update_time(period):
 def get_open_interest(symbol, period, use_cache=True):
     try:
         # 更宽松的币种格式验证 (允许数字和更短的代码)
-        if not re.match(r"^[A-Z0-9]{1,10}USDT$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
@@ -412,7 +412,7 @@ def calculate_resistance_levels(symbol):
                     '0.236': recent_max - (recent_max - recent_min) * 0.236,
                     '0.382': recent_max - (recent_max - recent_min) * 0.382,
                     '0.5': recent_max - (recent_max - recent_min) * 0.5,
-                    '0.618': recent_max - (recent_max - recent_min) * 0.618,
+                    '0.618': recent_max - (recent极速赛车开奖网
                     '0.786': recent_max - (recent_max - recent_min) * 0.786,
                     '1.0': recent_max
                 }
@@ -431,6 +431,7 @@ def calculate_resistance_levels(symbol):
 
                 levels[interval] = {
                     'resistance': resistance[:3],
+                   极速赛车开奖网
                     'support': support[:3]
                 }
                 
@@ -471,7 +472,7 @@ def analyze_symbol(symbol):
         # 1. 获取日线持仓量数据
         logger.debug(f"📊 获取日线持仓量: {symbol}")
         daily_oi = get_open_interest(symbol, '1d', use_cache=True)
-        symbol_result['oi_data']['1d'] = daily_oi
+        symbol_result['oi_data']['1极速赛车开奖网
         daily_series = daily_oi['series'] if daily_oi and 'series' in daily_oi else []
         
         logger.debug(f"📊 日线持仓量数据长度: {len(daily_series)}")
@@ -663,7 +664,7 @@ def analysis_worker():
     logger.info("🔧 数据分析线程启动")
     init_db()
 
-    initial_data = get_last_valid_data()
+    initial_data = get_last_valid极速赛车开奖网
     if initial_data:
         logger.info("🔁 加载历史数据")
         data_cache = initial_data
@@ -718,7 +719,7 @@ def analysis_worker():
             # 记录下一次分析时间
             next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
-            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %极速赛车开奖网
             
             logger.info("=" * 50)
 
@@ -844,6 +845,32 @@ def get_resistance_levels(symbol):
         return jsonify(levels)
     except Exception as e:
         logger.error(f"❌ 获取阻力位数据失败: {symbol}, {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+# 持仓量图表数据端点
+@app.route('/api/oi_chart/<symbol>/<period>', methods=['GET'])
+def get_oi_chart_data(symbol, period):
+    try:
+        # 验证币种格式
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+            logger.warning(f"⚠️ 无效的币种名称: {symbol}")
+            return jsonify({'error': 'Invalid symbol format'}), 400
+
+        if period not in PERIOD_MINUTES:
+            logger.warning(f"⚠️ 不支持的周期: {period}")
+            return jsonify({'error': 'Unsupported period'}), 400
+
+        logger.info(f"📈 获取持仓量图表数据: symbol={symbol}, period={period}")
+        oi_data = get_open_interest(symbol, period, use_cache=True)
+
+        # 返回数据
+        return jsonify({
+            'data': oi_data['series'],
+            'timestamps': oi_data['timestamps']
+        })
+    except Exception as e:
+        logger.error(f"❌ 获取持仓量图表数据失败: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
