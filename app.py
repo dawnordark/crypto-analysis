@@ -15,9 +15,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory, request
 from binance.client import Client
 
-# é…ç½®è¯¦ç»†æ—¥å¿—
+# ÉèÖÃ¸üÏêÏ¸µÄÈÕÖ¾¼¶±ð
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG').upper()
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=getattr(logging, LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -25,16 +26,17 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"7¼3 ÈÕÖ¾¼¶±ðÉèÖÃÎª: {LOG_LEVEL}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 
-# Binance API é…ç½®
+# Binance API ÅäÖÃ
 API_KEY = os.environ.get('BINANCE_API_KEY', 'your_api_key_here')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', 'your_api_secret_here')
 client = None
 
-# ==================== æ•°æ®ç¼“å­˜ ====================
+# ==================== Êý¾Ý»º´æ ====================
 data_cache = {
     "last_updated": None,
     "daily_rising": [],
@@ -49,7 +51,7 @@ oi_data_cache = {}
 resistance_cache = {}
 RESISTANCE_CACHE_EXPIRATION = 24 * 3600
 
-# ä½¿ç”¨é˜Ÿåˆ—è¿›è¡Œçº¿ç¨‹é—´é€šä¿¡
+# Ê¹ÓÃ¶ÓÁÐ½øÐÐÏß³Ì¼äÍ¨ÐÅ
 analysis_queue = queue.Queue()
 executor = ThreadPoolExecutor(max_workers=10)
 
@@ -70,17 +72,16 @@ ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
 def init_db():
     try:
-        logger.debug("ðŸ› ï¸ å¼€å§‹åˆå§‹åŒ–æ•°æ®åº“...")
+        logger.debug("•0•0„1‚5 ¿ªÊ¼³õÊ¼»¯Êý¾Ý¿â...")
         conn = sqlite3.connect('data.db')
         c = conn.cursor()
 
-        c.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='crypto_data'"
-        )
+        # ¼ì²é±íÊÇ·ñ´æÔÚ
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='crypto_data'")
         table_exists = c.fetchone()
 
         if not table_exists:
-            logger.info("ðŸ› ï¸ åˆ›å»ºæ•°æ®åº“è¡¨...")
+            logger.info("•0•0„1‚5 ´´½¨Êý¾Ý¿â±í...")
             c.execute('''CREATE TABLE crypto_data
                         (id INTEGER PRIMARY KEY, 
                         last_updated TEXT,
@@ -91,74 +92,73 @@ def init_db():
                         next_analysis_time TEXT,
                         resistance_data TEXT)''')
             conn.commit()
-            logger.info("âœ… æ•°æ®åº“è¡¨åˆ›å»ºæˆåŠŸ")
+            logger.info("7¼3 Êý¾Ý¿â±í´´½¨³É¹¦")
         else:
-            logger.info("âœ… æ•°æ®åº“è¡¨å·²å­˜åœ¨")
+            # ¼ì²é±í½á¹¹ÊÇ·ñ×îÐÂ
+            c.execute("PRAGMA table_info(crypto_data)")
+            columns = [col[1] for col in c.fetchall()]
+            if 'next_analysis_time' not in columns:
+                logger.info("•0•0„1‚5 ¸üÐÂÊý¾Ý¿â±í½á¹¹...")
+                c.execute("ALTER TABLE crypto_data ADD COLUMN next_analysis_time TEXT")
+                conn.commit()
+                logger.info("7¼3 Êý¾Ý¿â±í½á¹¹¸üÐÂ³É¹¦")
+            else:
+                logger.info("7¼3 Êý¾Ý¿â±íÒÑ´æÔÚÇÒ½á¹¹×îÐÂ")
 
         conn.close()
-        logger.debug("ðŸ› ï¸ æ•°æ®åº“åˆå§‹åŒ–å®Œæˆ")
+        logger.debug("•0•0„1‚5 Êý¾Ý¿â³õÊ¼»¯Íê³É")
     except Exception as e:
-        logger.error(f"âŒ æ•°æ®åº“åˆå§‹åŒ–å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 Êý¾Ý¿â³õÊ¼»¯Ê§°Ü: {str(e)}")
         logger.error(traceback.format_exc())
         try:
-            logger.warning("ðŸ—‘ï¸ å°è¯•åˆ é™¤æŸåçš„æ•°æ®åº“æ–‡ä»¶...")
+            logger.warning("”9÷9„1‚5 ³¢ÊÔÉ¾³ýËð»µµÄÊý¾Ý¿âÎÄ¼þ...")
             os.remove('data.db')
-            logger.warning("ðŸ—‘ï¸ åˆ é™¤æŸåçš„æ•°æ®åº“æ–‡ä»¶ï¼Œå°†åˆ›å»ºæ–°æ•°æ®åº“")
+            logger.warning("”9÷9„1‚5 É¾³ýËð»µµÄÊý¾Ý¿âÎÄ¼þ£¬½«´´½¨ÐÂÊý¾Ý¿â")
             init_db()
         except Exception as e2:
-            logger.critical(f"ðŸ”¥ æ— æ³•ä¿®å¤æ•°æ®åº“: {str(e2)}")
+            logger.critical(f"”9æ7 ÎÞ·¨ÐÞ¸´Êý¾Ý¿â: {str(e2)}")
             logger.critical(traceback.format_exc())
 
 def save_to_db(data):
     try:
-        logger.debug("ðŸ’¾ å¼€å§‹ä¿å­˜æ•°æ®åˆ°æ•°æ®åº“...")
+        logger.debug("”9Ü4 ¿ªÊ¼±£´æÊý¾Ýµ½Êý¾Ý¿â...")
         conn = sqlite3.connect('data.db')
         c = conn.cursor()
 
-        c.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='crypto_data'"
-        )
+        # È·±£±í´æÔÚ
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='crypto_data'")
         if not c.fetchone():
-            logger.warning("âš ï¸ æ•°æ®åº“è¡¨ä¸å­˜åœ¨ï¼Œæ­£åœ¨åˆ›å»º...")
-            c.execute('''CREATE TABLE crypto_data
-                        (id INTEGER PRIMARY KEY, 
-                        last_updated TEXT,
-                        daily_rising TEXT,
-                        short_term_active TEXT,
-                        all_cycle_rising TEXT,
-                        analysis_time REAL,
-                        next_analysis_time TEXT,
-                        resistance_data TEXT)''')
-            conn.commit()
+            logger.warning("7²2„1‚5 Êý¾Ý¿â±í²»´æÔÚ£¬ÕýÔÚ´´½¨...")
+            init_db()
 
         resistance_json = json.dumps(resistance_cache)
 
+        # ²åÈë»ò¸üÐÂÊý¾Ý
         c.execute(
             "INSERT INTO crypto_data VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)",
-            (data['last_updated'], json.dumps(data['daily_rising']),
+            (data['last_updated'], 
+             json.dumps(data['daily_rising']),
              json.dumps(data['short_term_active']),
              json.dumps(data['all_cycle_rising']), 
              data['analysis_time'],
-             data['next_analysis_time'],
+             data.get('next_analysis_time', None),
              resistance_json))
         conn.commit()
         conn.close()
-        logger.info("ðŸ’¾ æ•°æ®ä¿å­˜åˆ°æ•°æ®åº“æˆåŠŸ")
+        logger.info("”9Ü4 Êý¾Ý±£´æµ½Êý¾Ý¿â³É¹¦")
     except Exception as e:
-        logger.error(f"âŒ ä¿å­˜æ•°æ®åˆ°æ•°æ®åº“å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 ±£´æÊý¾Ýµ½Êý¾Ý¿âÊ§°Ü: {str(e)}")
         logger.error(traceback.format_exc())
 
 def get_last_valid_data():
     try:
-        logger.debug("ðŸ” å°è¯•èŽ·å–æœ€åŽæœ‰æ•ˆæ•°æ®...")
+        logger.debug("”9ä3 ³¢ÊÔ»ñÈ¡×îºóÓÐÐ§Êý¾Ý...")
         conn = sqlite3.connect('data.db')
         c = conn.cursor()
 
-        c.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='crypto_data'"
-        )
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='crypto_data'")
         if not c.fetchone():
-            logger.warning("âš ï¸ æ•°æ®åº“è¡¨ä¸å­˜åœ¨")
+            logger.warning("7²2„1‚5 Êý¾Ý¿â±í²»´æÔÚ")
             return None
 
         c.execute("SELECT * FROM crypto_data ORDER BY id DESC LIMIT 1")
@@ -166,50 +166,56 @@ def get_last_valid_data():
         conn.close()
 
         if row:
-            logger.debug(f"ðŸ” æ‰¾åˆ°æœ€åŽæœ‰æ•ˆæ•°æ®: ID={row[0]}, æ—¶é—´={row[1]}")
+            logger.debug(f"”9ä3 ÕÒµ½×îºóÓÐÐ§Êý¾Ý: ID={row[0]}, Ê±¼ä={row[1]}")
             resistance_data = json.loads(row[7]) if row[7] else {}
             for symbol, data in resistance_data.items():
                 resistance_cache[symbol] = data
 
             return {
                 'last_updated': row[1],
-                'daily_rising': json.loads(row[2]),
-                'short_term_active': json.loads(row[3]),
-                'all_cycle_rising': json.loads(row[4]),
-                'analysis_time': row[5],
+                'daily_rising': json.loads(row[2]) if row[2] else [],
+                'short_term_active': json.loads(row[3]) if row[3] else [],
+                'all_cycle_rising': json.loads(row[4]) if row[4] else [],
+                'analysis_time': row[5] or 0,
                 'next_analysis_time': row[6]
             }
-        logger.debug("ðŸ” æ•°æ®åº“ä¸­æ²¡æœ‰æœ‰æ•ˆæ•°æ®")
+        logger.debug("”9ä3 Êý¾Ý¿âÖÐÃ»ÓÐÓÐÐ§Êý¾Ý")
         return None
     except Exception as e:
-        logger.error(f"âŒ èŽ·å–æœ€åŽæœ‰æ•ˆæ•°æ®å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 »ñÈ¡×îºóÓÐÐ§Êý¾ÝÊ§°Ü: {str(e)}")
         logger.error(traceback.format_exc())
         return None
 
 def init_client():
     global client
-    try:
-        logger.debug("ðŸ”§ åˆå§‹åŒ–Binanceå®¢æˆ·ç«¯...")
-        client_params = {
-            'api_key': API_KEY, 
-            'api_secret': API_SECRET,
-            'requests_params': {'timeout': 30}
-        }
+    max_retries = 3
+    retry_delay = 5
+    
+    for attempt in range(max_retries):
+        try:
+            logger.debug(f"”9æ9 ³¢ÊÔ³õÊ¼»¯Binance¿Í»§¶Ë (µÚ{attempt+1}´Î)...")
+            client_params = {
+                'api_key': API_KEY, 
+                'api_secret': API_SECRET,
+                'requests_params': {'timeout': 30}
+            }
 
-        client = Client(**client_params)
-        
-        # æµ‹è¯•è¿žæŽ¥
-        server_time = client.get_server_time()
-        logger.info(f"âœ… Binanceå®¢æˆ·ç«¯åˆå§‹åŒ–æˆåŠŸï¼ŒæœåŠ¡å™¨æ—¶é—´: {datetime.fromtimestamp(server_time['serverTime']/1000)}")
-        
-        return True
-    except Exception as e:
-        logger.error(f"âŒ åˆå§‹åŒ–Binanceå®¢æˆ·ç«¯å¤±è´¥: {str(e)}")
-        logger.error(traceback.format_exc())
-        # é‡è¯•æœºåˆ¶
-        logger.info("ðŸ”„ 10ç§’åŽé‡è¯•åˆå§‹åŒ–å®¢æˆ·ç«¯...")
-        time.sleep(10)
-        return init_client()
+            client = Client(**client_params)
+            
+            # ²âÊÔÁ¬½Ó
+            server_time = client.get_server_time()
+            logger.info(f"7¼3 Binance¿Í»§¶Ë³õÊ¼»¯³É¹¦£¬·þÎñÆ÷Ê±¼ä: {datetime.fromtimestamp(server_time['serverTime']/1000)}")
+            return True
+        except Exception as e:
+            logger.error(f"7Ã4 ³õÊ¼»¯Binance¿Í»§¶ËÊ§°Ü: {str(e)}")
+            logger.error(traceback.format_exc())
+            if attempt < max_retries - 1:
+                logger.info(f"”9ã4 {retry_delay}ÃëºóÖØÊÔ³õÊ¼»¯¿Í»§¶Ë...")
+                time.sleep(retry_delay)
+            else:
+                logger.critical("”9æ7 ÎÞ·¨³õÊ¼»¯Binance¿Í»§¶Ë£¬ÒÑ´ïµ½×î´óÖØÊÔ´ÎÊý")
+                return False
+    return False
 
 def get_next_update_time(period):
     minutes = PERIOD_MINUTES.get(period, 5)
@@ -245,13 +251,13 @@ def get_next_update_time(period):
 
 def get_open_interest(symbol, period, use_cache=True):
     try:
-        # éªŒè¯å¸ç§æ ¼å¼
+        # ÑéÖ¤±ÒÖÖ¸ñÊ½
         if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
-            logger.warning(f"âš ï¸ æ— æ•ˆçš„å¸ç§åç§°: {symbol}")
+            logger.warning(f"7²2„1‚5 ÎÞÐ§µÄ±ÒÖÖÃû³Æ: {symbol}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
         if period not in PERIOD_MINUTES:
-            logger.warning(f"âš ï¸ ä¸æ”¯æŒçš„å‘¨æœŸ: {period}, ä½¿ç”¨é»˜è®¤5m")
+            logger.warning(f"7²2„1‚5 ²»Ö§³ÖµÄÖÜÆÚ: {period}, Ê¹ÓÃÄ¬ÈÏ5m")
             period = '5m'
 
         current_time = datetime.now(timezone.utc)
@@ -260,33 +266,33 @@ def get_open_interest(symbol, period, use_cache=True):
         if use_cache and oi_data_cache.get(cache_key):
             cached_data = oi_data_cache[cache_key]
             if 'next_update' in cached_data and cached_data['next_update'] > current_time:
-                logger.debug(f"ðŸ“ˆ ä½¿ç”¨ç¼“å­˜æ•°æ®: {symbol} {period}")
+                logger.debug(f"”9Ý4 Ê¹ÓÃ»º´æÊý¾Ý: {symbol} {period}")
                 return {
                     'series': cached_data['data']['series'].copy(),
                     'timestamps': cached_data['data']['timestamps'].copy(),
                     'cache_time': cached_data['data']['cache_time']
                 }
 
-        logger.info(f"ðŸ“¡ è¯·æ±‚æŒä»“é‡æ•°æ®: symbol={symbol}, period={period}")
+        logger.info(f"”9ß9 ÇëÇó³Ö²ÖÁ¿Êý¾Ý: symbol={symbol}, period={period}")
         url = "https://fapi.binance.com/futures/data/openInterestHist"
         params = {'symbol': symbol, 'period': period, 'limit': 30}
 
         response = requests.get(url, params=params, timeout=15)
-        logger.debug(f"ðŸ“¡ å“åº”çŠ¶æ€: {response.status_code}")
+        logger.debug(f"”9ß9 ÏìÓ¦×´Ì¬: {response.status_code}")
 
         if response.status_code != 200:
-            logger.error(f"âŒ èŽ·å–{symbol}çš„{period}æŒä»“é‡å¤±è´¥: HTTP {response.status_code} - {response.text}")
+            logger.error(f"7Ã4 »ñÈ¡{symbol}µÄ{period}³Ö²ÖÁ¿Ê§°Ü: HTTP {response.status_code} - {response.text}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
         data = response.json()
-        logger.debug(f"ðŸ“¡ å“åº”æ•°æ®: {data[:1]}...")
+        logger.debug(f"”9ß9 ÏìÓ¦Êý¾Ý: {data[:1]}...")
 
         if not isinstance(data, list):
-            logger.error(f"âŒ æ— æ•ˆçš„æŒä»“é‡æ•°æ®æ ¼å¼: {symbol} {period} - å“åº”: {data}")
+            logger.error(f"7Ã4 ÎÞÐ§µÄ³Ö²ÖÁ¿Êý¾Ý¸ñÊ½: {symbol} {period} - ÏìÓ¦: {data}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
         if len(data) == 0:
-            logger.warning(f"âš ï¸ {symbol}çš„{period}æŒä»“é‡æ•°æ®ä¸ºç©º")
+            logger.warning(f"7²2„1‚5 {symbol}µÄ{period}³Ö²ÖÁ¿Êý¾ÝÎª¿Õ")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
         data.sort(key=lambda x: x['timestamp'])
@@ -295,7 +301,7 @@ def get_open_interest(symbol, period, use_cache=True):
         cache_time = datetime.now(timezone.utc).isoformat()
 
         if len(oi_series) < 5:
-            logger.warning(f"âš ï¸ {symbol}çš„{period}æŒä»“é‡æ•°æ®ä¸è¶³: åªæœ‰{len(oi_series)}ä¸ªç‚¹")
+            logger.warning(f"7²2„1‚5 {symbol}µÄ{period}³Ö²ÖÁ¿Êý¾Ý²»×ã: Ö»ÓÐ{len(oi_series)}¸öµã")
             return {'series': [], 'timestamps': [], 'cache_time': cache_time}
 
         oi_data = {
@@ -310,49 +316,57 @@ def get_open_interest(symbol, period, use_cache=True):
             'next_update': next_update
         }
 
-        logger.info(f"ðŸ“ˆ èŽ·å–æ–°æ•°æ®: {symbol} {period} ({len(oi_series)}ç‚¹)")
+        logger.info(f"”9Ý4 »ñÈ¡ÐÂÊý¾Ý: {symbol} {period} ({len(oi_series)}µã)")
         return oi_data
     except Exception as e:
-        logger.error(f"âŒ èŽ·å–{symbol}çš„{period}æŒä»“é‡å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 »ñÈ¡{symbol}µÄ{period}³Ö²ÖÁ¿Ê§°Ü: {str(e)}")
         logger.error(traceback.format_exc())
         return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
 def is_latest_highest(oi_data):
     if len(oi_data) < 30:
-        logger.debug("æŒä»“é‡æ•°æ®ä¸è¶³30ä¸ªç‚¹")
+        logger.debug("³Ö²ÖÁ¿Êý¾Ý²»×ã30¸öµã")
         return False
 
     latest_value = oi_data[-1]
-    prev_data = oi_data[-30:-1]
+    prev_data = oi_series[-30:-1]
 
     if not prev_data:
-        logger.debug("æ— åŽ†å²æ•°æ®ç”¨äºŽæ¯”è¾ƒ")
+        logger.debug("ÎÞÀúÊ·Êý¾ÝÓÃÓÚ±È½Ï")
         return False
 
     result = latest_value > max(prev_data)
-    logger.debug(f"æŒä»“é‡åˆ›æ–°é«˜æ£€æŸ¥: æœ€æ–°å€¼={latest_value}, åŽ†å²æœ€å¤§å€¼={max(prev_data)}, ç»“æžœ={result}")
+    logger.debug(f"³Ö²ÖÁ¿´´ÐÂ¸ß¼ì²é: ×îÐÂÖµ={latest_value}, ÀúÊ·×î´óÖµ={max(prev_data)}, ½á¹û={result}")
     return result
 
 def calculate_resistance_levels(symbol):
     try:
-        logger.debug(f"ðŸ“Š è®¡ç®—é˜»åŠ›ä½: {symbol}")
+        logger.debug(f"”9Ý6 ¼ÆËã×èÁ¦Î»: {symbol}")
+        
+        # È·±£¿Í»§¶ËÒÑ³õÊ¼»¯
+        if client is None:
+            logger.warning("7²2„1‚5 Binance¿Í»§¶ËÎ´³õÊ¼»¯£¬³¢ÊÔÖØÐÂ³õÊ¼»¯")
+            if not init_client():
+                logger.error("7Ã4 ÎÞ·¨³õÊ¼»¯Binance¿Í»§¶Ë£¬ÎÞ·¨¼ÆËã×èÁ¦Î»")
+                return {}
+        
         now = time.time()
         if symbol in resistance_cache:
             cache_data = resistance_cache[symbol]
             if cache_data['expiration'] > now:
-                logger.debug(f"ðŸ“Š ä½¿ç”¨ç¼“å­˜çš„é˜»åŠ›ä½æ•°æ®: {symbol}")
+                logger.debug(f"”9Ý6 Ê¹ÓÃ»º´æµÄ×èÁ¦Î»Êý¾Ý: {symbol}")
                 return cache_data['levels']
 
         levels = {}
-        logger.debug(f"ðŸ“Š å¼€å§‹è®¡ç®—{symbol}çš„é˜»åŠ›ä½")
+        logger.debug(f"”9Ý6 ¿ªÊ¼¼ÆËã{symbol}µÄ×èÁ¦Î»")
 
         for interval in RESISTANCE_INTERVALS:
             try:
-                logger.debug(f"ðŸ“Š èŽ·å–Kçº¿æ•°æ®: {symbol} {interval}")
+                logger.debug(f"”9Ý6 »ñÈ¡KÏßÊý¾Ý: {symbol} {interval}")
                 klines = client.futures_klines(symbol=symbol, interval=interval, limit=100)
                 
                 if not klines or len(klines) < 10:
-                    logger.warning(f"âš ï¸ {symbol}åœ¨{interval}çš„Kçº¿æ•°æ®ä¸è¶³")
+                    logger.warning(f"7²2„1‚5 {symbol}ÔÚ{interval}µÄKÏßÊý¾Ý²»×ã")
                     continue
 
                 high_prices = [float(k[2]) for k in klines]
@@ -365,7 +379,7 @@ def calculate_resistance_levels(symbol):
                 recent_min = min(low_prices[-lookback:])
 
                 if recent_max <= recent_min:
-                    logger.warning(f"âš ï¸ {symbol}åœ¨{interval}çš„æœ€è¿‘é«˜ç‚¹å’Œä½Žç‚¹æ— æ•ˆ")
+                    logger.warning(f"7²2„1‚5 {symbol}ÔÚ{interval}µÄ×î½ü¸ßµãºÍµÍµãÎÞÐ§")
                     continue
 
                 fib_levels = {
@@ -394,9 +408,9 @@ def calculate_resistance_levels(symbol):
                     'support': support[:3]
                 }
                 
-                logger.debug(f"ðŸ“Š {symbol}åœ¨{interval}çš„é˜»åŠ›ä½è®¡ç®—å®Œæˆ")
+                logger.debug(f"”9Ý6 {symbol}ÔÚ{interval}µÄ×èÁ¦Î»¼ÆËãÍê³É")
             except Exception as e:
-                logger.error(f"è®¡ç®—{symbol}åœ¨{interval}çš„é˜»åŠ›ä½å¤±è´¥: {str(e)}")
+                logger.error(f"¼ÆËã{symbol}ÔÚ{interval}µÄ×èÁ¦Î»Ê§°Ü: {str(e)}")
                 logger.error(traceback.format_exc())
                 levels[interval] = {
                     'resistance': [],
@@ -407,16 +421,16 @@ def calculate_resistance_levels(symbol):
             'levels': levels,
             'expiration': now + RESISTANCE_CACHE_EXPIRATION
         }
-        logger.info(f"ðŸ“Š {symbol}çš„é˜»åŠ›ä½è®¡ç®—å®Œæˆ")
+        logger.info(f"”9Ý6 {symbol}µÄ×èÁ¦Î»¼ÆËãÍê³É")
         return levels
     except Exception as e:
-        logger.error(f"è®¡ç®—{symbol}çš„é˜»åŠ›ä½å¤±è´¥: {str(e)}")
+        logger.error(f"¼ÆËã{symbol}µÄ×èÁ¦Î»Ê§°Ü: {str(e)}")
         logger.error(traceback.format_exc())
         return {}
 
 def analyze_symbol(symbol):
     try:
-        logger.info(f"ðŸ” å¼€å§‹åˆ†æžå¸ç§: {symbol}")
+        logger.info(f"”9ä3 ¿ªÊ¼·ÖÎö±ÒÖÖ: {symbol}")
         symbol_result = {
             'symbol': symbol,
             'daily_rising': None,
@@ -428,22 +442,22 @@ def analyze_symbol(symbol):
             'oi_data': {}
         }
 
-        # 1. èŽ·å–æ—¥çº¿æŒä»“é‡æ•°æ®
-        logger.debug(f"ðŸ“Š èŽ·å–æ—¥çº¿æŒä»“é‡: {symbol}")
+        # 1. »ñÈ¡ÈÕÏß³Ö²ÖÁ¿Êý¾Ý
+        logger.debug(f"”9Ý6 »ñÈ¡ÈÕÏß³Ö²ÖÁ¿: {symbol}")
         daily_oi = get_open_interest(symbol, '1d', use_cache=True)
         symbol_result['oi_data']['1d'] = daily_oi
         daily_series = daily_oi['series']
         
-        logger.debug(f"ðŸ“Š æ—¥çº¿æŒä»“é‡æ•°æ®é•¿åº¦: {len(daily_series)}")
+        logger.debug(f"”9Ý6 ÈÕÏß³Ö²ÖÁ¿Êý¾Ý³¤¶È: {len(daily_series)}")
 
-        # 2. æ£€æŸ¥æ—¥çº¿ä¸Šæ¶¨æ¡ä»¶
+        # 2. ¼ì²éÈÕÏßÉÏÕÇÌõ¼þ
         if len(daily_series) >= 30:
             daily_up = is_latest_highest(daily_series)
-            logger.debug(f"ðŸ“Š æ—¥çº¿ä¸Šæ¶¨æ£€æŸ¥: {daily_up}")
+            logger.debug(f"”9Ý6 ÈÕÏßÉÏÕÇ¼ì²é: {daily_up}")
 
             if daily_up:
                 daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
-                logger.debug(f"ðŸ“Š æ—¥çº¿å˜åŒ–: {daily_change:.2f}%")
+                logger.debug(f"”9Ý6 ÈÕÏß±ä»¯: {daily_change:.2f}%")
                 
                 symbol_result['daily_rising'] = {
                     'symbol': symbol,
@@ -455,26 +469,26 @@ def analyze_symbol(symbol):
                 symbol_result['period_status']['1d'] = True
                 symbol_result['period_count'] = 1
 
-                # 3. å…¨å‘¨æœŸåˆ†æž
-                logger.debug(f"ðŸ“Š å¼€å§‹å…¨å‘¨æœŸåˆ†æž: {symbol}")
+                # 3. È«ÖÜÆÚ·ÖÎö
+                logger.debug(f"”9Ý6 ¿ªÊ¼È«ÖÜÆÚ·ÖÎö: {symbol}")
                 all_intervals_up = True
                 for period in ALL_PERIODS:
                     if period == '1d':
                         continue
 
-                    logger.debug(f"ðŸ“Š åˆ†æžå‘¨æœŸ: {period}")
+                    logger.debug(f"”9Ý6 ·ÖÎöÖÜÆÚ: {period}")
                     oi_data = get_open_interest(symbol, period, use_cache=True)
                     symbol_result['oi_data'][period] = oi_data
                     oi_series = oi_data['series']
                     
                     if len(oi_series) < 30:
-                        logger.debug(f"ðŸ“Š æ•°æ®ä¸è¶³: {symbol} {period}åªæœ‰{len(oi_series)}ä¸ªç‚¹")
+                        logger.debug(f"”9Ý6 Êý¾Ý²»×ã: {symbol} {period}Ö»ÓÐ{len(oi_series)}¸öµã")
                         status = False
                     else:
                         status = is_latest_highest(oi_series)
                         
                     symbol_result['period_status'][period] = status
-                    logger.debug(f"ðŸ“Š å‘¨æœŸçŠ¶æ€: {period} = {status}")
+                    logger.debug(f"”9Ý6 ÖÜÆÚ×´Ì¬: {period} = {status}")
 
                     if status:
                         symbol_result['rising_periods'].append(period)
@@ -483,7 +497,7 @@ def analyze_symbol(symbol):
                         all_intervals_up = False
 
                 if all_intervals_up:
-                    logger.debug(f"ðŸ“Š å…¨å‘¨æœŸä¸Šæ¶¨: {symbol}")
+                    logger.debug(f"”9Ý6 È«ÖÜÆÚÉÏÕÇ: {symbol}")
                     symbol_result['all_cycle_rising'] = {
                         'symbol': symbol,
                         'oi': daily_series[-1],
@@ -493,8 +507,8 @@ def analyze_symbol(symbol):
                         'period_count': symbol_result['period_count']
                     }
 
-        # 4. çŸ­æœŸæ´»è·ƒåº¦åˆ†æž
-        logger.debug(f"ðŸ“Š åˆ†æžçŸ­æœŸæ´»è·ƒåº¦: {symbol}")
+        # 4. ¶ÌÆÚ»îÔ¾¶È·ÖÎö
+        logger.debug(f"”9Ý6 ·ÖÎö¶ÌÆÚ»îÔ¾¶È: {symbol}")
         min5_oi = get_open_interest(symbol, '5m', use_cache=True)
         symbol_result['oi_data']['5m'] = min5_oi
         min5_series = min5_oi['series']
@@ -502,14 +516,14 @@ def analyze_symbol(symbol):
         if len(min5_series) >= 30 and len(daily_series) >= 30:
             min5_max = max(min5_series[-30:])
             daily_avg = sum(daily_series[-30:]) / 30
-            logger.debug(f"ðŸ“Š çŸ­æœŸæœ€å¤§å€¼: {min5_max}, æ—¥å‡å€¼: {daily_avg}")
+            logger.debug(f"”9Ý6 ¶ÌÆÚ×î´óÖµ: {min5_max}, ÈÕ¾ùÖµ: {daily_avg}")
 
             if min5_max > 0 and daily_avg > 0:
                 ratio = min5_max / daily_avg
-                logger.debug(f"ðŸ“Š çŸ­æœŸæ´»è·ƒæ¯”çŽ‡: {ratio:.2f}")
+                logger.debug(f"”9Ý6 ¶ÌÆÚ»îÔ¾±ÈÂÊ: {ratio:.2f}")
                 
                 if ratio > 1.5:
-                    logger.debug(f"ðŸ“Š çŸ­æœŸæ´»è·ƒ: {symbol} æ¯”çŽ‡={ratio:.2f}")
+                    logger.debug(f"”9Ý6 ¶ÌÆÚ»îÔ¾: {symbol} ±ÈÂÊ={ratio:.2f}")
                     symbol_result['short_term_active'] = {
                         'symbol': symbol,
                         'oi': min5_series[-1],
@@ -522,10 +536,10 @@ def analyze_symbol(symbol):
             symbol_result['daily_rising']['period_status'] = symbol_result['period_status']
             symbol_result['daily_rising']['period_count'] = symbol_result['period_count']
 
-        logger.info(f"âœ… å®Œæˆåˆ†æžå¸ç§: {symbol}")
+        logger.info(f"7¼3 Íê³É·ÖÎö±ÒÖÖ: {symbol}")
         return symbol_result
     except Exception as e:
-        logger.error(f"âŒ å¤„ç†{symbol}æ—¶å‡ºé”™: {str(e)}")
+        logger.error(f"7Ã4 ´¦Àí{symbol}Ê±³ö´í: {str(e)}")
         logger.error(traceback.format_exc())
         return {
             'symbol': symbol,
@@ -536,14 +550,14 @@ def analyze_symbol(symbol):
 
 def analyze_trends():
     start_time = time.time()
-    logger.info("ðŸ” å¼€å§‹åˆ†æžå¸ç§è¶‹åŠ¿...")
+    logger.info("”9ä3 ¿ªÊ¼·ÖÎö±ÒÖÖÇ÷ÊÆ...")
     symbols = get_high_volume_symbols()
     
     if not symbols:
-        logger.warning("âš ï¸ æ²¡æœ‰æ‰¾åˆ°é«˜äº¤æ˜“é‡å¸ç§")
+        logger.warning("7²2„1‚5 Ã»ÓÐÕÒµ½¸ß½»Ò×Á¿±ÒÖÖ")
         return data_cache
 
-    logger.info(f"ðŸ” å¼€å§‹åˆ†æž {len(symbols)} ä¸ªå¸ç§")
+    logger.info(f"”9ä3 ¿ªÊ¼·ÖÎö {len(symbols)} ¸ö±ÒÖÖ")
 
     daily_rising = []
     short_term_active = []
@@ -569,18 +583,18 @@ def analyze_trends():
             if result.get('all_cycle_rising'):
                 all_cycle_rising.append(result['all_cycle_rising'])
         except Exception as e:
-            logger.error(f"âŒ å¤„ç†{symbol}æ—¶å‡ºé”™: {str(e)}")
+            logger.error(f"7Ã4 ´¦Àí{symbol}Ê±³ö´í: {str(e)}")
 
         if processed % max(1, total_symbols // 10) == 0 or processed == total_symbols:
-            logger.info(f"â³ åˆ†æžè¿›åº¦: {processed}/{total_symbols} ({int(processed/total_symbols*100)}%)")
+            logger.info(f"77 ·ÖÎö½ø¶È: {processed}/{total_symbols} ({int(processed/total_symbols*100)}%)")
 
     daily_rising.sort(key=lambda x: (x.get('period_count', 0), x.get('change', 0)), reverse=True)
     short_term_active.sort(key=lambda x: (x.get('period_count', 0), x.get('ratio', 0)), reverse=True)
     all_cycle_rising.sort(key=lambda x: (x.get('period_count', 0), x.get('change', 0)), reverse=True)
 
-    logger.info(f"ðŸ“Š åˆ†æžç»“æžœ: æ—¥çº¿ä¸Šæ¶¨ {len(daily_rising)}ä¸ª, çŸ­æœŸæ´»è·ƒ {len(short_term_active)}ä¸ª, å…¨éƒ¨å‘¨æœŸä¸Šæ¶¨ {len(all_cycle_rising)}ä¸ª")
+    logger.info(f"”9Ý6 ·ÖÎö½á¹û: ÈÕÏßÉÏÕÇ {len(daily_rising)}¸ö, ¶ÌÆÚ»îÔ¾ {len(short_term_active)}¸ö, È«²¿ÖÜÆÚÉÏÕÇ {len(all_cycle_rising)}¸ö")
     analysis_time = time.time() - start_time
-    logger.info(f"âœ… åˆ†æžå®Œæˆ: ç”¨æ—¶{analysis_time:.2f}ç§’")
+    logger.info(f"7¼3 ·ÖÎöÍê³É: ÓÃÊ±{analysis_time:.2f}Ãë")
 
     return {
         'daily_rising': daily_rising,
@@ -590,49 +604,51 @@ def analyze_trends():
     }
 
 def get_high_volume_symbols():
-    if not client:
+    # È·±£¿Í»§¶ËÒÑ³õÊ¼»¯
+    if client is None:
+        logger.warning("7²2„1‚5 Binance¿Í»§¶ËÎ´³õÊ¼»¯£¬³¢ÊÔÖØÐÂ³õÊ¼»¯")
         if not init_client():
-            logger.error("âŒ æ— æ³•è¿žæŽ¥API")
+            logger.error("7Ã4 ÎÞ·¨Á¬½ÓAPI")
             return []
 
     try:
-        logger.info("ðŸ“Š èŽ·å–é«˜äº¤æ˜“é‡å¸ç§...")
+        logger.info("”9Ý6 »ñÈ¡¸ß½»Ò×Á¿±ÒÖÖ...")
         tickers = client.futures_ticker()
         filtered = [
             t for t in tickers if float(t.get('quoteVolume', 0)) > 10000000
             and t.get('symbol', '').endswith('USDT')
         ]
-        logger.info(f"ðŸ“Š æ‰¾åˆ° {len(filtered)} ä¸ªé«˜äº¤æ˜“é‡å¸ç§")
-        logger.debug(f"ðŸ“Š å‰5ä¸ªå¸ç§: {[t['symbol'] for t in filtered[:5]]}")
+        logger.info(f"”9Ý6 ÕÒµ½ {len(filtered)} ¸ö¸ß½»Ò×Á¿±ÒÖÖ")
+        logger.debug(f"”9Ý6 Ç°5¸ö±ÒÖÖ: {[t['symbol'] for t in filtered[:5]]}")
         return [t['symbol'] for t in filtered]
     except Exception as e:
-        logger.error(f"âŒ èŽ·å–é«˜äº¤æ˜“é‡å¸ç§å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 »ñÈ¡¸ß½»Ò×Á¿±ÒÖÖÊ§°Ü: {str(e)}")
         logger.error(traceback.format_exc())
         return []
 
 def analysis_worker():
     global data_cache, current_data_cache
-    logger.info("ðŸ”§ æ•°æ®åˆ†æžçº¿ç¨‹å¯åŠ¨")
+    logger.info("”9æ9 Êý¾Ý·ÖÎöÏß³ÌÆô¶¯")
     init_db()
 
     initial_data = get_last_valid_data()
     if initial_data:
-        logger.info("ðŸ” åŠ è½½åŽ†å²æ•°æ®")
+        logger.info("”9ã1 ¼ÓÔØÀúÊ·Êý¾Ý")
         data_cache = initial_data
         current_data_cache = data_cache.copy()
-        logger.debug(f"ðŸ” åŠ è½½çš„æ•°æ®: {json.dumps(initial_data, indent=2)}")
+        logger.debug(f"”9ã1 ¼ÓÔØµÄÊý¾Ý: {json.dumps(initial_data, indent=2)}")
     else:
-        logger.info("ðŸ†• æ²¡æœ‰åŽ†å²æ•°æ®ï¼Œå°†è¿›è¡Œé¦–æ¬¡åˆ†æž")
+        logger.info("”9‹5 Ã»ÓÐÀúÊ·Êý¾Ý£¬½«½øÐÐÊ×´Î·ÖÎö")
 
     while True:
         try:
             task = analysis_queue.get()
             if task == "STOP":
-                logger.info("ðŸ›‘ æ”¶åˆ°åœæ­¢ä¿¡å·ï¼Œç»“æŸåˆ†æžçº¿ç¨‹")
+                logger.info("•0“5 ÊÕµ½Í£Ö¹ÐÅºÅ£¬½áÊø·ÖÎöÏß³Ì")
                 break
 
             analysis_start = datetime.now(timezone.utc)
-            logger.info(f"â±ï¸ å¼€å§‹æ›´æ–°æ•°æ® ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')})...")
+            logger.info(f"75„1‚5 ¿ªÊ¼¸üÐÂÊý¾Ý ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')})...")
 
             backup_cache = data_cache.copy()
             current_backup = current_data_cache.copy()
@@ -650,37 +666,37 @@ def analysis_worker():
                     "next_analysis_time": next_analysis_time.strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
-                logger.debug(f"ðŸ“Š åˆ†æžç»“æžœ: {json.dumps(new_data, indent=2)}")
+                logger.debug(f"”9Ý6 ·ÖÎö½á¹û: {json.dumps(new_data, indent=2)}")
 
                 data_cache = new_data
                 save_to_db(new_data)
                 current_data_cache = new_data.copy()
-                logger.info(f"âœ… æ•°æ®æ›´æ–°æˆåŠŸ")
+                logger.info(f"7¼3 Êý¾Ý¸üÐÂ³É¹¦")
             except Exception as e:
-                logger.error(f"âŒ åˆ†æžè¿‡ç¨‹ä¸­å‡ºé”™: {str(e)}")
+                logger.error(f"7Ã4 ·ÖÎö¹ý³ÌÖÐ³ö´í: {str(e)}")
                 logger.error(traceback.format_exc())
                 data_cache = backup_cache
                 current_data_cache = current_backup
-                logger.info("ðŸ”„ æ¢å¤åŽ†å²æ•°æ®")
+                logger.info("”9ã4 »Ö¸´ÀúÊ·Êý¾Ý")
 
             analysis_end = datetime.now(timezone.utc)
             analysis_duration = (analysis_end - analysis_start).total_seconds()
-            logger.info(f"â±ï¸ åˆ†æžè€—æ—¶: {analysis_duration:.2f}ç§’")
+            logger.info(f"75„1‚5 ·ÖÎöºÄÊ±: {analysis_duration:.2f}Ãë")
             
-            # è®°å½•ä¸‹ä¸€æ¬¡åˆ†æžæ—¶é—´
+            # ¼ÇÂ¼ÏÂÒ»´Î·ÖÎöÊ±¼ä
             next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
-            logger.info(f"â³ ä¸‹æ¬¡åˆ†æžå°†åœ¨ {wait_seconds:.1f} ç§’åŽ ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            logger.info(f"77 ÏÂ´Î·ÖÎö½«ÔÚ {wait_seconds:.1f} Ãëºó ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
             
             logger.info("=" * 50)
 
         except Exception as e:
-            logger.error(f"âŒ åˆ†æžå¤±è´¥: {str(e)}")
+            logger.error(f"7Ã4 ·ÖÎöÊ§°Ü: {str(e)}")
             logger.error(traceback.format_exc())
         analysis_queue.task_done()
 
 def schedule_analysis():
-    logger.info("â° å®šæ—¶åˆ†æžè°ƒåº¦å™¨å¯åŠ¨")
+    logger.info("74 ¶¨Ê±·ÖÎöµ÷¶ÈÆ÷Æô¶¯")
     now = datetime.now(timezone.utc)
     current_minute = now.minute
     next_minute = ((current_minute // 5) + 1) * 5
@@ -691,12 +707,12 @@ def schedule_analysis():
         next_time = now.replace(minute=next_minute, second=0, microsecond=0)
 
     initial_wait = (next_time - now).total_seconds()
-    logger.info(f"â³ é¦–æ¬¡åˆ†æžå°†åœ¨ {initial_wait:.1f} ç§’åŽå¼€å§‹ ({next_time.strftime('%Y-%m-%d %H:%M:%S')})...")
+    logger.info(f"77 Ê×´Î·ÖÎö½«ÔÚ {initial_wait:.1f} Ãëºó¿ªÊ¼ ({next_time.strftime('%Y-%m-%d %H:%M:%S')})...")
     time.sleep(initial_wait)
 
     while True:
         analysis_start = datetime.now(timezone.utc)
-        logger.info(f"ðŸ”” è§¦å‘å®šæ—¶åˆ†æžä»»åŠ¡ ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')})")
+        logger.info(f"”9å0 ´¥·¢¶¨Ê±·ÖÎöÈÎÎñ ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')})")
         analysis_queue.put("ANALYZE")
         analysis_queue.join()
 
@@ -716,107 +732,111 @@ def schedule_analysis():
             wait_time = 0
         elif analysis_duration > 240:
             wait_time = 0
-            logger.warning("âš ï¸ åˆ†æžè€—æ—¶è¿‡é•¿ï¼Œç«‹å³å¼€å§‹ä¸‹ä¸€æ¬¡åˆ†æž")
+            logger.warning("7²2„1‚5 ·ÖÎöºÄÊ±¹ý³¤£¬Á¢¼´¿ªÊ¼ÏÂÒ»´Î·ÖÎö")
         elif wait_time > 300:
             adjusted_wait = max(60, wait_time - 120)
-            logger.info(f"â³ è°ƒæ•´ç­‰å¾…æ—¶é—´: {wait_time:.1f}ç§’ -> {adjusted_wait:.1f}ç§’")
+            logger.info(f"77 µ÷ÕûµÈ´ýÊ±¼ä: {wait_time:.1f}Ãë -> {adjusted_wait:.1f}Ãë")
             wait_time = adjusted_wait
 
-        logger.info(f"â³ ä¸‹æ¬¡åˆ†æžå°†åœ¨ {wait_time:.1f} ç§’åŽ ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
+        logger.info(f"77 ÏÂ´Î·ÖÎö½«ÔÚ {wait_time:.1f} Ãëºó ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
 
-# APIè·¯ç”±
+# APIÂ·ÓÉ
 @app.route('/')
 def index():
     try:
-        logger.debug("ðŸŒ å¤„ç†é¦–é¡µè¯·æ±‚")
+        logger.debug("”9±4 ´¦ÀíÊ×Ò³ÇëÇó")
         static_path = app.static_folder
         if static_path is None:
-            return "é™æ€æ–‡ä»¶è·¯å¾„æœªé…ç½®", 500
+            return "¾²Ì¬ÎÄ¼þÂ·¾¶Î´ÅäÖÃ", 500
 
         index_path = os.path.join(static_path, 'index.html')
         if not os.path.exists(index_path):
             return "index.html not found", 404
         return send_from_directory(static_path, 'index.html', mimetype='text/html')
     except Exception as e:
-        logger.error(f"âŒ å¤„ç†é¦–é¡µè¯·æ±‚å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 ´¦ÀíÊ×Ò³ÇëÇóÊ§°Ü: {str(e)}")
         return "Internal Server Error", 500
 
 @app.route('/static/<path:filename>')
 def static_files(filename):
     try:
-        logger.debug(f"ðŸ“ è¯·æ±‚é™æ€æ–‡ä»¶: {filename}")
+        logger.debug(f"”9Ü7 ÇëÇó¾²Ì¬ÎÄ¼þ: {filename}")
         static_path = app.static_folder
         if static_path is None:
-            return "é™æ€æ–‡ä»¶è·¯å¾„æœªé…ç½®", 500
+            return "¾²Ì¬ÎÄ¼þÂ·¾¶Î´ÅäÖÃ", 500
 
         return send_from_directory(static_path, filename)
     except Exception as e:
-        logger.error(f"âŒ å¤„ç†é™æ€æ–‡ä»¶è¯·æ±‚å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 ´¦Àí¾²Ì¬ÎÄ¼þÇëÇóÊ§°Ü: {str(e)}")
         return "File not found", 404
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
     global current_data_cache
     try:
-        logger.debug("ðŸ“¡ è¯·æ±‚/api/data")
+        logger.debug("”9ß9 ÇëÇó/api/data")
         data = {
-            'last_updated': current_data_cache['last_updated'] or "",
-            'daily_rising': current_data_cache['daily_rising'] or [],
-            'short_term_active': current_data_cache['short_term_active'] or [],
-            'all_cycle_rising': current_data_cache['all_cycle_rising'] or [],
+            'last_updated': current_data_cache.get('last_updated', "") or "",
+            'daily_rising': current_data_cache.get('daily_rising', []) or [],
+            'short_term_active': current_data_cache.get('short_term_active', []) or [],
+            'all_cycle_rising': current_data_cache.get('all_cycle_rising', []) or [],
             'analysis_time': current_data_cache.get('analysis_time', 0),
-            'next_analysis_time': current_data_cache.get('next_analysis_time', "")
+            'next_analysis_time': current_data_cache.get('next_analysis_time', "") or ""
         }
-        logger.debug(f"ðŸ“¡ è¿”å›žæ•°æ®: {json.dumps(data, indent=2)}")
+        logger.debug(f"”9ß9 ·µ»ØÊý¾Ý: {json.dumps(data, indent=2)}")
         return jsonify(data)
     except Exception as e:
-        logger.error(f"âŒ èŽ·å–æ•°æ®å¤±è´¥: {str(e)}")
+        logger.error(f"7Ã4 »ñÈ¡Êý¾ÝÊ§°Ü: {str(e)}")
         last_data = get_last_valid_data()
         if last_data:
             return jsonify(last_data)
         return jsonify({'error': str(e)}), 500
 
-# é˜»åŠ›ä½APIç«¯ç‚¹
+# ×èÁ¦Î»API¶Ëµã
 @app.route('/api/resistance_levels/<symbol>', methods=['GET'])
 def get_resistance_levels(symbol):
     try:
-        # éªŒè¯å¸ç§æ ¼å¼
+        # ÑéÖ¤±ÒÖÖ¸ñÊ½
         if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
-            logger.warning(f"âš ï¸ æ— æ•ˆçš„å¸ç§åç§°: {symbol}")
+            logger.warning(f"7²2„1‚5 ÎÞÐ§µÄ±ÒÖÖÃû³Æ: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
-        logger.info(f"ðŸ“Š èŽ·å–é˜»åŠ›ä½æ•°æ®: {symbol}")
+        logger.info(f"”9Ý6 »ñÈ¡×èÁ¦Î»Êý¾Ý: {symbol}")
         levels = calculate_resistance_levels(symbol)
         
         if not levels:
-            logger.warning(f"âš ï¸ æœªæ‰¾åˆ°é˜»åŠ›ä½æ•°æ®: {symbol}")
+            logger.warning(f"7²2„1‚5 Î´ÕÒµ½×èÁ¦Î»Êý¾Ý: {symbol}")
             return jsonify({'error': 'Resistance levels not found'}), 404
             
         return jsonify(levels)
     except Exception as e:
-        logger.error(f"âŒ èŽ·å–é˜»åŠ›ä½æ•°æ®å¤±è´¥: {symbol}, {str(e)}")
+        logger.error(f"7Ã4 »ñÈ¡×èÁ¦Î»Êý¾ÝÊ§°Ü: {symbol}, {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
-# å¥åº·æ£€æŸ¥ç«¯ç‚¹
+# ½¡¿µ¼ì²é¶Ëµã
 @app.route('/health', methods=['GET'])
 def health_check():
     try:
-        # æ£€æŸ¥æ•°æ®åº“è¿žæŽ¥
+        # ¼ì²éÊý¾Ý¿âÁ¬½Ó
         conn = sqlite3.connect('data.db')
         c = conn.cursor()
         c.execute("SELECT 1")
         conn.close()
         
-        # æ£€æŸ¥Binanceè¿žæŽ¥
+        # ¼ì²éBinanceÁ¬½Ó
+        binance_status = 'ok'
         if client:
-            client.get_server_time()
+            try:
+                client.get_server_time()
+            except:
+                binance_status = 'error'
         
         return jsonify({
             'status': 'healthy',
             'database': 'ok',
-            'binance': 'ok',
+            'binance': binance_status,
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
             'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
             'worker_alive': threading.current_thread().is_alive()
@@ -828,26 +848,26 @@ def health_check():
         }), 500
 
 def start_background_threads():
-    # ç¡®ä¿é™æ€æ–‡ä»¶å¤¹å­˜åœ¨
+    # È·±£¾²Ì¬ÎÄ¼þ¼Ð´æÔÚ
     static_path = app.static_folder
     if not os.path.exists(static_path):
         os.makedirs(static_path)
     
-    # ç¡®ä¿ index.html å­˜åœ¨
+    # È·±£ index.html ´æÔÚ
     index_path = os.path.join(static_path, 'index.html')
     if not os.path.exists(index_path):
         with open(index_path, 'w') as f:
-            f.write("<html><body><h1>è¯·å°†å‰ç«¯æ–‡ä»¶æ”¾å…¥staticç›®å½•</h1></body></html>")
+            f.write("<html><body><h1>Çë½«Ç°¶ËÎÄ¼þ·ÅÈëstaticÄ¿Â¼</h1></body></html>")
     
-    # åˆå§‹åŒ–æ•°æ®åº“
+    # ³õÊ¼»¯Êý¾Ý¿â
     init_db()
     
-    # åˆå§‹åŒ–å®¢æˆ·ç«¯
+    # ³õÊ¼»¯¿Í»§¶Ë
     if not init_client():
-        logger.critical("âŒ æ— æ³•åˆå§‹åŒ–å®¢æˆ·ç«¯")
+        logger.critical("7Ã4 ÎÞ·¨³õÊ¼»¯¿Í»§¶Ë")
         return False
     
-    # å¯åŠ¨åŽå°çº¿ç¨‹
+    # Æô¶¯ºóÌ¨Ïß³Ì
     worker_thread = threading.Thread(target=analysis_worker, name="AnalysisWorker")
     worker_thread.daemon = True
     worker_thread.start()
@@ -856,20 +876,20 @@ def start_background_threads():
     scheduler_thread.daemon = True
     scheduler_thread.start()
     
-    logger.info("âœ… åŽå°çº¿ç¨‹å¯åŠ¨æˆåŠŸ")
+    logger.info("7¼3 ºóÌ¨Ïß³ÌÆô¶¯³É¹¦")
     return True
 
 if __name__ == '__main__':
     PORT = int(os.environ.get("PORT", 9600))
     
     logger.info("=" * 50)
-    logger.info(f"ðŸš€ å¯åŠ¨åŠ å¯†è´§å¸æŒä»“é‡åˆ†æžæœåŠ¡")
-    logger.info(f"ðŸ”‘ APIå¯†é’¥: {API_KEY[:5]}...{API_KEY[-3:]}")
-    logger.info(f"ðŸŒ æœåŠ¡ç«¯å£: {PORT}")
+    logger.info(f"•0‹4 Æô¶¯¼ÓÃÜ»õ±Ò³Ö²ÖÁ¿·ÖÎö·þÎñ")
+    logger.info(f"”9ä7 APIÃÜÔ¿: {API_KEY[:5]}...{API_KEY[-3:]}")
+    logger.info(f"”9±4 ·þÎñ¶Ë¿Ú: {PORT}")
     logger.info("=" * 50)
     
     if start_background_threads():
-        logger.info("ðŸš€ å¯åŠ¨æœåŠ¡å™¨...")
+        logger.info("•0‹4 Æô¶¯·þÎñÆ÷...")
         app.run(host='0.0.0.0', port=PORT, debug=False)
     else:
-        logger.error("âŒ æœåŠ¡å¯åŠ¨å¤±è´¥")
+        logger.error("7Ã4 ·þÎñÆô¶¯Ê§°Ü")
