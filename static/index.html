@@ -17,7 +17,7 @@
             justify-content: space-between; 
             align-items: center; 
             padding: 15px; 
-            background: #1a1a1a; 
+            background: #1a1a极速赛车开奖网
             border-radius: 12px; 
             margin-bottom: 15px; 
             border: 1px solid #2a2a2a; 
@@ -117,7 +117,273 @@
         .query-input {
             flex: 1;
             padding: 8px 12px;
-            border-radius: 6极速赛车开奖网
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #333;
+            color: #fff;
+            font-size: 14px;
+        }
+        .query-btn {
+            background: #3498db;
+            border: none;
+            color: #fff;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .query-btn:hover {
+            background: #2980b9;
+        }
+        .query-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .resistance-result {
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+        .resistance-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .resistance-table th, .resistance-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        .resistance-table th {
+            background: #2a2a2a;
+            color: #ffcc00;
+            font-weight: bold;
+        }
+        .resistance-values {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .value-item {
+            padding: 3px 0;
+        }
+        .resistance-period {
+            min-width: 50px;
+        }
+        .resistance-value {
+            color: #ff6b6b;
+        }
+        .support-value {
+            color: #4cd97b;
+        }
+        .expanded {
+            display: block;
+        }
+        .collapsed {
+            display: none;
+        }
+
+        .list-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .list {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid #2a2a2a;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .list-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .list-desc {
+            font-size: 12px;
+            color: #aaaaaa;
+            margin-bottom: 10px;
+        }
+        .coin-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .coin-item {
+            background: #222;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+        }
+        .coin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .coin-info {
+            flex: 1;
+        }
+        .coin-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffcc00;
+        }
+        .symbol-usdt {
+            font-size: 12px;
+            color: #aaaaaa;
+        }
+        .coin-details {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+            font-size: 12px;
+        }
+        .coin-oi {
+            color: #aaaaaa;
+        }
+        .coin-change {
+            font-weight: bold;
+        }
+        .positive {
+            color: #4cd97b;
+        }
+        .negative {
+            color: #ff6b6b;
+        }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+        .chart-btn {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .resistance-btn {
+            background: #9b59b6;
+            color: #fff;
+        }
+        .resistance-btn:hover {
+            background: #8e44ad;
+        }
+        .resistance-btn.active {
+            background: #8e44ad;
+            box-shadow: 0 0 0 2px #9b59b6;
+        }
+        .chart-btn:hover {
+            opacity: 0.9;
+        }
+        .period-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .status-tag {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .status-up {
+            background: rgba(76, 217, 123, 0.2);
+            color: #4cd97b;
+            border: 1px solid #4cd97b;
+        }
+        .status-down {
+            background: rgba(255, 107, 107, 0.2);
+            color: #ff6b6b;
+            border: 1px solid #ff6b6b;
+        }
+        .status-tag.active {
+            box-shadow: 0 0 0 2px #3498db;
+        }
+        .chart-container {
+            position: relative;
+            background: #121212;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #333;
+        }
+        .close-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #ff6b6b;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+        }
+        .chart-header {
+            text-align: center;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 10px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #aaaaaa;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .empty-list {
+            text-align: center;
+            padding: 20px;
+            color: #aaaaaa;
+        }
+        .error {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        .status-bar {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid #3498db;
+            color: #3498db;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
     <div id="app" class="container">
         <div class="header">
             <div class="header-content">
@@ -137,10 +403,7 @@
                             <span class="info-value">{{ nextAnalysisTime || '计算中...' }}</span>
                         </div>
                         <div v-if="analysisTime > 0" class="info-row">
-                            <span class="info-label">分析耗时:</span>
-                            <span class="info-value">{{ analysisTime.toFixed(2) }}秒</span>
-                        </div>
-                    </div>
+                            <span class极速赛车开奖网
                 </div>
 
                 <!-- 阻力位查询区域 -->
@@ -310,7 +573,219 @@
                                             </td>
                                             <td class="support-value">
                                                 <div class="resistance-values">
-                                                    <div v-for="(level, idx) in levels.support" :key="'support'+极速赛车开奖网
+                                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
+                                                        {{ level ? level.toFixed(4) : '-' }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日线上涨 -->
+            <div class="list">
+                <div class="list-title" @click="toggleList('dailyRising')">
+                    日线上涨 ({{ filteredDailyRising.length }})
+                    <span class="toggle-icon">{{ lists.dailyRising ? '▲' : '▼' }}</span>
+                </div>
+                <div class="list-desc">(不包含全周期上涨的币种)</div>
+                <div class="coin-list" v-if="lists.dailyRising">
+                    <div v-if="loading && filteredDailyRising.length === 0" class="loading">
+                        <span class="loading-spinner"></span>分析中...
+                    </div>
+                    <div v-else-if="filteredDailyRising.length === 0" class="empty-list">暂无数据</div>
+                    <div v-for="coin in filteredDailyRising" :key="coin.symbol + 'daily'">
+                        <div class="coin-item">
+                            <div class="coin-header">
+                                <div class="coin-info">
+                                    <div class="coin-name">
+                                        {{ formatSymbol(coin.symbol) }}
+                                        <span class="symbol-usdt">USDT</span>
+                                    </div>
+                                    <div class="coin-details">
+                                        <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
+                                        <span class="coin-change positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                    </div>
+                                </div>
+                                <div class="btn-group">
+                                    <button 
+                                        class="chart-btn resistance-btn" 
+                                        :class="{'active': activeResistance === coin.symbol}"
+                                        @click="toggleResistance(coin.symbol)">
+                                        阻力位/支撑位
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 趋势状态标签 -->
+                            <div class="period-status">
+                                <span v-for="period in periods" 
+                                      :key="period" 
+                                      class="status-tag"
+                                      :class="{
+                                          'status-up': coin.period_status[period], 
+                                          'status-down': !coin.period_status[period],
+                                          'active': activeOiChart.symbol === coin.symbol && activeOiChart.period === period
+                                      }"
+                                      @click="toggleOiChart(coin.symbol, period)">
+                                    {{ period }}
+                                </span>
+                            </div>
+
+                            <!-- 持仓量图表容器 -->
+                            <div v-if="activeOiChart.symbol === coin.symbol" class="chart-container" :data-chart-id="getChartId(coin.symbol, activeOiChart.period)">
+                                <button class="close-btn" @click="closeOiChart">×</button>
+                                <div class="chart-header">{{ activeOiChart.period }}持仓量走势图</div>
+                                <div v-if="chartLoading[getChartId(coin.symbol, activeOiChart.period)]" class="chart-loading">
+                                    加载图表中...
+                                </div>
+                                <canvas :id="'oiChart-' + getChartId(coin.symbol, activeOiChart.period)"></canvas>
+                            </div>
+
+                            <!-- 阻力位/支撑位展示 -->
+                            <div v-if="activeResistance === coin.symbol" class="resistance-levels">
+                                <div class="resistance-title">
+                                    <span>阻力位/支撑位分析</span>
+                                </div>
+                                <table class="resistance-table">
+                                    <thead>
+                                        <tr>
+                                            <th>时间周期</th>
+                                            <th>阻力位</th>
+                                            <th>支撑位</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(levels, interval) in sortedResistanceLevels(coin.symbol)" :key="interval">
+                                            <td class="resistance-period">{{ interval }}</td>
+                                            <td class="resistance-value">
+                                                <div class="resistance-values">
+                                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
+                                                        {{ level ? level.toFixed(4) : '-' }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="support-value">
+                                                <div class="resistance-values">
+                                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
+                                                        {{ level ? level.toFixed(4) : '-' }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 短期活跃 -->
+            <div class="list">
+                <div class="list-title" @click="toggleList('shortTermActive')">
+                    短期活跃 ({{ shortTermActive.length }})
+                    <span class="toggle-icon">{{ lists.shortTermActive ? '▲' : '▼' }}</span>
+                </div>
+                <div class="list-desc">(5分钟持仓量异常活跃)</div>
+                <div class="coin-list" v-if="lists.shortTermActive">
+                    <div v-if="loading && shortTermActive.length === 0" class="loading">
+                        <span class="loading-spinner"></span>分析中...
+                    </div>
+                    <div v-else-if="shortTermActive.length === 0" class="empty-list">暂无数据</div>
+                    <div v-for="coin in shortTermActive" :key="coin.symbol + 'short'">
+                        <div class="coin-item">
+                            <div class="coin-header">
+                                <div class="coin-info">
+                                    <div class="coin-name">
+                                        {{ formatSymbol(coin.symbol) }}
+                                        <span class="symbol-usdt">USDT</span>
+                                    </div>
+                                    <div class="coin-details">
+                                        <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
+                                        <span class="coin-change">活跃比: {{ coin.ratio }}x</span>
+                                    </div>
+                                </div>
+                                <div class="btn-group">
+                                    <button 
+                                        class="chart-btn resistance-btn" 
+                                        :class="{'active': activeResistance === coin.symbol}"
+                                        @click="toggleResistance(coin.symbol)">
+                                        阻力位/支撑位
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 趋势状态标签 -->
+                            <div class="period-status">
+                                <span v-for="period in periods" 
+                                      :key="period" 
+                                      class="status-tag"
+                                      :class="{
+                                          'status-up': coin.period_status[period], 
+                                          'status-down': !coin.period_status[period],
+                                          'active': activeOiChart.symbol === coin.symbol && activeOiChart.period === period
+                                      }"
+                                      @click="toggleOiChart(coin.symbol, period)">
+                                    {{ period }}
+                                </span>
+                            </div>
+
+                            <!-- 持仓量图表容器 -->
+                            <div v-if="activeOiChart.symbol === coin.symbol" class="chart-container" :data-chart-id="getChartId(coin.symbol, activeOiChart.period)">
+                                <button class="close-btn" @click="closeOiChart">×</button>
+                                <div class="chart-header">{{ activeOiChart.period }}持仓量走势图</div>
+                                <div v-if="chartLoading[getChartId(coin.symbol, activeOiChart.period)]" class="chart-loading">
+                                    加载图表中...
+                                </div>
+                                <canvas :id="'oiChart-' + getChartId(coin.symbol, activeOiChart.period)"></canvas>
+                            </div>
+
+                            <!-- 阻力位/支撑位展示 -->
+                            <div v-if="activeResistance === coin.symbol" class="resistance-levels">
+                                <div class="resistance-title">
+                                    <span>阻力位/支撑位分析</span>
+                                </div>
+                                <table class="resistance-table">
+                                    <thead>
+                                        <tr>
+                                            <th>时间周期</th>
+                                            <th>阻力位</th>
+                                            <th>支撑位</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(levels, interval) in sortedResistanceLevels(coin.symbol)" :key="interval">
+                                            <td class="resistance-period">{{ interval }}</td>
+                                            <td class="resistance-value">
+                                                <div class="resistance-values">
+                                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
+                                                        {{ level ? level.toFixed(4) : '-' }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="support-value">
+                                                <div class="resistance-values">
+                                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
+                                                        {{ level ? level.toFixed(4) : '-' }}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             try {
@@ -618,7 +1093,9 @@
                             this.activeOiChart = {
                                 symbol: null,
                                 period: null,
-                                chart极速赛车开奖网
+                                chartId: null
+                            };
+                        },
                         loadOiChartData(symbol, period, chartId) {
                             const cacheKey = `${symbol}-${period}-oi`;
 
@@ -629,7 +1106,10 @@
                             }
 
                             // 取消之前的请求
-                            if (this.requestQueue[chart极速赛车开奖网
+                            if (this.requestQueue[chartId]) {
+                                clearTimeout(this.requestQueue[chartId]);
+                            }
+
                             this.requestQueue[chartId] = setTimeout(() => {
                                 // 使用新的API端点
                                 axios.get(`/api/oi_chart/${symbol}/${period}`, { 
