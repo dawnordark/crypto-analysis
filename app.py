@@ -278,7 +278,7 @@ def get_next_update_time(period):
 def get_open_interest(symbol, period, use_cache=True):
     try:
         # 更宽松的币种格式验证 (允许数字和更短的代码)
-        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+        if not re.match(r"^[A-Z0-9]{1,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
