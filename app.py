@@ -13,21 +13,44 @@ import threading
 import queue
 import logging
 import traceback
+import urllib3
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory, request
 from binance.client import Client
 
-# 设置更详细的日志级别
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG').upper()
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('app.log')
-    ]
-)
+# 禁用不必要的警告
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# 设置日志级别 (默认改为INFO)
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
+# 获取根记录器并设置级别
+root_logger = logging.getLogger()
+root_logger.setLevel(getattr(logging, LOG_LEVEL))
+
+# 降低第三方库日志级别
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("binance").setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.WARNING)
+
+# 创建控制台处理器
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(getattr(logging, LOG_LEVEL))
+
+# 创建文件处理器
+file_handler = logging.FileHandler('app.log')
+file_handler.setLevel(getattr(logging, LOG_LEVEL))
+
+# 创建格式器
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+# 添加处理器
+root_logger.addHandler(console_handler)
+root_logger.addHandler(file_handler)
+
 logger = logging.getLogger(__name__)
 logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 
@@ -254,8 +277,8 @@ def get_next_update_time(period):
 
 def get_open_interest(symbol, period, use_cache=True):
     try:
-        # 验证币种格式
-        if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
+        # 更宽松的币种格式验证 (允许数字和更短的代码)
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': [], 'cache_time': datetime.now(timezone.utc).isoformat()}
 
@@ -449,7 +472,7 @@ def analyze_symbol(symbol):
         logger.debug(f"📊 获取日线持仓量: {symbol}")
         daily_oi = get_open_interest(symbol, '1d', use_cache=True)
         symbol_result['oi_data']['1d'] = daily_oi
-        daily_series = daily_oi['series']
+        daily_series = daily_oi['series'] if daily_oi and 'series' in daily_oi else []
         
         logger.debug(f"📊 日线持仓量数据长度: {len(daily_series)}")
 
@@ -482,7 +505,7 @@ def analyze_symbol(symbol):
                     logger.debug(f"📊 分析周期: {period}")
                     oi_data = get_open_interest(symbol, period, use_cache=True)
                     symbol_result['oi_data'][period] = oi_data
-                    oi_series = oi_data['series']
+                    oi_series = oi_data['series'] if oi_data and 'series' in oi_data else []
                     
                     if len(oi_series) < 30:
                         logger.debug(f"📊 数据不足: {symbol} {period}只有{len(oi_series)}个点")
@@ -513,9 +536,15 @@ def analyze_symbol(symbol):
         # 4. 短期活跃度分析
         logger.debug(f"📊 分析短期活跃度: {symbol}")
         min5_oi = get_open_interest(symbol, '5m', use_cache=True)
-        symbol_result['oi_data']['5m'] = min5_oi
-        min5_series = min5_oi['series']
         
+        # 添加空数据检查
+        if not min5_oi or not min5_oi.get('series'):
+            logger.warning(f"⚠️ {symbol} 5m持仓量数据为空，跳过短期活跃度分析")
+            min5_series = []
+        else:
+            min5_series = min5_oi['series']
+            symbol_result['oi_data']['5m'] = min5_oi
+
         if len(min5_series) >= 30 and len(daily_series) >= 30:
             min5_max = max(min5_series[-30:])
             daily_avg = sum(daily_series[-30:]) / 30
@@ -801,7 +830,7 @@ def get_data():
 def get_resistance_levels(symbol):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z]{3,15}USDT$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
