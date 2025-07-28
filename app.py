@@ -329,7 +329,7 @@ def analyze_symbol(symbol):
                 oi_data = get_open_interest(symbol, period)
                 oi_series = oi_data.get('series', [])
                 
-                # 修复：确保正确计算周期数量
+                # 确保正确计算周期数量
                 status = len(oi_series) >= 30 and is_latest_highest(oi_series)
                 symbol_result['period_status'][period] = status
                 
@@ -671,7 +671,7 @@ def get_oi_chart_data(symbol, period):
             return jsonify({'error': 'Invalid symbol format'}), 400
 
         if period not in PERIOD_MINUTES:
-            logger.warning(f"⚠️ 不支持的周期: {period}")
+            logger.warning(f"⚠ 不支持的周期: {period}")
             return jsonify({'error': 'Unsupported period'}), 400
 
         logger.info(f"📈 获取持仓量图表数据: symbol={symbol}, period={period}")
