@@ -7,219 +7,168 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
-        body { background-color: #0a0a0a; color: #ffffff; padding: 15px; line-height: 1.6; font-size: 14px; }
-        .container { max-width: 100%; margin: 0 auto; }
-
-        .header { 
-            display: flex; 
-            flex-wrap: wrap; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 15px; 
-            background: #1a1a1a; 
-            border-radius: 12px; 
-            margin-bottom: 15px; 
-            border: 1px solid #2a2a2a; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background-color: #0a0e17; 
+            color: #eaecef; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 15px;
+            line-height: 1.6;
         }
-        .header-content {
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* 币安风格配色 */
+        :root {
+            --binance-yellow: #f0b90b;
+            --binance-blue: #1e2026;
+            --binance-dark: #0a0e17;
+            --binance-gray: #2b2f36;
+            --binance-light-gray: #474d57;
+            --binance-green: #03a66d;
+            --binance-red: #cf304a;
+        }
+
+        /* 标题区域 */
+        .header { 
+            background: var(--binance-blue); 
+            border-radius: 12px; 
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid var(--binance-gray);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            width: 100%;
-            flex-wrap: wrap;
-            gap: 15px;
         }
-        .title-section {
-            flex: 1;
+        .title-section h1 { 
+            font-size: 24px; 
+            color: var(--binance-yellow);
+            margin-bottom: 5px;
         }
-        .header h1 { 
-            font-size: 20px; 
-            margin-bottom: 5极速赛车开奖网
-            color: #ffcc00; 
-            text-align: left;
-        }
-        .status-messages {
-            width: 100%;
-            margin-top: 10px;
-        }
-        .time-info { 
-            font-size: 12px; 
-            color: #aaaaaa; 
-            line-height: 1.4;
-        }
-        .info-row {
-            display: flex;
-            gap: 15px;
-            margin-top: 5px;
-        }
-        .info-label {
-            color: #888888;
-        }
-        .info-value {
-            color: #cccccc;
-        }
-        .refresh-section {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
+        .time-info {
+            font-size: 13px;
+            color: #9aa1ab;
         }
         .refresh-btn { 
-            background: #ffcc00;
+            background: var(--binance-yellow);
             border: none; 
-            color: #333; 
-            padding: 8px 20px; 
+            color: #1e2026; 
+            padding: 10px 20px; 
             border-radius: 6px; 
             cursor: pointer; 
-            font-weight: bold; 
-            transition: all 0.3s ease; 
-            font-size: 14px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-weight: bold;
+            font-size: 14px;
+            transition: background 0.2s;
             min-width: 120px;
-            text-align: center;
         }
-        .refresh-btn:hover { 
-            background: #e6b800;
-        }
-        .refresh-btn:active { 
-            transform: translateY(2px); 
-        }
+        .refresh-btn:hover { background: #e6ac00; }
         .refresh-btn:disabled { 
-            background: #444444; 
+            background: #474d57; 
             cursor: not-allowed; 
-            color: #999999;
-            box-shadow: none;
+            color: #9aa1ab;
         }
 
         /* 阻力位查询区域 */
         .resistance-query {
-            flex: 1;
-            min-width: 300px;
-            padding: 10px;
-            background: #222;
-            border-radius: 8px;
-            border: 1px solid #333;
+            background: var(--binance-blue);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid var(--binance-gray);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
-        .resistance-title {
-            color: #ffcc00;
-            font-weight: bold;
-            margin-bottom: 8px;
+        .resistance-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 15px;
             cursor: pointer;
         }
-        .query-form {
+        .resistance-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--binance-yellow);
+        }
+        .toggle-icon {
+            font-size: 20px;
+            color: #9aa1ab;
+        }
+        .query-container {
             display: flex;
             gap: 10px;
+            margin-bottom: 15px;
         }
         .query-input {
             flex: 1;
-            padding: 8px 12px;
+            padding: 10px 15px;
             border-radius: 6px;
-            border: 1px solid #444;
-            background: #333;
-            color: #fff;
+            border: 1px solid var(--binance-gray);
+            background: #1c1f26;
+            color: #eaecef;
             font-size: 14px;
         }
         .query-btn {
-            background: #3498db;
+            background: #2b2f36;
             border: none;
-            color: #fff;
-            padding: 8px 15px;
+            color: #eaecef;
+            padding: 10px 20px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            transition: all 0.3s ease;
+            transition: background 0.2s;
         }
-        .query-btn:hover {
-            background: #2980b9;
-        }
-        .query-btn:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
-        .resistance-result {
-            margin-top: 15px;
-            overflow-x: auto;
-        }
-        .resistance-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        .resistance-table th, .resistance-table td {
-            padding: 8px 10px;
-            text-align: left;
-            border-bottom: 1px solid #333;
-        }
-        .resistance-table th {
-            background: #2a2a2a;
-            color: #ffcc00;
-            font-weight: bold;
-        }
-        .resistance-values {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .value-item {
-            padding: 3px 0;
-        }
-        .resistance-period {
-            min-width: 50px;
-        }
-        .resistance-value {
-            color: #ff6b6b;
-        }
-        .support-value {
-            color: #4cd97b;
-        }
-        .expanded {
-            display: block;
-        }
-        .collapsed {
-            display: none;
-        }
+        .query-btn:hover { background: #474d57; }
 
+        /* 列表容器 */
         .list-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
         }
         .list {
-            background: #1a1a1a;
+            background: var(--binance-blue);
             border-radius: 12px;
-            padding: 15px;
-            border: 1px solid #2a2a2a;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            padding: 20px;
+            border: 1px solid var(--binance-gray);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
-        .list-title {
-            font-size: 16px;
-            font-weight: bold;
-            color: #3498db;
-            margin-bottom: 8px;
-            cursor: pointer;
+        .list-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+        .list-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #eaecef;
+        }
+        .count-badge {
+            background: var(--binance-yellow);
+            color: #1e2026;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
         }
         .list-desc {
-            font-size: 12px;
-            color: #aaaaaa;
-            margin-bottom: 10px;
+            font-size: 13px;
+            color: #9aa1ab;
+            margin-bottom: 15px;
         }
+
+        /* 币种项目 */
         .coin-list {
             max-height: 600px;
             overflow-y: auto;
         }
         .coin-item {
-            background: #222;
+            background: #1c1f26;
             border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #333;
+            padding: 15px;
+            margin-bottom: 12px;
+            border: 1px solid var(--binance-gray);
         }
         .coin-header {
             display: flex;
@@ -227,363 +176,278 @@
             align-items: center;
             margin-bottom: 10px;
         }
-        .coin-info {
-            flex: 1;
-        }
         .coin-name {
             font-size: 16px;
             font-weight: bold;
-            color: #ffcc00;
+            color: var(--binance-yellow);
         }
         .symbol-usdt {
             font-size: 12px;
-            color: #aaaaaa;
+            color: #9aa1ab;
+            margin-left: 5px;
         }
-        .coin-details {
+        .coin-stats {
             display: flex;
-            gap: 10px;
-            margin-top: 5px;
-            font-size: 12px;
+            gap: 15px;
+            font-size: 13px;
         }
-        .coin-oi {
-            color: #aaaaaa;
+        .stat-label {
+            color: #9aa1ab;
         }
-        .coin-change {
+        .stat-value {
             font-weight: bold;
         }
-        .positive {
-            color: #4cd97b;
-        }
-        .negative {
-            color: #ff6b6b;
-        }
+        .positive { color: var(--binance-green); }
+        .negative { color: var(--binance-red); }
+
+        /* 按钮组 */
         .btn-group {
             display: flex;
             gap: 8px;
         }
-        .chart-btn {
-            padding: 5px 10px;
+        .action-btn {
+            padding: 6px 12px;
             border-radius: 4px;
             border: none;
             cursor: pointer;
             font-size: 12px;
             font-weight: bold;
-            transition: all 0.3s ease;
+            background: #2b2f36;
+            color: #eaecef;
+            transition: background 0.2s;
         }
-        .resistance-btn {
-            background: #9b59b6;
-            color: #fff;
+        .action-btn:hover {
+            background: #474d57;
         }
-        .resistance-btn:hover {
-            background: #8e44ad;
+        .action-btn.active {
+            background: var(--binance-yellow);
+            color: #1e2026;
         }
-        .resistance-btn.active {
-            background: #8e44ad;
-            box-shadow: 0 0 0 2px #9b59b6;
-        }
-        .chart-btn:hover {
-            opacity: 0.9;
-        }
+
+        /* 状态标签 */
         .period-status {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 10px;
+            gap: 8px;
+            margin-top: 15px;
         }
         .status-tag {
-            padding: 4px 8px;
+            padding: 5px 10px;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: bold;
-            cursor: pointer;
+            background: rgba(43, 47, 54, 0.5);
+            border: 1px solid var(--binance-gray);
         }
         .status-up {
-            background: rgba(76, 217, 123, 0.2);
-            color: #4cd97b;
-            border: 1px solid #4cd97b;
+            color: var(--binance-green);
+            border-color: var(--binance-green);
         }
         .status-down {
-            background: rgba(255, 107, 107, 0.2);
-            color: #ff6b6b;
-            border: 1px solid #ff6b6b;
+            color: var(--binance-red);
+            border-color: var(--binance-red);
         }
-        .status-tag.active {
-            box-shadow: 0 0 0 2px #3498db;
+
+        /* 调试面板 */
+        .debug-panel {
+            background: var(--binance-blue);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            border: 1px solid var(--binance-gray);
         }
-        .chart-container {
-            position: relative;
-            background: #121212;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 10px;
-            border: 1px solid #333;
-        }
-        .close-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #ff6b6b;
-            color: #fff;
-            border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
+        .debug-header {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 12px;
-            line-height: 1;
-        }
-        .chart-header {
-            text-align: center;
-            font-weight: bold;
-            color: #3498db;
             margin-bottom: 10px;
+            cursor: pointer;
         }
+        .debug-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #9aa1ab;
+        }
+        .debug-content {
+            font-size: 13px;
+            color: #9aa1ab;
+            line-height: 1.8;
+        }
+        .debug-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 5px;
+        }
+        .debug-label {
+            min-width: 120px;
+        }
+
+        /* 加载状态 */
         .loading {
             text-align: center;
-            padding: 20px;
-            color: #aaaaaa;
+            padding: 30px;
+            color: #9aa1ab;
         }
         .loading-spinner {
             display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255,255,255,0.3);
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(154, 161, 171, 0.3);
             border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
+            border-top-color: #9aa1ab;
+            animation: spin 1s linear infinite;
             margin-right: 8px;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        .empty-list {
-            text-align: center;
-            padding: 20px;
-            color: #aaaaaa;
-        }
+
+        /* 错误提示 */
         .error {
-            background: rgba(255, 107, 107, 0.2);
-            border: 1px solid #ff6b6b;
-            color: #ff6b6b;
-            padding: 10px;
+            background: rgba(207, 48, 74, 0.15);
+            border: 1px solid var(--binance-red);
+            color: var(--binance-red);
+            padding: 10px 15px;
             border-radius: 6px;
-            margin-top: 10px;
+            margin: 15px 0;
+            font-size: 13px;
         }
-        .status-bar {
-            margin-top: 10px;
-            padding: 8px;
-            background: rgba(52, 152, 219, 0.2);
-            border: 1px solid #3498db;
-            color: #3498db;
-            border-radius: 6px;
-            font-size: 12px;
-        }
+
+        /* 折叠内容 */
+        .collapsed { display: none; }
     </style>
 </head>
 <body>
     <div id="app" class="container">
+        <!-- 标题区域 -->
         <div class="header">
-            <div class="header-content">
-                <div class="title-section">
-                    <h1>持仓量分析系统</h1>
-                    <div class="time-info">
-                        <div class="info-row">
-                            <span class="info-label">数据分析时间:</span>
-                            <span class="info-value">{{ lastUpdated || '加载中...' }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">页面刷新时间:</span>
-                            <span class="info-value">{{ pageRefreshTime || '--:--:--' }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">下次分析时间:</span>
-                            <span class="info-value">{{ nextAnalysisTime || '计算中...' }}</span>
-                        </div>
-                        <div v-if="analysisTime > 0" class="info-row">
-                            <span class="info-label">分析耗时:</span>
-                            <span class="info-value">{{ analysisTime.toFixed(2) }}秒</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 阻力位查询区域 -->
-                <div class="resistance-query">
-                    <div class="resistance-title" @click="toggleResistanceQuery">
-                        阻力位/支撑位查询
-                        <span class="toggle-icon">{{ showResistanceQuery ? '▲' : '▼' }}</span>
-                    </div>
-                    
-                    <div :class="showResistanceQuery ? 'expanded' : 'collapsed'">
-                        <div class="query-form">
-                            <input 
-                                type="text" 
-                                class="query-input" 
-                                placeholder="输入币种简称（如 BTC）"
-                                v-model="resistanceQuery"
-                                @keyup.enter="queryResistanceLevels"
-                                @input="formatSymbolInput"
-                            >
-                            <button 
-                                class="query-btn" 
-                                @click="queryResistanceLevels"
-                                :disabled="queryLoading"
-                            >
-                                查询
-                            </button>
-                        </div>
-
-                        <div v-if="queryResult" class="resistance-result">
-                            <table class="resistance-table">
-                                <thead>
-                                    <tr>
-                                        <th>时间周期</th>
-                                        <th>阻力位</th>
-                                        <th>支撑位</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="(levels, interval) in queryResult.levels" :key="interval">
-                                        <td class="resistance-period">{{ interval }}</td>
-                                        <td class="resistance-value">
-                                            <div class="resistance-values">
-                                                <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
-                                                    {{ level ? level.toFixed(4) : '-' }}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="support-value">
-                                            <div class="resistance-values">
-                                                <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
-                                                    {{ level ? level.toFixed(4) : '-' }}
-                                                </极速赛车开奖网
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div v-if="queryError" class="error">
-                            {{ queryError }}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="refresh-section">
-                    <button class="refresh-btn" @click="fetchData" :disabled="loading">
-                        <span v-if="!loading">刷新数据</span>
-                        <span v-else>刷新中...</span>
-                    </button>
+            <div class="title-section">
+                <h1>持仓量分析系统</h1>
+                <div class="time-info">
+                    <div>最后更新: {{ lastUpdated || '加载中...' }}</div>
+                    <div>下次分析: {{ nextAnalysisTime || '计算中...' }}</div>
                 </div>
             </div>
-            <!-- 状态消息和错误提示 -->
-            <div class="status-messages">
-                <div v-if="error" class="error">
-                    {{ error }}
+            <button class="refresh-btn" @click="fetchData" :disabled="loading">
+                <span v-if="!loading">刷新数据</span>
+                <span v-else>刷新中...</span>
+            </button>
+        </div>
+
+        <!-- 阻力位查询区域 -->
+        <div class="resistance-query">
+            <div class="resistance-header" @click="toggleResistanceQuery">
+                <div class="resistance-title">阻力位/支撑位查询</div>
+                <div class="toggle-icon">{{ showResistanceQuery ? '▲' : '▼' }}</div>
+            </div>
+            
+            <div :class="showResistanceQuery ? '' : 'collapsed'">
+                <div class="query-container">
+                    <input 
+                        type="text" 
+                        class="query-input" 
+                        placeholder="输入币种简称 (如 BTC)"
+                        v-model="resistanceQuery"
+                        @input="formatSymbolInput"
+                        @keyup.enter="queryResistanceLevels"
+                    >
+                    <button 
+                        class="query-btn" 
+                        @click="queryResistanceLevels"
+                        :disabled="queryLoading"
+                    >
+                        查询
+                    </button>
                 </div>
-                <div v-if="statusMessage" class="status-bar">
-                    <div class="status-update">{{ statusMessage }}</div>
+
+                <div v-if="queryResult" class="resistance-result">
+                    <table class="resistance-table">
+                        <thead>
+                            <tr>
+                                <th>时间周期</th>
+                                <th>阻力位</th>
+                                <th>支撑位</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(levels, interval) in queryResult.levels" :key="interval">
+                                <td>{{ interval }}</td>
+                                <td class="resistance-value">
+                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx">
+                                        {{ level ? level.toFixed(4) : '-' }}
+                                    </div>
+                                </td>
+                                <td class="support-value">
+                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx">
+                                        {{ level ? level.toFixed(4) : '-' }}
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div v-if="queryError" class="error">
+                    {{ queryError }}
                 </div>
             </div>
         </div>
 
+        <!-- 列表区域 -->
         <div class="list-container">
             <!-- 全部周期上涨 -->
             <div class="list">
-                <div class="list-title" @click="toggleList('allCycleRising')">
-                    全部周期上涨 ({{ allCycleRising.length }})
-                    <span class="toggle-icon">{{ lists.allCycleRising ? '▲' : '▼' }}</span>
+                <div class="list-header" @click="toggleList('allCycleRising')">
+                    <div class="list-title">全部周期上涨</div>
+                    <div class="count-badge">{{ allCycleRising.length }}</div>
                 </div>
                 <div class="list-desc">(包含5分钟周期)</div>
-                <div class="coin-list" v-if="lists.allCycleRising">
+                
+                <div class="coin-list" v-show="lists.allCycleRising">
                     <div v-if="loading && allCycleRising.length === 0" class="loading">
                         <span class="loading-spinner"></span>分析中...
                     </div>
-                    <div v-else-if="allCycleRising.length === 0" class="empty-list">暂无数据</div>
-                    <div v-for="coin in allCycleRising" :key="coin.symbol + 'allcycle'">
+                    <div v-else-if="allCycleRising.length === 0" class="loading">
+                        暂无数据
+                    </div>
+                    <div v-else v-for="coin in allCycleRising" :key="coin.symbol + 'allcycle'">
                         <div class="coin-item">
                             <div class="coin-header">
-                                <div class="coin-info">
+                                <div>
                                     <div class="coin-name">
-                                        {{ formatSymbol(coin.symbol) }}
-                                        <span class="symbol-usdt">USDT</span>
+                                        {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                     </div>
-                                    <div class="coin-details">
-                                        <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
-                                        <span class="coin-change positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                    <div class="coin-stats">
+                                        <div>
+                                            <span class="stat-label">持仓量:</span>
+                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="stat-label">涨幅:</span>
+                                            <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="btn-group">
                                     <button 
-                                        class="chart-btn resistance-btn" 
+                                        class="action-btn" 
                                         :class="{'active': activeResistance === coin.symbol}"
-                                        @click="toggleResistance(coin.symbol)">
-                                        阻力位/支撑位
+                                        @click="toggleResistance(coin.symbol)"
+                                    >
+                                        阻力位
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- 趋势状态标签 -->
                             <div class="period-status">
-                                <span v-for="period in periods" 
-                                      :key="period" 
-                                      class="status-tag"
-                                      :class="{
-                                          'status-up': coin.period_status[period], 
-                                          'status-down': !coin.period_status[period],
-                                          'active': activeOiChart.symbol === coin.symbol && activeOiChart.period === period
-                                      }"
-                                      @click="toggleOiChart(coin.symbol, period)">
+                                <span 
+                                    v-for="period in periods" 
+                                    :key="period" 
+                                    class="status-tag"
+                                    :class="coin.period_status[period] ? 'status-up' : 'status-down'"
+                                >
                                     {{ period }}
                                 </span>
-                            </div>
-
-                            <!-- 持仓量图表容器 -->
-                            <div v-if="activeOiChart.symbol === coin.symbol" class="chart-container" :data-chart-id="getChartId(coin.symbol, activeOiChart.period)">
-                                <button class="close-btn" @click="closeOiChart">×</button>
-                                <div class="chart-header">{{ activeOiChart.period }}持仓量走势图</div>
-                                <div v-if="chartLoading[getChartId(coin.symbol, activeOiChart.period)]" class="chart-loading">
-                                    加载图表中...
-                                </div>
-                                <canvas :id="'oiChart-' + getChartId(coin.symbol, activeOiChart.period)"></canvas>
-                            </div>
-
-                            <!-- 阻力位/支撑位展示 -->
-                            <div v-if="activeResistance === coin.symbol" class="resistance-levels">
-                                <div class极速赛车开奖网
-                                    <span>阻力位/支撑位分析</span>
-                                </div>
-                                <table class="resistance-table">
-                                    <thead>
-                                        <tr>
-                                            <th>时间周期</th>
-                                            <th>阻力位</th>
-                                            <th>支撑位</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="(levels, interval) in sortedResistanceLevels(coin.symbol)" :key="interval">
-                                            <td class="resistance-period">{{ interval }}</td>
-                                            <td class="resistance-value">
-                                                <div class="resistance-values">
-                                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
-                                                        {{ level ? level.toFixed(4) : '-' }}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="support-value">
-                                                <div class="resistance-values">
-                                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
-                                                        {{ level ? level.toFixed(4) : '-' }}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
                             </div>
                         </div>
                     </div>
@@ -592,97 +456,57 @@
 
             <!-- 日线上涨 -->
             <div class="list">
-                <div class="list-title" @click="toggleList('dailyRising')">
-                    日线上涨 ({{ filteredDailyRising.length }})
-                    <span class="toggle-icon">{{ lists.dailyRising ? '▲' : '▼' }}</span>
+                <div class="list-header" @click="toggleList('dailyRising')">
+                    <div class="list-title">日线上涨</div>
+                    <div class="count-badge">{{ filteredDailyRising.length }}</div>
                 </div>
                 <div class="list-desc">(不包含全周期上涨的币种)</div>
-                <div class="coin-list" v-if="lists.dailyRising">
+                
+                <div class="coin-list" v-show="lists.dailyRising">
                     <div v-if="loading && filteredDailyRising.length === 0" class="loading">
                         <span class="loading-spinner"></span>分析中...
                     </div>
-                    <div v-else-if="filteredDailyRising.length === 0" class="empty-list">暂无数据</div>
-                    <div v-for="coin in filteredDailyRising" :key="coin.symbol + 'daily'">
+                    <div v-else-if="filteredDailyRising.length === 0" class="loading">
+                        暂无数据
+                    </div>
+                    <div v-else v-for="coin in filteredDailyRising" :key="coin.symbol + 'daily'">
                         <div class="coin-item">
                             <div class="coin-header">
-                                <div class="coin-info">
+                                <div>
                                     <div class="coin-name">
-                                        {{ formatSymbol(coin.symbol) }}
-                                        <span class="symbol-usdt">USDT</span>
+                                        {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                     </div>
-                                    <div class="coin-details">
-                                        <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
-                                        <span class="coin-change positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                    <div class="coin-stats">
+                                        <div>
+                                            <span class="stat-label">持仓量:</span>
+                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="stat-label">涨幅:</span>
+                                            <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="btn-group">
                                     <button 
-                                        class="chart-btn resistance-btn" 
+                                        class="action-btn" 
                                         :class="{'active': activeResistance === coin.symbol}"
-                                        @click="toggleResistance(coin.symbol)">
-                                        阻力位/支撑位
+                                        @click="toggleResistance(coin.symbol)"
+                                    >
+                                        阻力位
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- 趋势状态标签 -->
                             <div class="period-status">
-                                <span v-for="period in periods" 
-                                      :key="period" 
-                                      class="status-tag"
-                                      :class="{
-                                          'status-up': coin.period_status[period], 
-                                          'status-down': !coin.period_status[period],
-                                          'active': activeOiChart.symbol === coin.symbol && activeOiChart.period === period
-                                      }"
-                                      @click="toggleOiChart(coin.symbol, period)">
+                                <span 
+                                    v-for="period in periods" 
+                                    :key="period" 
+                                    class="status-tag"
+                                    :class="coin.period_status[period] ? 'status-up' : 'status-down'"
+                                >
                                     {{ period }}
                                 </span>
-                            </div>
-
-                            <!-- 持仓量图表容器 -->
-                            <div v-if="activeOiChart.symbol === coin.symbol" class="chart-container" :data-chart-id="getChartId(coin.symbol, activeOiChart.period)">
-                                <button class="close-btn" @click="closeOiChart">×</button>
-                                <div class="chart-header">{{ activeOiChart.period }}持仓量走势图</div>
-                                <div v-if="chartLoading[getChartId(coin.symbol, activeOiChart.period)]" class="chart-loading">
-                                    加载图表中...
-                                </div>
-                                <canvas :id="'oiChart-' + getChartId(coin.symbol, activeOiChart.period)"></canvas>
-                            </div>
-
-                            <!-- 阻力位/支撑位展示 -->
-                            <div v-if="activeResistance === coin.symbol" class="resistance-levels">
-                                <div class="resistance-title">
-                                    <span>阻力位/支撑位分析</span>
-                                </div>
-                                <table class="resistance-table">
-                                    <thead>
-                                        <tr>
-                                            <th>时间周期</th>
-                                            <th>阻力位</th>
-                                            <th>支撑位</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="(levels, interval) in sortedResistanceLevels(coin.symbol)" :key="interval">
-                                            <td class="resistance-period">{{ interval }}</td>
-                                            <td class="resistance-value">
-                                                <div class="resistance-values">
-                                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
-                                                        {{ level ? level.toFixed(4) : '-' }}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="support-value">
-                                                <div class="resistance-values">
-                                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
-                                                        {{ level ? level.toFixed(4) : '-' }}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
                             </div>
                         </div>
                     </div>
@@ -691,99 +515,88 @@
 
             <!-- 短期活跃 -->
             <div class="list">
-                <div class="list-title" @click="toggleList('shortTermActive')">
-                    短期活跃 ({{ shortTermActive.length }})
-                    <span class="toggle-icon">{{ lists.shortTermActive ? '▲' : '▼' }}</span>
+                <div class="list-header" @click="toggleList('shortTermActive')">
+                    <div class="list-title">短期活跃</div>
+                    <div class="count-badge">{{ shortTermActive.length }}</div>
                 </div>
                 <div class="list-desc">(5分钟持仓量异常活跃)</div>
-                <div class="coin-list" v-if="lists.shortTermActive">
+                
+                <div class="coin-list" v-show="lists.shortTermActive">
                     <div v-if="loading && shortTermActive.length === 0" class="loading">
                         <span class="loading-spinner"></span>分析中...
                     </div>
-                    <div v-else-if="short极速赛车开奖网
-                    <div v-for="coin in shortTermActive" :key="coin.symbol + 'short'">
+                    <div v-else-if="shortTermActive.length === 0" class="loading">
+                        暂无数据
+                    </div>
+                    <div v-else v-for="coin in shortTermActive" :key="coin.symbol + 'short'">
                         <div class="coin-item">
                             <div class="coin-header">
-                                <div class="coin-info">
+                                <div>
                                     <div class="coin-name">
-                                        {{ formatSymbol(coin.symbol) }}
-                                        <span class="symbol-usdt">USDT</span>
+                                        {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                     </div>
-                                    <div class="coin-details">
-                                        <span class="coin-oi">持仓量: {{ formatNumber(coin.oi) }}</span>
-                                        <span class="coin-change">活跃比: {{ coin.ratio }}x</span>
+                                    <div class="coin-stats">
+                                        <div>
+                                            <span class="stat-label">持仓量:</span>
+                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="stat-label">活跃比:</span>
+                                            <span class="stat-value">{{ coin.ratio }}x</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="btn-group">
                                     <button 
-                                        class="chart-btn resistance-btn" 
+                                        class="action-btn" 
                                         :class="{'active': activeResistance === coin.symbol}"
-                                        @click="toggleResistance(coin.symbol)">
-                                        阻力位/支撑位
+                                        @click="toggleResistance(coin.symbol)"
+                                    >
+                                        阻力位
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- 趋势状态标签 -->
                             <div class="period-status">
-                                <span v-for="period in periods" 
-                                      :key="period" 
-                                      class="status-tag"
-                                      :class="{
-                                          'status-up': coin.period_status[period], 
-                                          'status-down': !coin.period_status[period],
-                                          'active': activeOiChart.symbol === coin.symbol && activeOiChart.period === period
-                                      }"
-                                      @click="toggleOiChart(coin.symbol, period)">
+                                <span 
+                                    v-for="period in periods" 
+                                    :key="period" 
+                                    class="status-tag"
+                                    :class="coin.period_status[period] ? 'status-up' : 'status-down'"
+                                >
                                     {{ period }}
                                 </span>
                             </div>
-
-                            <!-- 持仓量图表容器 -->
-                            <div v-if="activeOiChart.symbol === coin.symbol" class="chart-container" :data-chart-id="getChartId(coin.symbol, activeOiChart.period)">
-                                <button class="close-btn" @click="closeOiChart">×</button>
-                                <div class="chart-header">{{ activeOiChart.period }}持仓量走势图</div>
-                                <div v-if="chartLoading[getChartId(coin.symbol, activeOiChart.period)]" class="chart-loading">
-                                    加载图表中...
-                                </div>
-                                <canvas :id="'oiChart-' + getChartId(coin.symbol, activeOiChart.period)"></canvas>
-                            </div>
-
-                            <!-- 阻力位/支撑位展示 -->
-                            <div v-if="activeResistance === coin.symbol" class="resistance-levels">
-                                <div class="resistance-title">
-                                    <span>阻力位/支撑位分析</span>
-                                </div>
-                                <table class="resistance-table">
-                                    <thead>
-                                        <tr>
-                                            <th>时间周期</th>
-                                            <th>阻力位</th>
-                                            <th>支撑位</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="(levels, interval) in sortedResistanceLevels(coin.symbol)" :key="interval">
-                                            <td class="resistance-period">{{ interval }}</td>
-                                            <td class="resistance-value">
-                                                <div class="resistance-values">
-                                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="value-item">
-                                                        {{ level ? level.toFixed(4) : '-' }}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="support-value">
-                                                <div class="resistance-values">
-                                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="value-item">
-                                                        {{ level ? level.toFixed(4) : '-' }}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 调试信息 -->
+        <div class="debug-panel">
+            <div class="debug-header" @click="toggleDebugPanel">
+                <div class="debug-title">调试信息 {{ showDebugPanel ? '▲' : '▼' }}</div>
+            </div>
+            
+            <div :class="showDebugPanel ? '' : 'collapsed'">
+                <div v-if="error" class="error">
+                    {{ error }}
+                </div>
+                
+                <div class="debug-content">
+                    <div class="debug-row">
+                        <div class="debug-label">页面刷新时间:</div>
+                        <div>{{ pageRefreshTime || '--:--:--' }}</div>
+                    </div>
+                    <div class="debug-row">
+                        <div class="debug-label">分析耗时:</div>
+                        <div v-if="analysisTime > 0">{{ analysisTime.toFixed(2) }}秒</div>
+                        <div v-else>--</div>
+                    </div>
+                    <div class="debug-row">
+                        <div class="debug-label">状态信息:</div>
+                        <div>{{ statusMessage || '--' }}</div>
                     </div>
                 </div>
             </div>
@@ -791,502 +604,132 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            try {
-                new Vue({
-                    el: '#app',
-                    data: {
-                        lastUpdated: null,
-                        nextAnalysisTime: null,
-                        pageRefreshTime: null,
-                        dailyRising: [],
-                        shortTermActive: [],
-                        allCycleRising: [],
-                        analysisTime: 0,
-                        activeOiChart: {
-                            symbol: null,
-                            period: null,
-                            chartId: null
-                        },
-                        activeResistance: null,
-                        chartInstances: {},
-                        chartLoading: {},
-                        loading: true,
-                        error: null,
-                        statusMessage: "初始化中...",
-                        lists: {
-                            allCycleRising: true,
-                            dailyRising: true,
-                            shortTermActive: true
-                        },
-                        resistanceLevels: {},
-                        resistanceLevelsLoading: false,
-                        chartDataCache: {},
-                        periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
-                        requestQueue: {},
-                        chartLibLoaded: false,
-
-                        // 阻力位查询相关
-                        resistanceQuery: '',
-                        queryResult: null,
-                        queryError: null,
-                        queryLoading: false,
-                        showResistanceQuery: true,
-                        showDebugPanel: false
+            new Vue({
+                el: '#app',
+                data: {
+                    lastUpdated: null,
+                    nextAnalysisTime: null,
+                    pageRefreshTime: null,
+                    dailyRising: [],
+                    shortTermActive: [],
+                    allCycleRising: [],
+                    analysisTime: 0,
+                    activeResistance: null,
+                    loading: true,
+                    error: null,
+                    statusMessage: "初始化中...",
+                    lists: {
+                        allCycleRising: true,
+                        dailyRising: true,
+                        shortTermActive: true
                     },
-                    computed: {
-                        filteredDailyRising() {
-                            if (!this.dailyRising || !this.allCycleRising) {
-                                return [];
-                            }
-                            
-                            const allCycleSymbols = new Set(
-                                this.allCycleRising.map(c => c.symbol)
-                            );
-                            
-                            return this.dailyRising.filter(coin => 
-                                !allCycleSymbols.has(coin.symbol)
-                            );
-                        }
-                    },
-                    mounted() {
-                        console.log("Vue实例已挂载，开始加载数据...");
-                        this.pageRefreshTime = this.formatTime(new Date());
-                        this.fetchData();
-                    },
-                    methods: {
-                        // 格式化币种输入
-                        formatSymbolInput() {
-                            this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                        },
-                        
-                        // 切换阻力位查询区域显示
-                        toggleResistanceQuery() {
-                            this.showResistanceQuery = !this.showResistanceQuery;
-                        },
-                        
-                        // 切换调试面板显示
-                        toggleDebugPanel() {
-                            this.showDebugPanel = !this.showDebugPanel;
-                        },
-                        
-                        // 阻力位查询
-                        queryResistanceLevels() {
-                            if (!this.resistanceQuery) {
-                                this.queryError = '请输入币种简称';
-                                return;
-                            }
-
-                            // 转换为大写，并添加USDT后缀
-                            const symbol = this.resistanceQuery.trim().toUpperCase() + 'USDT';
-
-                            // 检查格式
-                            if (!/^[A-Z0-9]{2,10}USDT$/.test(symbol)) {
-                                this.queryError = '无效的币种简称';
-                                return;
-                            }
-
-                            this.queryError = null;
-                            this.queryLoading = true;
-                            this.queryResult = null;
-                            this.statusMessage = `正在查询 ${symbol} 的阻力位/支撑位...`;
-
-                            axios.get(`/api/resistance_levels/${symbol}`, { timeout: 10000 })
-                                .then(response => {
-                                    console.log("阻力位查询结果:", response.data);
-                                    this.queryResult = {
-                                        symbol: symbol,
-                                        levels: response.data
-                                    };
-                                    this.queryLoading = false;
-                                    this.statusMessage = '阻力位/支撑位查询成功';
-                                })
-                                .catch(error => {
-                                    console.error("阻力位查询失败:", error);
-                                    
-                                    let errorMsg = '未知错误';
-                                    if (error.response) {
-                                        errorMsg = error.response.data.error || error.response.statusText;
-                                    } else if (error.message) {
-                                        errorMsg = error.message;
-                                    }
-                                    
-                                    this.queryError = `查询失败: ${errorMsg}`;
-                                    this.queryLoading = false;
-                                    this.statusMessage = '阻力位/支撑位查询失败';
-                                });
-                        },
-
-                        getChartId(symbol, period) {
-                            return `${symbol}-${period}`;
-                        },
-                        sortedResistanceLevels(symbol) {
-                            if (!this.resistanceLevels[symbol]) return {};
-
-                            const periodOrder = [
-                                '1m', '3m', '5m', '15m', '30m', 
-                                '1h', '2h', '4h', '6h', '8h', '12h', 
-                                '1d', '3d', '1w', '1M'
-                            ];
-
-                            const sortedLevels = {};
-                            periodOrder.forEach(period => {
-                                if (this.resistanceLevels[symbol][period]) {
-                                    sortedLevels[period] = this.resistanceLevels[symbol][period];
-                                }
-                            });
-
-                            Object.keys(this.resistanceLevels[symbol]).forEach(period => {
-                                if (!periodOrder.includes(period)) {
-                                    sortedLevels[period] = this.resistanceLevels[symbol][period];
-                                }
-                            });
-
-                            return sortedLevels;
-                        },
-                        toggleList(listName) {
-                            this.lists[listName] = !this.lists[listName];
-                        },
-                        toggleResistance(symbol) {
-                            if (this.activeResistance === symbol) {
-                                this.activeResistance = null;
-                                return;
-                            }
-
-                            this.activeResistance = symbol;
-                            this.resistanceLevelsLoading = true;
-
-                            if (this.resistanceLevels[symbol]) {
-                                this.resistanceLevelsLoading = false;
-                                return;
-                            }
-
-                            axios.get(`/api/resistance_levels/${symbol}`, { timeout: 10000 })
-                                .then(response => {
-                                    console.log("获取阻力位数据:", response.data);
-                                    this.$set(this.resistanceLevels, symbol, response.data);
-                                    this.resistanceLevelsLoading = false;
-                                })
-                                .catch(error => {
-                                    console.error("获取阻力位失败:", error);
-                                    
-                                    let errorMsg = '未知错误';
-                                    if (error.response) {
-                                        errorMsg = error.response.data.error || error.response.statusText;
-                                    } else if (error.message) {
-                                        errorMsg = error.message;
-                                    }
-                                    
-                                    this.error = `获取阻力位/支撑位失败: ${errorMsg}`;
-                                    this.resistanceLevelsLoading = false;
-                                });
-                        },
-                        formatNumber(num) {
-                            if (!num) return "0";
-                            if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
-                            if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
-                            return num.toFixed(2);
-                        },
-                        formatSymbol(symbol) {
-                            return symbol.replace('USDT', '');
-                        },
-                        formatTime(date) {
-                            if (!date) return "--:--:--";
-                            return date.toLocaleTimeString('zh-CN', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                            });
-                        },
-                        formatTimestamp(ts) {
-                            const date = new Date(ts);
-                            return date.toLocaleTimeString('zh-CN', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            });
-                        },
-                        fetchData() {
-                            console.log("开始获取数据...");
-                            this.loading = true;
-                            this.error = null;
-                            this.statusMessage = "获取数据中...";
-                            this.pageRefreshTime = this.formatTime(new Date());
-
-                            axios.get('/api/data', { timeout: 15000 })
-                                .then(response => {
-                                    console.log("API响应数据:", response.data);
-                                    
-                                    // 修复数据绑定问题
-                                    this.lastUpdated = response.data.last_updated;
-                                    this.nextAnalysisTime = response.data.next_analysis_time;
-                                    this.dailyRising = Array.isArray(response.data.daily_rising) ? 
-                                        response.data.daily_rising : [];
-                                    this.shortTermActive = Array.isArray(response.data.short_term_active) ? 
-                                        response.data.short_term_active : [];
-                                    this.allCycleRising = Array.isArray(response.data.all_cycle_rising) ? 
-                                        response.data.all_cycle_rising : [];
-                                    this.analysisTime = response.data.analysis_time || 0;
-                                    
-                                    this.loading = false;
-                                    this.statusMessage = "数据已加载";
-                                    
-                                    // 添加调试信息
-                                    console.log("日线上涨数量:", this.dailyRising.length);
-                                    console.log("短期活跃数量:", this.shortTermActive.length);
-                                    console.log("全周期上涨数量:", this.allCycleRising.length);
-                                })
-                                .catch(error => {
-                                    console.error("API请求失败:", error);
-                                    
-                                    let errorMsg = '未知错误';
-                                    if (error.response) {
-                                        errorMsg = error.response.data.error || error.response.statusText;
-                                    } else if (error.message) {
-                                        errorMsg = error.message;
-                                    }
-
-                                    this.error = '数据获取失败: ' + errorMsg;
-                                    this.loading = false;
-                                    this.statusMessage = "使用缓存数据";
-                                });
-                        },
-                        toggleOiChart(symbol, period) {
-                            const chartId = `${symbol}-${period}`;
-
-                            // 如果点击的是当前已打开的图表，则关闭
-                            if (this.activeOiChart.chartId === chartId) {
-                                this.closeOiChart();
-                                return;
-                            }
-
-                            // 关闭当前活动的图表（如果有）
-                            this.closeOiChart();
-
-                            // 设置新的活动图表
-                            this.activeOiChart = {
-                                symbol: symbol,
-                                period: period,
-                                chartId: chartId
-                            };
-
-                            // 重置加载状态
-                            this.$set(this.chartLoading, chartId, true);
-
-                            // 加载图表数据
-                            this.loadOiChartData(symbol, period, chartId);
-                        },
-                        closeOiChart() {
-                            if (this.activeOiChart.chartId) {
-                                const chartId = this.activeOiChart.chartId;
-
-                                // 1. 销毁图表实例
-                                if (this.chartInstances[chartId]) {
-                                    try {
-                                        this.chartInstances[chartId].destroy();
-                                    } catch (e) {
-                                        console.error("销毁图表失败:", e);
-                                    }
-                                    delete this.chartInstances[chartId];
-                                }
-
-                                // 2. 重置加载状态
-                                this.$set(this.chartLoading, chartId, false);
-                            }
-
-                            // 重置活动图表
-                            this.activeOiChart = {
-                                symbol: null,
-                                period: null,
-                                chartId: null
-                            };
-                        },
-                        loadOiChartData(symbol, period, chartId) {
-                            const cacheKey = `${symbol}-${period}-oi`;
-
-                            // 检查缓存
-                            if (this.chartDataCache[cacheKey]) {
-                                this.renderOiChart(symbol, period, this.chartDataCache[cacheKey], chartId);
-                                return;
-                            }
-
-                            // 取消之前的请求
-                            if (this.requestQueue[chartId]) {
-                                clearTimeout(this.requestQueue[chartId]);
-                            }
-
-                            this.requestQueue[chartId] = setTimeout(() => {
-                                // 使用新的API端点
-                                axios.get(`/api/oi_chart/${symbol}/${period}`, { 
-                                    timeout: 10000,
-                                    params: {
-                                        t: new Date().getTime() // 添加时间戳防止缓存
-                                    }
-                                })
-                                    .then(response => {
-                                        console.log("持仓量图表数据:", response.data);
-                                        
-                                        // 仅当该图表仍然是活动状态时才渲染
-                                        if (this.activeOiChart.chartId === chartId) {
-                                            // 转换时间戳为可读格式
-                                            const data = {
-                                                data: response.data.data,
-                                                labels: response.data.timestamps.map(ts => this.formatTimestamp(ts))
-                                            };
-                                            this.chartDataCache[cacheKey] = data;
-                                            this.renderOiChart(symbol, period, data, chartId);
-                                        }
-                                        delete this.requestQueue[chartId];
-                                    })
-                                    .catch(error => {
-                                        console.error("获取持仓量图表失败:", error);
-                                        
-                                        if (this.activeOiChart.chartId === chartId) {
-                                            let errorMsg = '未知错误';
-                                            if (error.response) {
-                                                errorMsg = error.response.data.error || error.response.statusText;
-                                            } else if (error.message) {
-                                                errorMsg = error.message;
-                                            }
-                                            
-                                            this.error = `获取持仓量图表失败: ${errorMsg}`;
-                                            this.$set(this.chartLoading, chartId, false);
-                                        }
-                                        delete this.requestQueue[chartId];
-                                    });
-                            }, 100);
-                        },
-                        renderOiChart(symbol, period, data, chartId) {
-                            // 确保容器存在
-                            const container = document.querySelector(`.chart-container[data-chart-id="${chartId}"]`);
-                            if (!container) {
-                                this.error = `找不到图表容器: ${chartId}`;
-                                this.$set(this.chartLoading, chartId, false);
-                                return;
-                            }
-
-                            // 清除容器内的canvas（如果存在）
-                            const existingCanvas = container.querySelector('canvas');
-                            if (existingCanvas) {
-                                existingCanvas.remove();
-                            }
-
-                            // 创建新canvas
-                            const canvas = document.createElement('canvas');
-                            canvas.id = `oiChart-${chartId}`;
-                            container.appendChild(canvas);
-
-                            const ctx = canvas.getContext('2d');
-
-                            // 销毁旧图表实例（如果有）
-                            if (this.chartInstances[chartId]) {
-                                try {
-                                    this.chartInstances[chartId].destroy();
-                                } catch (e) {
-                                    console.error("销毁旧图表失败:", e);
-                                }
-                                delete this.chartInstances[chartId];
-                            }
-
-                            // 验证数据
-                            if (!data || !data.data || !data.labels || 
-                                data.data.length === 0 || data.labels.length === 0) {
-                                this.error = `无有效持仓量数据: ${symbol} ${period}`;
-                                this.$set(this.chartLoading, chartId, false);
-                                return;
-                            }
-
-                            try {
-                                // 尝试创建图表
-                                this.createChart(ctx, symbol, period, data, chartId);
-                            } catch (e) {
-                                console.error("创建图表失败:", e);
-                                this.error = `创建图表失败: ${e.message || e}`;
-                                this.$set(this.chartLoading, chartId, false);
-                            }
-                        },
-                        createChart(ctx, symbol, period, data, chartId) {
-                            // 计算图表数据
-                            const maxValue = Math.max(...data.data);
-                            const minValue = Math.min(...data.data);
-                            const range = maxValue - minValue;
-                            const padding = range * 0.1;
-
-                            let unit = '';
-                            let divisor = 1;
-                            if (maxValue >= 1000000) {
-                                unit = 'M';
-                                divisor = 1000000;
-                            } else if (maxValue >= 1000) {
-                                unit = 'K';
-                                divisor = 1000;
-                            }
-
-                            // 创建简单的柱状图
-                            const barWidth = 10;
-                            const spacing = 5;
-                            const maxBars = Math.min(30, data.data.length);
-                            const chartWidth = (barWidth + spacing) * maxBars;
-                            const chartHeight = 200;
-                            
-                            // 计算比例
-                            const scaleY = chartHeight / (maxValue - minValue + padding * 2);
-                            
-                            // 绘制背景
-                            ctx.fillStyle = #121212;
-                            ctx.fillRect(0, 0, chartWidth, chartHeight);
-                            
-                            // 绘制网格
-                            ctx.strokeStyle = '#2a2a2a';
-                            ctx.lineWidth = 1;
-                            
-                            // 水平网格线
-                            for (let i = 0; i <= 5; i++) {
-                                const y = i * (chartHeight / 5);
-                                ctx.beginPath();
-                                ctx.moveTo(0, y);
-                                ctx.lineTo(chartWidth, y);
-                                ctx.stroke();
-                            }
-                            
-                            // 绘制柱状图
-                            for (let i = 0; i < maxBars; i++) {
-                                const value = data.data[i];
-                                const x = i * (barWidth + spacing);
-                                const barHeight = (value - minValue + padding) * scaleY;
-                                
-                                ctx.fillStyle = '#3498db';
-                                ctx.fillRect(x, chartHeight - barHeight, barWidth, barHeight);
-                                
-                                // 添加值标签
-                                ctx.fillStyle = '#ffffff';
-                                ctx.font = '10px Arial';
-                                ctx.fillText(
-                                    divisor > 1 ? (value / divisor).toFixed(2) + unit : value.toFixed(0), 
-                                    x, 
-                                    chartHeight - barHeight - 5
-                                );
-                                
-                                // 添加时间标签
-                                if (i % 5 === 0 && data.labels[i]) {
-                                    ctx.fillStyle = '#cccccc';
-                                    ctx.font = '9px Arial';
-                                    ctx.fillText(data.labels[i], x, chartHeight + 15);
-                                }
-                            }
-                            
-                            // 添加标题
-                            ctx.fillStyle = '#3498db';
-                            ctx.font = 'bold 14px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.fillText(`${symbol} ${period}持仓量`, chartWidth / 2, 20);
-                            
-                            this.$set(this.chartLoading, chartId, false);
-                        }
+                    periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
+                    
+                    // 阻力位查询
+                    resistanceQuery: '',
+                    queryResult: null,
+                    queryError: null,
+                    queryLoading: false,
+                    showResistanceQuery: true,
+                    
+                    // 调试面板
+                    showDebugPanel: false
+                },
+                computed: {
+                    filteredDailyRising() {
+                        const allCycleSymbols = new Set(this.allCycleRising.map(c => c.symbol));
+                        return this.dailyRising.filter(coin => !allCycleSymbols.has(coin.symbol));
                     }
-                });
-            } catch (e) {
-                console.error("Vue初始化失败:", e);
-                document.getElementById('app').innerHTML = "<div class='error'>前端初始化失败，请检查控制台日志</div>";
-            }
+                },
+                mounted() {
+                    this.pageRefreshTime = this.formatTime(new Date());
+                    this.fetchData();
+                },
+                methods: {
+                    formatSymbolInput() {
+                        this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    },
+                    toggleResistanceQuery() {
+                        this.showResistanceQuery = !this.showResistanceQuery;
+                    },
+                    toggleDebugPanel() {
+                        this.showDebugPanel = !this.showDebugPanel;
+                    },
+                    toggleList(listName) {
+                        this.lists[listName] = !this.lists[listName];
+                    },
+                    toggleResistance(symbol) {
+                        this.activeResistance = this.activeResistance === symbol ? null : symbol;
+                    },
+                    queryResistanceLevels() {
+                        if (!this.resistanceQuery) {
+                            this.queryError = '请输入币种简称';
+                            return;
+                        }
+
+                        const symbol = this.resistanceQuery.trim().toUpperCase() + 'USDT';
+                        if (!/^[A-Z0-9]{2,10}USDT$/.test(symbol)) {
+                            this.queryError = '无效的币种简称';
+                            return;
+                        }
+
+                        this.queryError = null;
+                        this.queryLoading = true;
+                        this.statusMessage = `正在查询 ${symbol} 的阻力位/支撑位...`;
+
+                        axios.get(`/api/resistance_levels/${symbol}`, { timeout: 10000 })
+                            .then(response => {
+                                this.queryResult = { symbol, levels: response.data };
+                                this.queryLoading = false;
+                                this.statusMessage = '阻力位/支撑位查询成功';
+                            })
+                            .catch(error => {
+                                this.queryError = '查询失败，请稍后再试';
+                                this.queryLoading = false;
+                                this.statusMessage = '阻力位/支撑位查询失败';
+                            });
+                    },
+                    formatNumber(num) {
+                        if (!num) return "0";
+                        if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+                        if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+                        return num.toFixed(2);
+                    },
+                    formatSymbol(symbol) {
+                        return symbol.replace('USDT', '');
+                    },
+                    formatTime(date) {
+                        return date.toLocaleTimeString('zh-CN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                    },
+                    fetchData() {
+                        this.loading = true;
+                        this.error = null;
+                        this.statusMessage = "获取数据中...";
+                        this.pageRefreshTime = this.formatTime(new Date());
+
+                        axios.get('/api/data', { timeout: 15000 })
+                            .then(response => {
+                                this.lastUpdated = response.data.last_updated;
+                                this.nextAnalysisTime = response.data.next_analysis_time;
+                                this.dailyRising = response.data.daily_rising || [];
+                                this.shortTermActive = response.data.short_term_active || [];
+                                this.allCycleRising = response.data.all_cycle_rising || [];
+                                this.analysisTime = response.data.analysis_time || 0;
+                                this.loading = false;
+                                this.statusMessage = "数据已加载";
+                            })
+                            .catch(error => {
+                                this.error = '数据获取失败';
+                                this.loading = false;
+                                this.statusMessage = "使用缓存数据";
+                            });
+                    }
+                }
+            });
         });
     </script>
 </body>
