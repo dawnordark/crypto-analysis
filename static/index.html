@@ -119,6 +119,35 @@
         }
         .query-btn:hover { background: #474d57; }
 
+        /* 阻力位结果表格 */
+        .resistance-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .resistance-table th {
+            background: #1c1f26;
+            padding: 8px 5px;
+            text-align: left;
+            font-weight: bold;
+            color: #9aa1ab;
+            border-bottom: 1px solid var(--binance-gray);
+        }
+        .resistance-table td {
+            padding: 6px 5px;
+            border-bottom: 1px solid var(--binance-gray);
+        }
+        .resistance-value {
+            color: var(--binance-red);
+        }
+        .support-value {
+            color: var(--binance-green);
+        }
+        .level-value {
+            display: block;
+            line-height: 1.4;
+        }
+
         /* 列表容器 */
         .list-container {
             display: grid;
@@ -373,14 +402,14 @@
                             <tr v-for="(levels, interval) in queryResult.levels" :key="interval">
                                 <td>{{ interval }}</td>
                                 <td class="resistance-value">
-                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx">
+                                    <span v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
                                         {{ level ? level.toFixed(4) : '-' }}
-                                    </div>
+                                    </span>
                                 </td>
                                 <td class="support-value">
-                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx">
+                                    <span v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
                                         {{ level ? level.toFixed(4) : '-' }}
-                                    </div>
+                                    </span>
                                 </td>
                             </tr>
                         </tbody>
