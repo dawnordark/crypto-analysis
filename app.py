@@ -33,7 +33,7 @@ file_handler = logging.FileHandler('app.log')
 file_handler.setLevel(getattr(logging, LOG_LEVEL))
 
 # 日志格式
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(level极name)s - %(message)s')
 console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
 
