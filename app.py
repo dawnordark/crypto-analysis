@@ -193,7 +193,7 @@ def get_open_interest(symbol, period, use_cache=True):
         return {'series': [], 'timestamps': []}
 
 def is_latest_highest(oi_data):
-    if len(oi_data) < 30:
+    if not oi_data or len(oi_data) < 30:
         logger.debug("持仓量数据不足30个点")
         return False
 
@@ -329,6 +329,7 @@ def analyze_symbol(symbol):
                 oi_data = get_open_interest(symbol, period)
                 oi_series = oi_data.get('series', [])
                 
+                # 修复：确保正确计算周期数量
                 status = len(oi_series) >= 30 and is_latest_highest(oi_series)
                 symbol_result['period_status'][period] = status
                 
@@ -514,7 +515,7 @@ def analysis_worker():
             # 记录下一次分析时间
             next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
-            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%极M:%S')})")
             
             logger.info("=" * 50)
         except Exception as e:
@@ -524,7 +525,7 @@ def analysis_worker():
 def schedule_analysis():
     logger.info("⏰ 定时分析调度器启动")
     now = datetime.now(timezone.utc)
-    next_time = get_next_update_time('5m')
+    next_time = get_next_update极_time('5m')
     initial_wait = (next_time - now).total_seconds()
     logger.info(f"⏳ 首次分析将在 {initial_wait:.1f} 秒后开始 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})...")
     time.sleep(max(0, initial_wait))
