@@ -89,6 +89,17 @@
             color: var(--binance-green);
         }
         
+        /* 加载动画 */
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        .data-loading {
+            animation: pulse 1.5s infinite;
+        }
+        
         /* 阻力位查询区域 */
         .resistance-query {
             background: var(--binance-blue);
@@ -210,8 +221,9 @@
 
         /* 币种项目 */
         .coin-list {
-            max-height: 600px;
-            overflow-y: auto;
+            max-height: none;
+            height: auto;
+            overflow-y: visible;
         }
         .coin-item {
             background: #1c1f26;
@@ -288,6 +300,8 @@
             font-weight: bold;
             background: rgba(43, 47, 54, 0.5);
             border: 1px solid var(--binance-gray);
+            min-width: 50px;
+            text-align: center;
         }
         .status-up {
             color: var(--binance-green);
@@ -388,9 +402,13 @@
         <div class="data-status" :class="{
             'status-loading': loading, 
             'status-error': !!error, 
-            'status-success': !loading && !error
+            'status-success': !loading && !error,
+            'data-loading': dataLoading
         }">
-            <span v-if="loading">
+            <span v-if="dataLoading">
+                <span class="loading-spinner"></span> 数据加载中，请稍候...
+            </span>
+            <span v-else-if="loading">
                 <span class="loading-spinner"></span> {{ statusMessage }}
             </span>
             <span v-else-if="error">{{ error }}</span>
@@ -467,8 +485,8 @@
                 <div class="list-desc">(包含5分钟周期)</div>
                 
                 <div class="coin-list" v-show="lists.allCycleRising">
-                    <div v-if="loading && allCycleRising.length === 0" class="loading">
-                        <span class="loading-spinner"></span>分析中...
+                    <div v-if="dataLoading" class="loading">
+                        <span class="loading-spinner"></span> 正在加载数据...
                     </div>
                     <div v-else-if="allCycleRising.length === 0" class="loading">
                         暂无数据
@@ -526,8 +544,8 @@
                 <div class="list-desc">(不包含全周期上涨的币种)</div>
                 
                 <div class="coin-list" v-show="lists.dailyRising">
-                    <div v-if="loading && filteredDailyRising.length === 0" class="loading">
-                        <span class="loading-spinner"></span>分析中...
+                    <div v-if="dataLoading" class="loading">
+                        <span class="loading-spinner"></span> 正在加载数据...
                     </div>
                     <div v-else-if="filteredDailyRising.length === 0" class="loading">
                         暂无数据
@@ -585,8 +603,8 @@
                 <div class="list-desc">(5分钟持仓量异常活跃)</div>
                 
                 <div class="coin-list" v-show="lists.shortTermActive">
-                    <div v-if="loading && shortTermActive.length === 0" class="loading">
-                        <span class="loading-spinner"></span>分析中...
+                    <div v-if="dataLoading" class="loading">
+                        <span class="loading-spinner"></span> 正在加载数据...
                     </div>
                     <div v-else-if="shortTermActive.length === 0" class="loading">
                         暂无数据
@@ -679,6 +697,7 @@
                     analysisTime: 0,
                     activeResistance: null,
                     loading: true,
+                    dataLoading: true,
                     error: null,
                     statusMessage: "初始化中...",
                     lists: {
@@ -700,6 +719,7 @@
                 },
                 computed: {
                     filteredDailyRising() {
+                        if (!this.dailyRising || !this.allCycleRising) return [];
                         const allCycleSymbols = new Set(this.allCycleRising.map(c => c.symbol));
                         return this.dailyRising.filter(coin => !allCycleSymbols.has(coin.symbol));
                     }
@@ -770,6 +790,7 @@
                         });
                     },
                     fetchData() {
+                        this.dataLoading = true;
                         this.loading = true;
                         this.error = null;
                         this.statusMessage = "获取数据中...";
@@ -783,14 +804,20 @@
                             .then(response => {
                                 // 确保数据结构完整
                                 const data = response.data;
+                                console.log("API响应数据:", data);
+                                
                                 this.lastUpdated = data.last_updated || '未知时间';
                                 this.nextAnalysisTime = data.next_analysis_time || '计算中...';
-                                this.dailyRising = data.daily_rising || [];
-                                this.shortTermActive = data.short_term_active || [];
-                                this.allCycleRising = data.all_cycle_rising || [];
+                                
+                                // 确保数组正确初始化
+                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
+                                this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
+                                this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
+                                
                                 this.analysisTime = data.analysis_time || 0;
                                 
                                 this.loading = false;
+                                this.dataLoading = false;
                                 
                                 if (this.dailyRising.length === 0 && 
                                     this.shortTermActive.length === 0 && 
@@ -798,21 +825,18 @@
                                     this.statusMessage = "数据为空，等待首次分析完成";
                                 } else {
                                     this.statusMessage = `已加载数据: ${this.formatTime(new Date())}`;
-                                    console.log("成功获取数据:", data);
                                 }
                             })
                             .catch(error => {
                                 console.error('API请求错误:', error);
                                 this.loading = false;
+                                this.dataLoading = false;
                                 
                                 if (error.response) {
-                                    // 服务器返回了错误状态码
                                     this.error = `服务器错误: ${error.response.status} ${error.response.statusText}`;
                                 } else if (error.request) {
-                                    // 请求已发出但没有响应
                                     this.error = '网络错误: 无法连接到服务器';
                                 } else {
-                                    // 其他错误
                                     this.error = `请求失败: ${error.message}`;
                                 }
                                 
