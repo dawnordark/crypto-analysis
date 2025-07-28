@@ -83,7 +83,7 @@ PERIOD_MINUTES = {
     '1d': 1440
 }
 
-RESISTANCE_INTERVALS = ['1m', '3m', '5极m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', 
+RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', 
                         '1d', '3d', '1w', '1M']
 ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '3d', '1w', '1M']
 
@@ -92,7 +92,7 @@ def init_client():
     max_retries = 5
     retry_delay = 5
     
-    for attempt in range(max极_retries):
+    for attempt in range(max_retries):
         try:
             logger.info(f"🔧 尝试初始化Binance客户端 (第{attempt+1}次)...")
             client = Client(
@@ -427,8 +427,8 @@ def analyze_trends():
     all_cycle_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
 
     analysis_time = time.time() - start_time
-    logger.info(f"📊 分析结果: 日线上涨 {len(daily_rising)}个, 短期活跃 {len(short_term_active)}个, 全部周期上涨 {极len(all_cycle_rising)}个")
-    logger.info(f"✅ 分析完成: 用时{analysis_time:.2极f}秒")
+    logger.info(f"📊 分析结果: 日线上涨 {len(daily_rising)}个, 短期活跃 {len(short_term_active)}个, 全部周期上涨 {len(all_cycle_rising)}个")
+    logger.info(f"✅ 分析完成: 用时{analysis_time:.2f}秒")
 
     return {
         'daily_rising': daily_rising,
