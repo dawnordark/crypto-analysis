@@ -203,7 +203,7 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
         .list-header {
-            display:极 flex;
+            display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
@@ -274,7 +274,7 @@
             font-weight: bold;
         }
         .positive { color: var(--binance-green); }
-        .negative { color:极 var(--binance-red); }
+        .negative { color: var(--binance-red); }
 
         /* 状态标签 */
         .period-status {
@@ -285,7 +285,7 @@
         }
         .status-tag {
             padding: 5px 10px;
-            border-radius: 4极px;
+            border-radius: 4px;
             font-size: 12px;
             font-weight: bold;
             background: rgba(43, 47, 54, 0.5);
@@ -615,7 +615,8 @@
                     <div v-else-if="dailyRising.length === 0" class="loading">
                         暂无数据
                     </div>
-                    <div v-else v-for="coin in dailyRising" :key="coin.symbol + 'daily'">
+                    <!-- 使用正确排序的数据 -->
+                    <div v-else v-for="coin in sortedDailyRising" :key="coin.symbol + 'daily'">
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div>
@@ -855,13 +856,10 @@
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {}
                 },
-                mounted() {
-                    this.fetchData();
-                },
-                methods: {
-                    // 对日线上涨币种进行排序
-                    sortDailyRising(coins) {
-                        return coins.sort((a, b) => {
+                computed: {
+                    // 新增计算属性：正确排序的日线上涨币种列表
+                    sortedDailyRising() {
+                        return this.dailyRising.sort((a, b) => {
                             // 首先按符合周期数量降序排序
                             if (b.period_count !== a.period_count) {
                                 return b.period_count - a.period_count;
@@ -870,8 +868,12 @@
                             // 如果周期数量相同，则按持仓量降序排序
                             return b.oi - a.oi;
                         });
-                    },
-                    
+                    }
+                },
+                mounted() {
+                    this.fetchData();
+                },
+                methods: {
                     toggleResistance(symbol) {
                         this.$set(this.resistanceExpanded, symbol, !this.resistanceExpanded[symbol]);
                         
@@ -1157,8 +1159,7 @@
                                 this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
                                 
                                 // 对日线上涨币种进行特殊排序
-                                let dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
-                                this.dailyRising = this.sortDailyRising(dailyRising);
+                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
                                 
                                 this.analysisTime = data.analysis_time || 0;
                                 
