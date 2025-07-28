@@ -775,7 +775,11 @@
                         this.statusMessage = "获取数据中...";
                         this.pageRefreshTime = this.formatTime(new Date());
 
-                        axios.get('/api/data', { timeout: 15000 })
+                        // 添加时间戳防止缓存
+                        const timestamp = new Date().getTime();
+                        const url = `/api/data?t=${timestamp}`;
+
+                        axios.get(url, { timeout: 15000 })
                             .then(response => {
                                 // 确保数据结构完整
                                 const data = response.data;
@@ -794,6 +798,7 @@
                                     this.statusMessage = "数据为空，等待首次分析完成";
                                 } else {
                                     this.statusMessage = `已加载数据: ${this.formatTime(new Date())}`;
+                                    console.log("成功获取数据:", data);
                                 }
                             })
                             .catch(error => {
