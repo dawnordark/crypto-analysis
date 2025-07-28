@@ -55,12 +55,12 @@ client = None
 
 # 数据缓存
 data_cache = {
-    "last_updated": None,
+    "last_updated": "从未更新",
     "daily_rising": [],
     "short_term_active": [],
     "all_cycle_rising": [],
     "analysis_time": 0,
-    "next_analysis_time": None
+    "next_analysis_time": "计算中..."
 }
 
 current_data_cache = data_cache.copy()
@@ -667,6 +667,23 @@ def static_files(filename):
 def get_data():
     global current_data_cache
     try:
+        # 确保缓存中有有效数据
+        if not current_data_cache.get('last_updated') or current_data_cache.get('last_updated') == "从未更新":
+            # 尝试从数据库加载
+            last_data = get_last_valid_data()
+            if last_data:
+                current_data_cache = last_data
+            else:
+                # 创建默认响应防止空数据
+                current_data_cache = {
+                    'last_updated': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    'daily_rising': [],
+                    'short_term_active': [],
+                    'all_cycle_rising': [],
+                    'analysis_time': 0,
+                    'next_analysis_time': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+                }
+        
         data = {
             'last_updated': current_data_cache.get('last_updated', ""),
             'daily_rising': current_data_cache.get('daily_rising', []),
@@ -678,10 +695,15 @@ def get_data():
         return jsonify(data)
     except Exception as e:
         logger.error(f"❌ 获取数据失败: {str(e)}")
-        last_data = get_last_valid_data()
-        if last_data:
-            return jsonify(last_data)
-        return jsonify({'error': str(e)}), 500
+        # 返回有结构的空数据而不是错误
+        return jsonify({
+            'last_updated': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            'daily_rising': [],
+            'short_term_active': [],
+            'all_cycle_rising': [],
+            'analysis_time': 0,
+            'next_analysis_time': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        })
 
 @app.route('/api/resistance_levels/<symbol>', methods=['GET'])
 def get_resistance_levels(symbol):
@@ -771,6 +793,24 @@ def start_background_threads():
     if not init_client():
         logger.critical("❌ 无法初始化客户端")
         return False
+    
+    # 确保缓存中有初始数据
+    global current_data_cache
+    if not current_data_cache or not current_data_cache.get('last_updated') or current_data_cache.get('last_updated') == "从未更新":
+        last_data = get_last_valid_data()
+        if last_data:
+            current_data_cache = last_data
+        else:
+            # 创建初始数据记录
+            current_data_cache = {
+                "last_updated": "等待首次分析",
+                "daily_rising": [],
+                "short_term_active": [],
+                "all_cycle_rising": [],
+                "analysis_time": 0,
+                "next_analysis_time": "计算中..."
+            }
+            save_to_db(current_data_cache)
     
     # 启动后台线程
     worker_thread = threading.Thread(target=analysis_worker, name="AnalysisWorker")
