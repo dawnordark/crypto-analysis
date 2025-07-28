@@ -515,7 +515,7 @@ def analysis_worker():
             # 记录下一次分析时间
             next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
-            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%极M:%S')})")
+            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
             
             logger.info("=" * 50)
         except Exception as e:
@@ -525,7 +525,7 @@ def analysis_worker():
 def schedule_analysis():
     logger.info("⏰ 定时分析调度器启动")
     now = datetime.now(timezone.utc)
-    next_time = get_next_update极_time('5m')
+    next_time = get_next_update_time('5m')
     initial_wait = (next_time - now).total_seconds()
     logger.info(f"⏳ 首次分析将在 {initial_wait:.1f} 秒后开始 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})...")
     time.sleep(max(0, initial_wait))
