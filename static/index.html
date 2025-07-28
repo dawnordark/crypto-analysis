@@ -281,30 +281,6 @@
         .positive { color: var(--binance-green); }
         .negative { color: var(--binance-red); }
 
-        /* 按钮组 */
-        .btn-group {
-            display: flex;
-            gap: 8px;
-        }
-        .action-btn {
-            padding: 6px 12px;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            background: #2b2f36;
-            color: #eaecef;
-            transition: background 0.2s;
-        }
-        .action-btn:hover {
-            background: #474d57;
-        }
-        .action-btn.active {
-            background: var(--binance-yellow);
-            color: #1e2026;
-        }
-
         /* 状态标签 */
         .period-status {
             display: flex;
@@ -342,7 +318,7 @@
         }
         .status-tag.chart-open {
             background: rgba(240, 185, 11, 0.2);
-            border-color: var(--binance-yellow);
+            border-color: var(--极binance-yellow);
         }
 
         /* 持仓量图表容器 */
@@ -385,7 +361,7 @@
         }
         .resistance-block {
             background: #2b2f36;
-            border-radius: 6px;
+            border-radius: 6极px;
             padding: 8px;
             text-align: center;
         }
@@ -428,7 +404,7 @@
         <!-- 标题区域 -->
         <div class="header">
             <div class="title-section">
-                <h1>分析</h1>
+                <h1>持仓量分析系统</h1>
                 <div class="time-info">
                     <div>最后更新: {{ lastUpdated || '加载中...' }}</div>
                     <div>下次分析: {{ nextAnalysisTime || '计算中...' }}</div>
@@ -558,7 +534,7 @@
                                     :class="{
                                         'status-up': coin.period_status[period], 
                                         'status-down': !coin.period_status[period],
-                                        'chart-open': activeCharts[coin.symbol] && activeCharts[coin.symbol][period]
+                                        'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
                                     }"
                                     @click="togglePeriodChart(coin.symbol, period)"
                                 >
@@ -567,11 +543,14 @@
                             </div>
 
                             <!-- 持仓量图表 -->
-                            <div v-if="activeCharts[coin.symbol] && activePeriod[coin.symbol]" class="chart-container">
+                            <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
                                 <div class="chart-title">
-                                    {{ formatSymbol(coin.symbol) }} - {{ activePeriod[coin.symbol] }} 持仓量走势
+                                    {{ formatSymbol(coin.symbol) }} - {{ activeChart.period || '选择周期' }} 持仓量走势
                                 </div>
-                                <canvas :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
+                                <div v-if="!activeChart.period" class="chart-placeholder">
+                                    请点击上方周期标签查看持仓量走势
+                                </div>
+                                <canvas v-else :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
                             </div>
                             
                             <!-- 阻力位支撑位 -->
@@ -599,7 +578,7 @@
                                         </div>
                                         <div class="resistance-block">
                                             <div class="block-header">4小时</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class极="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
                                             <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
                                         </div>
                                         <div class="resistance-block">
@@ -665,7 +644,7 @@
                                     :class="{
                                         'status-up': coin.period_status[period], 
                                         'status-down': !coin.period_status[period],
-                                        'chart-open': activeCharts[coin.symbol] && activeCharts[coin.symbol][period]
+                                        'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
                                     }"
                                     @click="togglePeriodChart(coin.symbol, period)"
                                 >
@@ -674,11 +653,14 @@
                             </div>
 
                             <!-- 持仓量图表 -->
-                            <div v-if="activeCharts[coin.symbol] && activePeriod[coin.symbol]" class="chart-container">
+                            <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
                                 <div class="chart-title">
-                                    {{ formatSymbol(coin.symbol) }} - {{ activePeriod[coin.symbol] }} 持仓量走势
+                                    {{ formatSymbol(coin.symbol) }} - {{ activeChart.period || '选择周期' }} 持仓量走势
                                 </div>
-                                <canvas :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
+                                <div v-if="!activeChart.period" class="chart-placeholder">
+                                    请点击上方周期标签查看持仓量走势
+                                </div>
+                                <canvas v-else :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
                             </div>
                             
                             <!-- 阻力位支撑位 -->
@@ -772,7 +754,7 @@
                                     :class="{
                                         'status-up': coin.period_status[period], 
                                         'status-down': !coin.period_status[period],
-                                        'chart-open': activeCharts[coin.symbol] && activeCharts[coin.symbol][period]
+                                        'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
                                     }"
                                     @click="togglePeriodChart(coin.symbol, period)"
                                 >
@@ -781,11 +763,14 @@
                             </div>
 
                             <!-- 持仓量图表 -->
-                            <div v-if="activeCharts[coin.symbol] && activePeriod[coin.symbol]" class="chart-container">
+                            <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
                                 <div class="chart-title">
-                                    {{ formatSymbol(coin.symbol) }} - {{ activePeriod[coin.symbol] }} 持仓量走势
+                                    {{ formatSymbol(coin.symbol) }} - {{ activeChart.period || '选择周期' }} 持仓量走势
                                 </div>
-                                <canvas :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
+                                <div v-if="!activeChart.period" class="chart-placeholder">
+                                    请点击上方周期标签查看持仓量走势
+                                </div>
+                                <canvas v-else :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
                             </div>
                             
                             <!-- 阻力位支撑位 -->
@@ -819,7 +804,7 @@
                                         <div class="resistance-block">
                                             <div class="block-header">日线</div>
                                             <div class="resistance-value">{{ getLevel(coin.symbol, '1d', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ get极Level(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -844,8 +829,10 @@
                     shortTermActive: [],
                     allCycleRising: [],
                     analysisTime: 0,
-                    activePeriod: {}, // 当前激活的周期
-                    activeCharts: {}, // 图表打开状态
+                    activeChart: {
+                        symbol: null,
+                        period: null
+                    },
                     resistanceExpanded: {},
                     resistanceData: {},
                     resistanceQuery: '',
@@ -862,6 +849,19 @@
                     this.fetchData();
                 },
                 methods: {
+                    // 对日线上涨币种进行排序
+                    sortDailyRising(coins) {
+                        return coins.sort((a, b) => {
+                            // 首先按符合周期数量降序排序
+                            if (b.period_count !== a.period_count) {
+                                return b.period_count - a.period_count;
+                            }
+                            
+                            // 如果周期数量相同，则按持仓量降序排序
+                            return b.oi - a.oi;
+                        });
+                    },
+                    
                     toggleResistance(symbol) {
                         this.$set(this.resistanceExpanded, symbol, !this.resistanceExpanded[symbol]);
                         
@@ -871,14 +871,14 @@
                         }
                     },
                     togglePeriodChart(symbol, period) {
-                        // 如果当前周期已经打开，则关闭
-                        if (this.activePeriod[symbol] === period) {
-                            this.activePeriod[symbol] = null;
-                            this.$set(this.activeCharts, symbol, false);
+                        // 如果点击的是同一个币种和同一个周期，则关闭图表
+                        if (this.activeChart.symbol === symbol && this.activeChart.period === period) {
+                            this.activeChart.symbol = null;
+                            this.activeChart.period = null;
                         } else {
-                            // 关闭其他图表，打开当前图表
-                            this.activePeriod[symbol] = period;
-                            this.$set(this.activeCharts, symbol, true);
+                            // 否则打开新图表
+                            this.activeChart.symbol = symbol;
+                            this.activeChart.period = period;
                             
                             // 如果数据未加载，则加载数据
                             const cacheKey = `${symbol}-${period}`;
@@ -893,21 +893,15 @@
                         }
                     },
                     fetchResistanceLevels(symbol) {
-                        this.statusMessage = `正在加载 ${symbol} 阻力位数据...`;
-                        
                         axios.get(`/api/resistance_levels/${symbol}`)
                             .then(response => {
                                 this.$set(this.resistanceData, symbol, response.data);
-                                this.statusMessage = '阻力位数据加载完成';
                             })
                             .catch(error => {
                                 console.error('获取阻力位失败:', error);
-                                this.statusMessage = '阻力位数据加载失败';
                             });
                     },
                     loadChartData(symbol, period) {
-                        this.statusMessage = `正在加载 ${symbol} ${period} 持仓量数据...`;
-                        
                         axios.get(`/api/oi_chart/${symbol}/${period}`)
                             .then(response => {
                                 const data = response.data;
@@ -923,12 +917,9 @@
                                 this.$nextTick(() => {
                                     this.renderChart(symbol, period, this.chartDataCache[cacheKey]);
                                 });
-                                
-                                this.statusMessage = '持仓量数据加载完成';
                             })
                             .catch(error => {
                                 console.error('持仓量数据加载错误:', error);
-                                this.statusMessage = '持仓量数据加载失败';
                             });
                     },
                     renderChart(symbol, period, chartData) {
@@ -1128,14 +1119,16 @@
                                 this.nextAnalysisTime = data.next_analysis_time || '计算中...';
                                 
                                 // 确保数组正确初始化
-                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
                                 this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
                                 this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
                                 
+                                // 对日线上涨币种进行特殊排序
+                                let dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
+                                this.dailyRising = this.sortDailyRising(dailyRising);
+                                
                                 this.analysisTime = data.analysis_time || 0;
                                 
-                                // 按符合周期数量排序
-                                this.dailyRising.sort((a, b) => b.period_count - a.period_count);
+                                // 其他列表按符合周期数量排序
                                 this.shortTermActive.sort((a, b) => b.period_count - a.period_count);
                                 this.allCycleRising.sort((a, b) => b.period_count - a.period_count);
                                 
