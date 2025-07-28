@@ -6,6 +6,7 @@
     <title>持仓量分析系统</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
@@ -151,33 +152,46 @@
         }
         .query-btn:hover { background: #474d57; }
 
-        /* 阻力位结果表格 */
-        .resistance-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
+        /* 阻力位结果双列布局 */
+        .resistance-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
         }
-        .resistance-table th {
+        .resistance-column {
             background: #1c1f26;
-            padding: 8px 5px;
-            text-align: left;
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid var(--binance-gray);
+        }
+        .column-header {
+            text-align: center;
+            padding: 8px;
+            margin-bottom: 10px;
             font-weight: bold;
-            color: #9aa1ab;
             border-bottom: 1px solid var(--binance-gray);
         }
-        .resistance-table td {
-            padding: 6px 5px;
-            border-bottom: 1px solid var(--binance-gray);
-        }
-        .resistance-value {
+        .resistance-header {
             color: var(--binance-red);
         }
-        .support-value {
+        .support-header {
             color: var(--binance-green);
         }
+        .interval-levels {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #2b2f36;
+        }
+        .interval-title {
+            font-size: 13px;
+            color: #9aa1ab;
+            margin-bottom: 5px;
+        }
         .level-value {
-            display: block;
-            line-height: 1.4;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 3px 0;
         }
 
         /* 列表容器 */
@@ -302,6 +316,12 @@
             border: 1px solid var(--binance-gray);
             min-width: 50px;
             text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .status-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         .status-up {
             color: var(--binance-green);
@@ -310,6 +330,33 @@
         .status-down {
             color: var(--binance-red);
             border-color: var(--binance-red);
+        }
+        .status-tag.active {
+            background: rgba(3, 166, 109, 0.2);
+            border-width: 2px;
+        }
+
+        /* 持仓量图表容器 */
+        .chart-container {
+            margin-top: 15px;
+            background: #1a1d24;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid var(--binance-gray);
+        }
+        .chart-title {
+            text-align: center;
+            font-size: 14px;
+            color: #9aa1ab;
+            margin-bottom: 5px;
+        }
+        .chart-placeholder {
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9aa1ab;
+            font-size: 14px;
         }
 
         /* 调试面板 */
@@ -442,30 +489,33 @@
                 </div>
 
                 <div v-if="queryResult" class="resistance-result">
-                    <table class="resistance-table">
-                        <thead>
-                            <tr>
-                                <th>时间周期</th>
-                                <th>阻力位</th>
-                                <th>支撑位</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(levels, interval) in queryResult.levels" :key="interval">
-                                <td>{{ interval }}</td>
-                                <td class="resistance-value">
-                                    <span v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
-                                        {{ level ? level.toFixed(4) : '-' }}
-                                    </span>
-                                </td>
-                                <td class="support-value">
-                                    <span v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
-                                        {{ level ? level.toFixed(4) : '-' }}
-                                    </span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="resistance-grid">
+                        <!-- 阻力位列 -->
+                        <div class="resistance-column">
+                            <div class="column-header resistance-header">阻力位</div>
+                            <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-res'">
+                                <div class="interval-levels">
+                                    <div class="interval-title">{{ interval }}</div>
+                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
+                                        <span>{{ level ? level.toFixed(4) : '-' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 支撑位列 -->
+                        <div class="resistance-column">
+                            <div class="column-header support-header">支撑位</div>
+                            <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-sup'">
+                                <div class="interval-levels">
+                                    <div class="interval-title">{{ interval }}</div>
+                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
+                                        <span>{{ level ? level.toFixed(4) : '-' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div v-if="queryError" class="error">
@@ -507,6 +557,10 @@
                                             <span class="stat-label">涨幅:</span>
                                             <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
+                                        <div>
+                                            <span class="stat-label">符合周期:</span>
+                                            <span class="stat-value">{{ coin.period_count }}</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="btn-group">
@@ -517,6 +571,13 @@
                                     >
                                         阻力位
                                     </button>
+                                    <button 
+                                        class="action-btn" 
+                                        :class="{'active': activeChart.symbol === coin.symbol}"
+                                        @click="toggleChart(coin.symbol)"
+                                    >
+                                        持仓量
+                                    </button>
                                 </div>
                             </div>
 
@@ -525,10 +586,26 @@
                                     v-for="period in periods" 
                                     :key="period" 
                                     class="status-tag"
-                                    :class="coin.period_status[period] ? 'status-up' : 'status-down'"
+                                    :class="{
+                                        'status-up': coin.period_status[period], 
+                                        'status-down': !coin.period_status[period],
+                                        'active': activePeriod[coin.symbol] === period
+                                    }"
+                                    @click="togglePeriodChart(coin.symbol, period)"
                                 >
                                     {{ period }}
                                 </span>
+                            </div>
+
+                            <!-- 持仓量图表 -->
+                            <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
+                                <div class="chart-title">
+                                    {{ formatSymbol(coin.symbol) }} - {{ activePeriod[coin.symbol] || '选择周期' }} 持仓量走势
+                                </div>
+                                <div v-if="!activePeriod[coin.symbol]" class="chart-placeholder">
+                                    请点击上方周期标签查看持仓量走势
+                                </div>
+                                <canvas v-else :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
                             </div>
                         </div>
                     </div>
@@ -566,6 +643,10 @@
                                             <span class="stat-label">涨幅:</span>
                                             <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
+                                        <div>
+                                            <span class="stat-label">符合周期:</span>
+                                            <span class="stat-value">{{ coin.period_count }}</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="btn-group">
@@ -576,6 +657,13 @@
                                     >
                                         阻力位
                                     </button>
+                                    <button 
+                                        class="action-btn" 
+                                        :class="{'active': activeChart.symbol === coin.symbol}"
+                                        @click="toggleChart(coin.symbol)"
+                                    >
+                                        持仓量
+                                    </button>
                                 </div>
                             </div>
 
@@ -584,10 +672,26 @@
                                     v-for="period in periods" 
                                     :key="period" 
                                     class="status-tag"
-                                    :class="coin.period_status[period] ? 'status-up' : 'status-down'"
+                                    :class="{
+                                        'status-up': coin.period_status[period], 
+                                        'status-down': !coin.period_status[period],
+                                        'active': activePeriod[coin.symbol] === period
+                                    }"
+                                    @click="togglePeriodChart(coin.symbol, period)"
                                 >
                                     {{ period }}
                                 </span>
+                            </div>
+
+                            <!-- 持仓量图表 -->
+                            <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
+                                <div class="chart-title">
+                                    {{ formatSymbol(coin.symbol) }} - {{ activePeriod[coin.symbol] || '选择周期' }} 持仓量走势
+                                </div>
+                                <div v-if="!activePeriod[coin.symbol]" class="chart-placeholder">
+                                    请点击上方周期标签查看持仓量走势
+                                </div>
+                                <canvas v-else :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
                             </div>
                         </div>
                     </div>
@@ -625,6 +729,10 @@
                                             <span class="stat-label">活跃比:</span>
                                             <span class="stat-value">{{ coin.ratio }}x</span>
                                         </div>
+                                        <div>
+                                            <span class="stat-label">符合周期:</span>
+                                            <span class="stat-value">{{ coin.period_count }}</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="btn-group">
@@ -635,6 +743,13 @@
                                     >
                                         阻力位
                                     </button>
+                                    <button 
+                                        class="action-btn" 
+                                        :class="{'active': activeChart.symbol === coin.symbol}"
+                                        @click="toggleChart(coin.symbol)"
+                                    >
+                                        持仓量
+                                    </button>
                                 </div>
                             </div>
 
@@ -643,10 +758,26 @@
                                     v-for="period in periods" 
                                     :key="period" 
                                     class="status-tag"
-                                    :class="coin.period_status[period] ? 'status-up' : 'status-down'"
+                                    :class="{
+                                        'status-up': coin.period_status[period], 
+                                        'status-down': !coin.period_status[period],
+                                        'active': activePeriod[coin.symbol] === period
+                                    }"
+                                    @click="togglePeriodChart(coin.symbol, period)"
                                 >
                                     {{ period }}
                                 </span>
+                            </div>
+
+                            <!-- 持仓量图表 -->
+                            <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
+                                <div class="chart-title">
+                                    {{ formatSymbol(coin.symbol) }} - {{ activePeriod[coin.symbol] || '选择周期' }} 持仓量走势
+                                </div>
+                                <div v-if="!activePeriod[coin.symbol]" class="chart-placeholder">
+                                    请点击上方周期标签查看持仓量走势
+                                </div>
+                                <canvas v-else :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
                             </div>
                         </div>
                     </div>
@@ -696,6 +827,12 @@
                     allCycleRising: [],
                     analysisTime: 0,
                     activeResistance: null,
+                    activeChart: {
+                        symbol: null,
+                        period: null
+                    },
+                    activePeriod: {}, // 存储每个币种当前激活的周期
+                    chartDataCache: {}, // 缓存图表数据
                     loading: true,
                     dataLoading: true,
                     error: null,
@@ -721,7 +858,15 @@
                     filteredDailyRising() {
                         if (!this.dailyRising || !this.allCycleRising) return [];
                         const allCycleSymbols = new Set(this.allCycleRising.map(c => c.symbol));
-                        return this.dailyRising.filter(coin => !allCycleSymbols.has(coin.symbol));
+                        return this.dailyRising
+                            .filter(coin => !allCycleSymbols.has(coin.symbol))
+                            .sort((a, b) => b.period_count - a.period_count);
+                    },
+                    allCycleRisingSorted() {
+                        return [...this.allCycleRising].sort((a, b) => b.period_count - a.period_count);
+                    },
+                    shortTermActiveSorted() {
+                        return [...this.shortTermActive].sort((a, b) => b.period_count - a.period_count);
                     }
                 },
                 mounted() {
@@ -743,6 +888,171 @@
                     },
                     toggleResistance(symbol) {
                         this.activeResistance = this.activeResistance === symbol ? null : symbol;
+                    },
+                    toggleChart(symbol) {
+                        if (this.activeChart.symbol === symbol) {
+                            // 关闭图表
+                            this.activeChart.symbol = null;
+                            this.activeChart.period = null;
+                            this.activePeriod[symbol] = null;
+                        } else {
+                            // 打开图表
+                            this.activeChart.symbol = symbol;
+                            this.activeChart.period = null;
+                            this.activePeriod[symbol] = null;
+                        }
+                    },
+                    togglePeriodChart(symbol, period) {
+                        if (this.activePeriod[symbol] === period) {
+                            // 关闭当前周期的图表
+                            this.activePeriod[symbol] = null;
+                        } else {
+                            // 打开新周期的图表
+                            this.activePeriod[symbol] = period;
+                            this.activeChart.symbol = symbol;
+                            
+                            // 如果数据未加载，则加载数据
+                            const cacheKey = `${symbol}-${period}`;
+                            if (!this.chartDataCache[cacheKey]) {
+                                this.loadChartData(symbol, period);
+                            } else {
+                                // 数据已缓存，直接渲染
+                                this.$nextTick(() => {
+                                    this.renderChart(symbol, period, this.chartDataCache[cacheKey]);
+                                });
+                            }
+                        }
+                    },
+                    loadChartData(symbol, period) {
+                        this.statusMessage = `正在加载 ${symbol} ${period} 持仓量数据...`;
+                        
+                        axios.get(`/api/oi_chart/${symbol}/${period}`, { timeout: 10000 })
+                            .then(response => {
+                                const data = response.data;
+                                const cacheKey = `${symbol}-${period}`;
+                                
+                                // 缓存数据
+                                this.chartDataCache[cacheKey] = {
+                                    series: data.data || [],
+                                    timestamps: data.timestamps || []
+                                };
+                                
+                                // 渲染图表
+                                this.$nextTick(() => {
+                                    this.renderChart(symbol, period, this.chartDataCache[cacheKey]);
+                                });
+                                
+                                this.statusMessage = '持仓量数据加载完成';
+                            })
+                            .catch(error => {
+                                console.error('持仓量数据加载错误:', error);
+                                this.statusMessage = '持仓量数据加载失败';
+                            });
+                    },
+                    renderChart(symbol, period, chartData) {
+                        const canvasId = `chart-${symbol}-${period}`;
+                        const canvas = document.getElementById(canvasId);
+                        if (!canvas) return;
+                        
+                        // 销毁旧图表实例
+                        if (canvas.chart) {
+                            canvas.chart.destroy();
+                        }
+                        
+                        const ctx = canvas.getContext('2d');
+                        const data = chartData.series;
+                        const timestamps = chartData.timestamps;
+                        
+                        if (!data || data.length === 0) {
+                            console.error('没有可用的持仓量数据');
+                            return;
+                        }
+                        
+                        // 格式化标签（时间）
+                        const labels = timestamps.map(ts => {
+                            const date = new Date(ts);
+                            return date.toLocaleTimeString('zh-CN', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        });
+                        
+                        // 创建渐变
+                        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                        gradient.addColorStop(0, 'rgba(3, 166, 109, 0.6)');
+                        gradient.addColorStop(1, 'rgba(3, 166, 109, 0.1)');
+                        
+                        // 创建图表
+                        canvas.chart = new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: '持仓量',
+                                    data: data,
+                                    backgroundColor: gradient,
+                                    borderColor: '#03a66d',
+                                    borderWidth: 1,
+                                    borderRadius: 2,
+                                    barPercentage: 0.6,
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    },
+                                    tooltip: {
+                                        backgroundColor: '#1e2026',
+                                        titleColor: '#eaecef',
+                                        bodyColor: '#9aa1ab',
+                                        borderColor: '#2b2f36',
+                                        borderWidth: 1,
+                                        padding: 10,
+                                        callbacks: {
+                                            label: function(context) {
+                                                return `持仓量: ${context.parsed.y.toLocaleString()}`;
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        grid: {
+                                            display: false,
+                                            drawBorder: false
+                                        },
+                                        ticks: {
+                                            color: '#9aa1ab',
+                                            maxRotation: 0,
+                                            autoSkip: true,
+                                            maxTicksLimit: 8
+                                        }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        grid: {
+                                            color: '#2b2f36',
+                                            drawBorder: false
+                                        },
+                                        ticks: {
+                                            color: '#9aa1ab',
+                                            callback: function(value) {
+                                                if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                                if (value >= 1000) return (value/1000).toFixed(1) + 'K';
+                                                return value;
+                                            }
+                                        }
+                                    }
+                                },
+                                animation: {
+                                    duration: 500,
+                                    easing: 'easeOutQuart'
+                                }
+                            }
+                        });
                     },
                     queryResistanceLevels() {
                         if (!this.resistanceQuery) {
@@ -804,7 +1114,6 @@
                             .then(response => {
                                 // 确保数据结构完整
                                 const data = response.data;
-                                console.log("API响应数据:", data);
                                 
                                 this.lastUpdated = data.last_updated || '未知时间';
                                 this.nextAnalysisTime = data.next_analysis_time || '计算中...';
