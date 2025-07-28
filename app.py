@@ -7,19 +7,16 @@ import time
 import re
 import json
 import math
-import sqlite3
 import requests
 import threading
 import queue
 import logging
 import traceback
 import urllib3
-import psycopg2
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
-from urllib.parse import urlparse
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -89,212 +86,6 @@ PERIOD_MINUTES = {
 RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', 
                         '1d', '3d', '1w', '1M']
 ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '3d', '1w', '1M']
-
-# 获取数据库连接
-def get_db_connection():
-    # 检查是否在 Render 环境
-    if 'RENDER' in os.environ:
-        database_url = os.environ.get('DATABASE_URL')
-        if not database_url:
-            logger.error("❌ DATABASE_URL 环境变量未设置")
-            return None
-            
-        # 解析数据库 URL
-        result = urlparse(database_url)
-        username = result.username
-        password = result.password
-        database = result.path[1:]
-        hostname = result.hostname
-        port = result.port
-        
-        try:
-            conn = psycopg2.connect(
-                dbname=database,
-                user=username,
-                password=password,
-                host=hostname,
-                port=port
-            )
-            logger.info("✅ 成功连接到 PostgreSQL 数据库")
-            return conn
-        except Exception as e:
-            logger.error(f"❌ 连接 PostgreSQL 失败: {str(e)}")
-            return None
-    else:
-        # 本地开发环境使用 SQLite
-        try:
-            conn = sqlite3.connect('data.db')
-            logger.info("✅ 成功连接到 SQLite 数据库")
-            return conn
-        except Exception as e:
-            logger.error(f"❌ 连接 SQLite 失败: {str(e)}")
-            return None
-
-def init_db():
-    try:
-        logger.debug("🛠️ 开始初始化数据库...")
-        conn = get_db_connection()
-        if conn is None:
-            logger.error("❌ 无法获取数据库连接")
-            return False
-        
-        c = conn.cursor()
-        
-        # 检查是否在 PostgreSQL 环境
-        if 'RENDER' in os.environ:
-            # 创建表（PostgreSQL）
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS crypto_data (
-                    id SERIAL PRIMARY KEY,
-                    last_updated TEXT,
-                    daily_rising TEXT,
-                    short_term_active TEXT,
-                    all_cycle_rising TEXT,
-                    analysis_time REAL,
-                    next_analysis_time TEXT,
-                    resistance_data TEXT
-                )
-            ''')
-            
-            # 检查 next_analysis_time 列是否存在
-            c.execute("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name='crypto_data' AND column_name='next_analysis_time'
-            """)
-            if not c.fetchone():
-                logger.info("🛠️ 更新数据库表结构...")
-                c.execute("ALTER TABLE crypto_data ADD COLUMN next_analysis_time TEXT")
-        else:
-            # 创建表（SQLite）
-            c.execute('''CREATE TABLE IF NOT EXISTS crypto_data
-                        (id INTEGER PRIMARY KEY, 
-                        last_updated TEXT,
-                        daily_rising TEXT,
-                        short_term_active TEXT,
-                        all_cycle_rising TEXT,
-                        analysis_time REAL,
-                        next_analysis_time TEXT,
-                        resistance_data TEXT)''')
-            
-            # 检查表结构
-            c.execute("PRAGMA table_info(crypto_data)")
-            columns = [col[1] for col in c.fetchall()]
-            if 'next_analysis_time' not in columns:
-                logger.info("🛠️ 更新数据库表结构...")
-                c.execute("ALTER TABLE crypto_data ADD COLUMN next_analysis_time TEXT")
-        
-        conn.commit()
-        logger.info("✅ 数据库初始化完成")
-        return True
-    except Exception as e:
-        logger.error(f"❌ 数据库初始化失败: {str(e)}")
-        logger.error(traceback.format_exc())
-        return False
-    finally:
-        if 'conn' in locals():
-            conn.close()
-
-def save_to_db(data):
-    try:
-        logger.debug("💾 开始保存数据到数据库...")
-        conn = get_db_connection()
-        if conn is None:
-            logger.error("❌ 无法获取数据库连接")
-            return False
-            
-        c = conn.cursor()
-        
-        resistance_json = json.dumps(resistance_cache)
-        
-        # 插入数据（兼容 PostgreSQL 和 SQLite）
-        if 'RENDER' in os.environ:
-            c.execute(
-                "INSERT INTO crypto_data (last_updated, daily_rising, short_term_active, all_cycle_rising, analysis_time, next_analysis_time, resistance_data) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (data['last_updated'], 
-                 json.dumps(data['daily_rising']),
-                 json.dumps(data['short_term_active']),
-                 json.dumps(data['all_cycle_rising']), 
-                 data['analysis_time'],
-                 data.get('next_analysis_time', None),
-                 resistance_json)
-            )
-        else:
-            c.execute(
-                "INSERT INTO crypto_data VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)",
-                (data['last_updated'], 
-                 json.dumps(data['daily_rising']),
-                 json.dumps(data['short_term_active']),
-                 json.dumps(data['all_cycle_rising']), 
-                 data['analysis_time'],
-                 data.get('next_analysis_time', None),
-                 resistance_json)
-            )
-        
-        conn.commit()
-        logger.info("💾 数据保存到数据库成功")
-        return True
-    except Exception as e:
-        logger.error(f"❌ 保存数据到数据库失败: {str(e)}")
-        logger.error(traceback.format_exc())
-        return False
-    finally:
-        if 'conn' in locals():
-            conn.close()
-
-def get_last_valid_data():
-    try:
-        logger.debug("🔍 尝试获取最后有效数据...")
-        conn = get_db_connection()
-        if conn is None:
-            logger.error("❌ 无法获取数据库连接")
-            return None
-            
-        c = conn.cursor()
-        
-        c.execute("SELECT * FROM crypto_data ORDER BY id DESC LIMIT 1")
-        row = c.fetchone()
-        
-        if not row:
-            logger.debug("🔍 数据库中没有有效数据")
-            return None
-        
-        # 处理不同数据库的返回格式
-        if 'RENDER' in os.environ:
-            # PostgreSQL 返回的是元组
-            resistance_data = json.loads(row[7]) if row[7] else {}
-            for symbol, data in resistance_data.items():
-                resistance_cache[symbol] = data
-
-            return {
-                'last_updated': row[1],
-                'daily_rising': json.loads(row[2]) if row[2] else [],
-                'short_term_active': json.loads(row[3]) if row[3] else [],
-                'all_cycle_rising': json.loads(row[4]) if row[4] else [],
-                'analysis_time': row[5] or 0,
-                'next_analysis_time': row[6]
-            }
-        else:
-            # SQLite 返回的是元组
-            resistance_data = json.loads(row[7]) if row[7] else {}
-            for symbol, data in resistance_data.items():
-                resistance_cache[symbol] = data
-
-            return {
-                'last_updated': row[1],
-                'daily_rising': json.loads(row[2]) if row[2] else [],
-                'short_term_active': json.loads(row[3]) if row[3] else [],
-                'all_cycle_rising': json.loads(row[4]) if row[4] else [],
-                'analysis_time': row[5] or 0,
-                'next_analysis_time': row[6]
-            }
-    except Exception as e:
-        logger.error(f"❌ 获取最后有效数据失败: {str(e)}")
-        logger.error(traceback.format_exc())
-        return None
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 def init_client():
     global client
@@ -615,10 +406,14 @@ def analyze_trends():
         try:
             result = future.result()
             if result.get('daily_rising'):
+                # 添加 period_status 到币种对象
+                result['daily_rising']['period_status'] = result['period_status']
                 daily_rising.append(result['daily_rising'])
             if result.get('short_term_active'):
+                result['short_term_active']['period_status'] = result['period_status']
                 short_term_active.append(result['short_term_active'])
             if result.get('all_cycle_rising'):
+                result['all_cycle_rising']['period_status'] = result['period_status']
                 all_cycle_rising.append(result['all_cycle_rising'])
         except Exception as e:
             logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
@@ -664,15 +459,17 @@ def get_high_volume_symbols():
 def analysis_worker():
     global data_cache, current_data_cache
     logger.info("🔧 数据分析线程启动")
-    init_db()
 
-    initial_data = get_last_valid_data()
-    if initial_data:
-        logger.info("🔁 加载历史数据")
-        data_cache = initial_data
-        current_data_cache = data_cache.copy()
-    else:
-        logger.info("🆕 没有历史数据，将进行首次分析")
+    # 初始数据使用默认缓存
+    data_cache = {
+        "last_updated": "从未更新",
+        "daily_rising": [],
+        "short_term_active": [],
+        "all_cycle_rising": [],
+        "analysis_time": 0,
+        "next_analysis_time": "计算中..."
+    }
+    current_data_cache = data_cache.copy()
 
     while True:
         try:
@@ -702,7 +499,6 @@ def analysis_worker():
                 
                 logger.info(f"📊 分析结果已生成")
                 data_cache = new_data
-                save_to_db(new_data)
                 current_data_cache = new_data.copy()
                 logger.info(f"✅ 数据更新成功")
             except Exception as e:
@@ -784,36 +580,71 @@ def get_data():
     try:
         logger.info("📡 收到 /api/data 请求")
         
-        # 确保缓存中有有效数据
-        if not current_data_cache.get('last_updated') or current_data_cache.get('last_updated') == "从未更新":
-            # 尝试从数据库加载
-            last_data = get_last_valid_data()
-            if last_data:
-                current_data_cache = last_data
-                logger.info("🔁 从数据库加载历史数据")
-            else:
-                # 创建默认响应防止空数据
-                current_data_cache = {
-                    'last_updated': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-                    'daily_rising': [],
-                    'short_term_active': [],
-                    'all_cycle_rising': [],
-                    'analysis_time': 0,
-                    'next_analysis_time': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-                }
-                logger.info("🆕 创建初始数据")
+        # 确保数据格式正确
+        if not current_data_cache or not isinstance(current_data_cache, dict):
+            logger.warning("⚠️ 当前数据缓存格式错误，重置为默认")
+            current_data_cache = {
+                "last_updated": "从未更新",
+                "daily_rising": [],
+                "short_term_active": [],
+                "all_cycle_rising": [],
+                "analysis_time": 0,
+                "next_analysis_time": "计算中..."
+            }
+        
+        # 确保数组类型正确
+        daily_rising = current_data_cache.get('daily_rising', [])
+        if not isinstance(daily_rising, list):
+            logger.warning("⚠️ daily_rising 格式错误，重置为列表")
+            daily_rising = []
+        
+        short_term_active = current_data_cache.get('short_term_active', [])
+        if not isinstance(short_term_active, list):
+            logger.warning("⚠️ short_term_active 格式错误，重置为列表")
+            short_term_active = []
+        
+        all_cycle_rising = current_data_cache.get('all_cycle_rising', [])
+        if not isinstance(all_cycle_rising, list):
+            logger.warning("⚠️ all_cycle_rising 格式错误，重置为列表")
+            all_cycle_rising = []
+        
+        # 确保所有数组元素都有必要的字段
+        def validate_coins(coins):
+            valid_coins = []
+            for coin in coins:
+                if not isinstance(coin, dict):
+                    continue
+                if 'symbol' not in coin:
+                    coin['symbol'] = '未知币种'
+                if 'oi' not in coin:
+                    coin['oi'] = 0
+                if 'change' not in coin:
+                    coin['change'] = 0
+                if 'ratio' not in coin:
+                    coin['ratio'] = 0
+                if 'period_count' not in coin:
+                    coin['period_count'] = 0
+                if 'period_status' not in coin:
+                    coin['period_status'] = {}
+                valid_coins.append(coin)
+            return valid_coins
+        
+        daily_rising = validate_coins(daily_rising)
+        short_term_active = validate_coins(short_term_active)
+        all_cycle_rising = validate_coins(all_cycle_rising)
         
         data = {
             'last_updated': current_data_cache.get('last_updated', ""),
-            'daily_rising': current_data_cache.get('daily_rising', []),
-            'short_term_active': current_data_cache.get('short_term_active', []),
-            'all_cycle_rising': current_data_cache.get('all_cycle_rising', []),
+            'daily_rising': daily_rising,
+            'short_term_active': short_term_active,
+            'all_cycle_rising': all_cycle_rising,
             'analysis_time': current_data_cache.get('analysis_time', 0),
             'next_analysis_time': current_data_cache.get('next_analysis_time', "")
         }
         
         logger.info(f"📦 返回数据: {len(data['daily_rising'])} 日线上涨币种")
         return jsonify(data)
+    
     except Exception as e:
         logger.error(f"❌ 获取数据失败: {str(e)}")
         # 返回有结构的空数据而不是错误
@@ -866,16 +697,6 @@ def get_oi_chart_data(symbol, period):
 @app.route('/health', methods=['GET'])
 def health_check():
     try:
-        # 检查数据库连接
-        conn = get_db_connection()
-        if conn:
-            c = conn.cursor()
-            c.execute("SELECT 1")
-            conn.close()
-            db_status = 'ok'
-        else:
-            db_status = 'error'
-        
         # 检查Binance连接
         binance_status = 'ok'
         if client:
@@ -888,7 +709,6 @@ def health_check():
         
         return jsonify({
             'status': 'healthy',
-            'database': db_status,
             'binance': binance_status,
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
             'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
@@ -911,11 +731,6 @@ def start_background_threads():
         with open(index_path, 'w') as f:
             f.write("<html><body><h1>请将前端文件放入static目录</h1></body></html>")
     
-    # 初始化数据库
-    if not init_db():
-        logger.error("❌ 数据库初始化失败")
-        return False
-    
     # 初始化客户端
     if not init_client():
         logger.critical("❌ 无法初始化客户端")
@@ -924,22 +739,16 @@ def start_background_threads():
     # 确保缓存中有初始数据
     global current_data_cache
     if not current_data_cache or not current_data_cache.get('last_updated') or current_data_cache.get('last_updated') == "从未更新":
-        last_data = get_last_valid_data()
-        if last_data:
-            current_data_cache = last_data
-            logger.info("🔁 从数据库加载初始数据")
-        else:
-            # 创建初始数据记录
-            current_data_cache = {
-                "last_updated": "等待首次分析",
-                "daily_rising": [],
-                "short_term_active": [],
-                "all_cycle_rising": [],
-                "analysis_time": 0,
-                "next_analysis_time": "计算中..."
-            }
-            save_to_db(current_data_cache)
-            logger.info("🆕 创建初始数据库记录")
+        # 创建初始数据记录
+        current_data_cache = {
+            "last_updated": "等待首次分析",
+            "daily_rising": [],
+            "short_term_active": [],
+            "all_cycle_rising": [],
+            "analysis_time": 0,
+            "next_analysis_time": "计算中..."
+        }
+        logger.info("🆕 创建初始内存数据记录")
     
     # 启动后台线程
     worker_thread = threading.Thread(target=analysis_worker, name="AnalysisWorker")
@@ -957,10 +766,10 @@ if __name__ == '__main__':
     PORT = int(os.environ.get("PORT", 9600))
     
     logger.info("=" * 50)
-    logger.info(f"🚀 启动加密货币持仓量分析服务")
+    logger.info(f"🚀 启动加密货币持仓量分析服务 (内存存储版)")
     logger.info(f"🔑 API密钥: {API_KEY[:5]}...{API_KEY[-3:]}")
     logger.info(f"🌐 服务端口: {PORT}")
-    logger.info(f"💾 数据库类型: {'PostgreSQL (Render)' if 'RENDER' in os.environ else 'SQLite (本地)'}")
+    logger.info("💾 数据存储: 内存存储 (无持久化)")
     logger.info("=" * 50)
     
     if start_background_threads():
