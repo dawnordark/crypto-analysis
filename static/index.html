@@ -77,7 +77,7 @@
             font-weight: bold;
             margin-bottom: 20px;
         }
-        .status-loading {
+        .status-load极ing {
             background: rgba(240, 185, 11, 0.2);
             color: var(--binance-yellow);
         }
@@ -318,7 +318,7 @@
         }
         .status-tag.chart-open {
             background: rgba(240, 185, 11, 0.2);
-            border-color: var(--极binance-yellow);
+            border-color: var(--binance-yellow);
         }
 
         /* 持仓量图表容器 */
@@ -361,7 +361,7 @@
         }
         .resistance-block {
             background: #2b2f36;
-            border-radius: 6极px;
+            border-radius: 6px;
             padding: 8px;
             text-align: center;
         }
@@ -408,7 +408,7 @@
                 <div class="time-info">
                     <div>最后更新: {{ lastUpdated || '加载中...' }}</div>
                     <div>下次分析: {{ nextAnalysisTime || '计算中...' }}</div>
-                </div>
+                </极div>
             </div>
             <button class="refresh-btn" @click="fetchData" :disabled="loading">
                 <span v-if="!loading">刷新数据</span>
@@ -578,7 +578,7 @@
                                         </div>
                                         <div class="resistance-block">
                                             <div class="block-header">4小时</div>
-                                            <div class极="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
                                             <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
                                         </div>
                                         <div class="resistance-block">
