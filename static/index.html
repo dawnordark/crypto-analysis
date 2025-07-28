@@ -68,6 +68,27 @@
             color: #9aa1ab;
         }
 
+        /* 数据状态指示器 */
+        .data-status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .status-loading {
+            background: rgba(240, 185, 11, 0.2);
+            color: var(--binance-yellow);
+        }
+        .status-error {
+            background: rgba(207, 48, 74, 0.2);
+            color: var(--binance-red);
+        }
+        .status-success {
+            background: rgba(3, 166, 109, 0.2);
+            color: var(--binance-green);
+        }
+        
         /* 阻力位查询区域 */
         .resistance-query {
             background: var(--binance-blue);
@@ -361,6 +382,19 @@
                 <span v-if="!loading">刷新数据</span>
                 <span v-else>刷新中...</span>
             </button>
+        </div>
+        
+        <!-- 数据状态指示器 -->
+        <div class="data-status" :class="{
+            'status-loading': loading, 
+            'status-error': !!error, 
+            'status-success': !loading && !error
+        }">
+            <span v-if="loading">
+                <span class="loading-spinner"></span> {{ statusMessage }}
+            </span>
+            <span v-else-if="error">{{ error }}</span>
+            <span v-else>{{ statusMessage }}</span>
         </div>
 
         <!-- 阻力位查询区域 -->
@@ -713,6 +747,7 @@
                                 this.statusMessage = '阻力位/支撑位查询成功';
                             })
                             .catch(error => {
+                                console.error('阻力位查询错误:', error);
                                 this.queryError = '查询失败，请稍后再试';
                                 this.queryLoading = false;
                                 this.statusMessage = '阻力位/支撑位查询失败';
@@ -742,19 +777,41 @@
 
                         axios.get('/api/data', { timeout: 15000 })
                             .then(response => {
-                                this.lastUpdated = response.data.last_updated;
-                                this.nextAnalysisTime = response.data.next_analysis_time;
-                                this.dailyRising = response.data.daily_rising || [];
-                                this.shortTermActive = response.data.short_term_active || [];
-                                this.allCycleRising = response.data.all_cycle_rising || [];
-                                this.analysisTime = response.data.analysis_time || 0;
+                                // 确保数据结构完整
+                                const data = response.data;
+                                this.lastUpdated = data.last_updated || '未知时间';
+                                this.nextAnalysisTime = data.next_analysis_time || '计算中...';
+                                this.dailyRising = data.daily_rising || [];
+                                this.shortTermActive = data.short_term_active || [];
+                                this.allCycleRising = data.all_cycle_rising || [];
+                                this.analysisTime = data.analysis_time || 0;
+                                
                                 this.loading = false;
-                                this.statusMessage = "数据已加载";
+                                
+                                if (this.dailyRising.length === 0 && 
+                                    this.shortTermActive.length === 0 && 
+                                    this.allCycleRising.length === 0) {
+                                    this.statusMessage = "数据为空，等待首次分析完成";
+                                } else {
+                                    this.statusMessage = `已加载数据: ${this.formatTime(new Date())}`;
+                                }
                             })
                             .catch(error => {
-                                this.error = '数据获取失败';
+                                console.error('API请求错误:', error);
                                 this.loading = false;
-                                this.statusMessage = "使用缓存数据";
+                                
+                                if (error.response) {
+                                    // 服务器返回了错误状态码
+                                    this.error = `服务器错误: ${error.response.status} ${error.response.statusText}`;
+                                } else if (error.request) {
+                                    // 请求已发出但没有响应
+                                    this.error = '网络错误: 无法连接到服务器';
+                                } else {
+                                    // 其他错误
+                                    this.error = `请求失败: ${error.message}`;
+                                }
+                                
+                                this.statusMessage = "使用最后缓存数据";
                             });
                     }
                 }
