@@ -212,7 +212,6 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
-            cursor: pointer;
         }
         .list-title {
             font-size: 18px;
@@ -256,6 +255,11 @@
             font-size: 16px;
             font-weight: bold;
             color: var(--binance-yellow);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .coin-name:hover {
+            color: #f0d075;
         }
         .symbol-usdt {
             font-size: 12px;
@@ -266,6 +270,7 @@
             display: flex;
             gap: 15px;
             font-size: 13px;
+            margin-top: 8px;
         }
         .stat-label {
             color: #9aa1ab;
@@ -343,6 +348,7 @@
             border-radius: 8px;
             padding: 10px;
             border: 1px solid var(--binance-gray);
+            height: 200px;
         }
         .chart-title {
             text-align: center;
@@ -351,12 +357,48 @@
             margin-bottom: 5px;
         }
         .chart-placeholder {
-            height: 200px;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #9aa1ab;
             font-size: 14px;
+        }
+
+        /* 阻力位支撑位简约布局 */
+        .resistance-display {
+            background: #1c1f26;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            border: 1px solid var(--binance-gray);
+        }
+        .resistance-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .resistance-block {
+            background: #2b2f36;
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+        }
+        .block-header {
+            font-size: 12px;
+            color: #9aa1ab;
+            margin-bottom: 5px;
+        }
+        .resistance-value {
+            color: var(--binance-red);
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .support-value {
+            color: var(--binance-green);
+            font-weight: bold;
+            font-size: 13px;
         }
 
         /* 调试面板 */
@@ -426,6 +468,23 @@
 
         /* 折叠内容 */
         .collapsed { display: none; }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .list-container {
+                grid-template-columns: 1fr;
+            }
+            .coin-stats {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .resistance-grid {
+                grid-template-columns: 1fr;
+            }
+            .chart-container {
+                height: 180px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -462,79 +521,17 @@
             <span v-else>{{ statusMessage }}</span>
         </div>
 
-        <!-- 阻力位查询区域 -->
-        <div class="resistance-query">
-            <div class="resistance-header" @click="toggleResistanceQuery">
-                <div class="resistance-title">阻力位/支撑位查询</div>
-                <div class="toggle-icon">{{ showResistanceQuery ? '▲' : '▼' }}</div>
-            </div>
-            
-            <div :class="showResistanceQuery ? '' : 'collapsed'">
-                <div class="query-container">
-                    <input 
-                        type="text" 
-                        class="query-input" 
-                        placeholder="输入币种简称 (如 BTC)"
-                        v-model="resistanceQuery"
-                        @input="formatSymbolInput"
-                        @keyup.enter="queryResistanceLevels"
-                    >
-                    <button 
-                        class="query-btn" 
-                        @click="queryResistanceLevels"
-                        :disabled="queryLoading"
-                    >
-                        查询
-                    </button>
-                </div>
-
-                <div v-if="queryResult" class="resistance-result">
-                    <div class="resistance-grid">
-                        <!-- 阻力位列 -->
-                        <div class="resistance-column">
-                            <div class="column-header resistance-header">阻力位</div>
-                            <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-res'">
-                                <div class="interval-levels">
-                                    <div class="interval-title">{{ interval }}</div>
-                                    <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
-                                        <span>{{ level ? level.toFixed(4) : '-' }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- 支撑位列 -->
-                        <div class="resistance-column">
-                            <div class="column-header support-header">支撑位</div>
-                            <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-sup'">
-                                <div class="interval-levels">
-                                    <div class="interval-title">{{ interval }}</div>
-                                    <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
-                                        <span>{{ level ? level.toFixed(4) : '-' }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-if="queryError" class="error">
-                    {{ queryError }}
-                </div>
-            </div>
-        </div>
-
         <!-- 列表区域 -->
         <div class="list-container">
             <!-- 全部周期上涨 -->
             <div class="list">
-                <div class="list-header" @click="toggleList('allCycleRising')">
+                <div class="list-header">
                     <div class="list-title">全部周期上涨</div>
                     <div class="count-badge">{{ allCycleRising.length }}</div>
                 </div>
                 <div class="list-desc">(包含5分钟周期)</div>
                 
-                <div class="coin-list" v-show="lists.allCycleRising">
+                <div class="coin-list">
                     <div v-if="dataLoading" class="loading">
                         <span class="loading-spinner"></span> 正在加载数据...
                     </div>
@@ -545,7 +542,7 @@
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div>
-                                    <div class="coin-name">
+                                    <div class="coin-name" @click="toggleResistance(coin.symbol)">
                                         {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                     </div>
                                     <div class="coin-stats">
@@ -564,13 +561,6 @@
                                     </div>
                                 </div>
                                 <div class="btn-group">
-                                    <button 
-                                        class="action-btn" 
-                                        :class="{'active': activeResistance === coin.symbol}"
-                                        @click="toggleResistance(coin.symbol)"
-                                    >
-                                        阻力位
-                                    </button>
                                     <button 
                                         class="action-btn" 
                                         :class="{'active': activeChart.symbol === coin.symbol}"
@@ -606,6 +596,46 @@
                                     请点击上方周期标签查看持仓量走势
                                 </div>
                                 <canvas v-else :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
+                            </div>
+                            
+                            <!-- 阻力位支撑位 -->
+                            <div v-if="resistanceExpanded[coin.symbol]" class="resistance-display">
+                                <div v-if="resistanceData[coin.symbol]">
+                                    <div class="resistance-section">
+                                        <div class="resistance-block">
+                                            <div class="block-header">阻力位</div>
+                                            <div v-for="(level, idx) in getTopLevels(coin.symbol, 'resistance')" :key="'resistance'+idx" class="resistance-value">
+                                                {{ level.toFixed(4) }}
+                                            </div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">支撑位</div>
+                                            <div v-for="(level, idx) in getTopLevels(coin.symbol, 'support')" :key="'support'+idx" class="support-value">
+                                                {{ level.toFixed(4) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="resistance-section">
+                                        <div class="resistance-block">
+                                            <div class="block-header">1小时</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '1h', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">4小时</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">日线</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1d', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="loading">
+                                    <span class="loading-spinner"></span> 加载阻力位数据中...
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -614,24 +644,24 @@
 
             <!-- 日线上涨 -->
             <div class="list">
-                <div class="list-header" @click="toggleList('dailyRising')">
+                <div class="list-header">
                     <div class="list-title">日线上涨</div>
-                    <div class="count-badge">{{ filteredDailyRising.length }}</div>
+                    <div class="count-badge">{{ dailyRising.length }}</div>
                 </div>
                 <div class="list-desc">(不包含全周期上涨的币种)</div>
                 
-                <div class="coin-list" v-show="lists.dailyRising">
+                <div class="coin-list">
                     <div v-if="dataLoading" class="loading">
                         <span class="loading-spinner"></span> 正在加载数据...
                     </div>
-                    <div v-else-if="filteredDailyRising.length === 0" class="loading">
+                    <div v-else-if="dailyRising.length === 0" class="loading">
                         暂无数据
                     </div>
-                    <div v-else v-for="coin in filteredDailyRising" :key="coin.symbol + 'daily'">
+                    <div v-else v-for="coin in dailyRising" :key="coin.symbol + 'daily'">
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div>
-                                    <div class="coin-name">
+                                    <div class="coin-name" @click="toggleResistance(coin.symbol)">
                                         {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                     </div>
                                     <div class="coin-stats">
@@ -650,13 +680,6 @@
                                     </div>
                                 </div>
                                 <div class="btn-group">
-                                    <button 
-                                        class="action-btn" 
-                                        :class="{'active': activeResistance === coin.symbol}"
-                                        @click="toggleResistance(coin.symbol)"
-                                    >
-                                        阻力位
-                                    </button>
                                     <button 
                                         class="action-btn" 
                                         :class="{'active': activeChart.symbol === coin.symbol}"
@@ -693,6 +716,46 @@
                                 </div>
                                 <canvas v-else :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
                             </div>
+                            
+                            <!-- 阻力位支撑位 -->
+                            <div v-if="resistanceExpanded[coin.symbol]" class="resistance-display">
+                                <div v-if="resistanceData[coin.symbol]">
+                                    <div class="resistance-section">
+                                        <div class="resistance-block">
+                                            <div class="block-header">阻力位</div>
+                                            <div v-for="(level, idx) in getTopLevels(coin.symbol, 'resistance')" :key="'resistance'+idx" class="resistance-value">
+                                                {{ level.toFixed(4) }}
+                                            </div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">支撑位</div>
+                                            <div v-for="(level, idx) in getTopLevels(coin.symbol, 'support')" :key="'support'+idx" class="support-value">
+                                                {{ level.toFixed(4) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="resistance-section">
+                                        <div class="resistance-block">
+                                            <div class="block-header">1小时</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '1h', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">4小时</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">日线</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1d', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="loading">
+                                    <span class="loading-spinner"></span> 加载阻力位数据中...
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -700,13 +763,13 @@
 
             <!-- 短期活跃 -->
             <div class="list">
-                <div class="list-header" @click="toggleList('shortTermActive')">
+                <div class="list-header">
                     <div class="list-title">短期活跃</div>
                     <div class="count-badge">{{ shortTermActive.length }}</div>
                 </div>
                 <div class="list-desc">(5分钟持仓量异常活跃)</div>
                 
-                <div class="coin-list" v-show="lists.shortTermActive">
+                <div class="coin-list">
                     <div v-if="dataLoading" class="loading">
                         <span class="loading-spinner"></span> 正在加载数据...
                     </div>
@@ -717,7 +780,7 @@
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div>
-                                    <div class="coin-name">
+                                    <div class="coin-name" @click="toggleResistance(coin.symbol)">
                                         {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                     </div>
                                     <div class="coin-stats">
@@ -738,13 +801,6 @@
                                 <div class="btn-group">
                                     <button 
                                         class="action-btn" 
-                                        :class="{'active': activeResistance === coin.symbol}"
-                                        @click="toggleResistance(coin.symbol)"
-                                    >
-                                        阻力位
-                                    </button>
-                                    <button 
-                                        class="action-btn" 
                                         :class="{'active': activeChart.symbol === coin.symbol}"
                                         @click="toggleChart(coin.symbol)"
                                     >
@@ -779,36 +835,47 @@
                                 </div>
                                 <canvas v-else :id="'chart-'+coin.symbol+'-'+activePeriod[coin.symbol]"></canvas>
                             </div>
+                            
+                            <!-- 阻力位支撑位 -->
+                            <div v-if="resistanceExpanded[coin.symbol]" class="resistance-display">
+                                <div v-if="resistanceData[coin.symbol]">
+                                    <div class="resistance-section">
+                                        <div class="resistance-block">
+                                            <div class="block-header">阻力位</div>
+                                            <div v-for="(level, idx) in getTopLevels(coin.symbol, 'resistance')" :key="'resistance'+idx" class="resistance-value">
+                                                {{ level.toFixed(4) }}
+                                            </div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">支撑位</div>
+                                            <div v-for="(level, idx) in getTopLevels(coin.symbol, 'support')" :key="'support'+idx" class="support-value">
+                                                {{ level.toFixed(4) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="resistance-section">
+                                        <div class="resistance-block">
+                                            <div class="block-header">1小时</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '1h', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">4小时</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                        <div class="resistance-block">
+                                            <div class="block-header">日线</div>
+                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1d', 'resistance', 0).toFixed(4) }}</div>
+                                            <div class="support-value">{{ getLevel(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="loading">
+                                    <span class="loading-spinner"></span> 加载阻力位数据中...
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 调试信息 -->
-        <div class="debug-panel">
-            <div class="debug-header" @click="toggleDebugPanel">
-                <div class="debug-title">调试信息 {{ showDebugPanel ? '▲' : '▼' }}</div>
-            </div>
-            
-            <div :class="showDebugPanel ? '' : 'collapsed'">
-                <div v-if="error" class="error">
-                    {{ error }}
-                </div>
-                
-                <div class="debug-content">
-                    <div class="debug-row">
-                        <div class="debug-label">页面刷新时间:</div>
-                        <div>{{ pageRefreshTime || '--:--:--' }}</div>
-                    </div>
-                    <div class="debug-row">
-                        <div class="debug-label">分析耗时:</div>
-                        <div v-if="analysisTime > 0">{{ analysisTime.toFixed(2) }}秒</div>
-                        <div v-else>--</div>
-                    </div>
-                    <div class="debug-row">
-                        <div class="debug-label">状态信息:</div>
-                        <div>{{ statusMessage || '--' }}</div>
                     </div>
                 </div>
             </div>
@@ -821,73 +888,35 @@
                 data: {
                     lastUpdated: null,
                     nextAnalysisTime: null,
-                    pageRefreshTime: null,
                     dailyRising: [],
                     shortTermActive: [],
                     allCycleRising: [],
                     analysisTime: 0,
-                    activeResistance: null,
                     activeChart: {
                         symbol: null,
                         period: null
                     },
-                    activePeriod: {}, // 存储每个币种当前激活的周期
-                    chartDataCache: {}, // 缓存图表数据
+                    activePeriod: {},
+                    resistanceExpanded: {},
+                    resistanceData: {},
+                    chartDataCache: {},
                     loading: true,
                     dataLoading: true,
                     error: null,
                     statusMessage: "初始化中...",
-                    lists: {
-                        allCycleRising: true,
-                        dailyRising: true,
-                        shortTermActive: true
-                    },
-                    periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
-                    
-                    // 阻力位查询
-                    resistanceQuery: '',
-                    queryResult: null,
-                    queryError: null,
-                    queryLoading: false,
-                    showResistanceQuery: true,
-                    
-                    // 调试面板
-                    showDebugPanel: false
-                },
-                computed: {
-                    filteredDailyRising() {
-                        if (!this.dailyRising || !this.allCycleRising) return [];
-                        const allCycleSymbols = new Set(this.allCycleRising.map(c => c.symbol));
-                        return this.dailyRising
-                            .filter(coin => !allCycleSymbols.has(coin.symbol))
-                            .sort((a, b) => b.period_count - a.period_count);
-                    },
-                    allCycleRisingSorted() {
-                        return [...this.allCycleRising].sort((a, b) => b.period_count - a.period_count);
-                    },
-                    shortTermActiveSorted() {
-                        return [...this.shortTermActive].sort((a, b) => b.period_count - a.period_count);
-                    }
+                    periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
                 },
                 mounted() {
-                    this.pageRefreshTime = this.formatTime(new Date());
                     this.fetchData();
                 },
                 methods: {
-                    formatSymbolInput() {
-                        this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                    },
-                    toggleResistanceQuery() {
-                        this.showResistanceQuery = !this.showResistanceQuery;
-                    },
-                    toggleDebugPanel() {
-                        this.showDebugPanel = !this.showDebugPanel;
-                    },
-                    toggleList(listName) {
-                        this.lists[listName] = !this.lists[listName];
-                    },
                     toggleResistance(symbol) {
-                        this.activeResistance = this.activeResistance === symbol ? null : symbol;
+                        this.$set(this.resistanceExpanded, symbol, !this.resistanceExpanded[symbol]);
+                        
+                        // 如果展开并且还没有加载过阻力位数据，则加载
+                        if (this.resistanceExpanded[symbol] && !this.resistanceData[symbol]) {
+                            this.fetchResistanceLevels(symbol);
+                        }
                     },
                     toggleChart(symbol) {
                         if (this.activeChart.symbol === symbol) {
@@ -909,7 +938,6 @@
                         } else {
                             // 打开新周期的图表
                             this.activePeriod[symbol] = period;
-                            this.activeChart.symbol = symbol;
                             
                             // 如果数据未加载，则加载数据
                             const cacheKey = `${symbol}-${period}`;
@@ -923,10 +951,23 @@
                             }
                         }
                     },
+                    fetchResistanceLevels(symbol) {
+                        this.statusMessage = `正在加载 ${symbol} 阻力位数据...`;
+                        
+                        axios.get(`/api/resistance_levels/${symbol}`)
+                            .then(response => {
+                                this.$set(this.resistanceData, symbol, response.data);
+                                this.statusMessage = '阻力位数据加载完成';
+                            })
+                            .catch(error => {
+                                console.error('获取阻力位失败:', error);
+                                this.statusMessage = '阻力位数据加载失败';
+                            });
+                    },
                     loadChartData(symbol, period) {
                         this.statusMessage = `正在加载 ${symbol} ${period} 持仓量数据...`;
                         
-                        axios.get(`/api/oi_chart/${symbol}/${period}`, { timeout: 10000 })
+                        axios.get(`/api/oi_chart/${symbol}/${period}`)
                             .then(response => {
                                 const data = response.data;
                                 const cacheKey = `${symbol}-${period}`;
@@ -968,6 +1009,11 @@
                             return;
                         }
                         
+                        // 计算最小值和最大值，并留出10%的空间
+                        const minValue = Math.min(...data);
+                        const maxValue = Math.max(...data);
+                        const padding = (maxValue - minValue) * 0.1;
+                        
                         // 格式化标签（时间）
                         const labels = timestamps.map(ts => {
                             const date = new Date(ts);
@@ -979,8 +1025,8 @@
                         
                         // 创建渐变
                         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                        gradient.addColorStop(0, 'rgba(3, 166, 109, 0.6)');
-                        gradient.addColorStop(1, 'rgba(3, 166, 109, 0.1)');
+                        gradient.addColorStop(0, 'rgba(58, 123, 213, 0.8)');
+                        gradient.addColorStop(1, 'rgba(0, 210, 255, 0.3)');
                         
                         // 创建图表
                         canvas.chart = new Chart(ctx, {
@@ -991,7 +1037,7 @@
                                     label: '持仓量',
                                     data: data,
                                     backgroundColor: gradient,
-                                    borderColor: '#03a66d',
+                                    borderColor: 'rgba(75, 192, 192, 1)',
                                     borderWidth: 1,
                                     borderRadius: 2,
                                     barPercentage: 0.6,
@@ -1032,7 +1078,9 @@
                                         }
                                     },
                                     y: {
-                                        beginAtZero: true,
+                                        beginAtZero: false,
+                                        min: Math.max(0, minValue - padding),
+                                        max: maxValue + padding,
                                         grid: {
                                             color: '#2b2f36',
                                             drawBorder: false
@@ -1054,34 +1102,31 @@
                             }
                         });
                     },
-                    queryResistanceLevels() {
-                        if (!this.resistanceQuery) {
-                            this.queryError = '请输入币种简称';
-                            return;
+                    getTopLevels(symbol, type) {
+                        if (!this.resistanceData[symbol]) return [];
+                        
+                        const allLevels = [];
+                        for (const interval in this.resistanceData[symbol]) {
+                            const levels = this.resistanceData[symbol][interval][type];
+                            if (levels && levels.length > 0) {
+                                allLevels.push(...levels);
+                            }
                         }
-
-                        const symbol = this.resistanceQuery.trim().toUpperCase() + 'USDT';
-                        if (!/^[A-Z0-9]{2,10}USDT$/.test(symbol)) {
-                            this.queryError = '无效的币种简称';
-                            return;
+                        
+                        // 去重并排序
+                        const uniqueLevels = [...new Set(allLevels)].sort((a, b) => b - a);
+                        
+                        // 返回前3个重要级别
+                        return uniqueLevels.slice(0, 3);
+                    },
+                    getLevel(symbol, interval, type, index) {
+                        if (!this.resistanceData[symbol] || 
+                            !this.resistanceData[symbol][interval] || 
+                            !this.resistanceData[symbol][interval][type] || 
+                            index >= this.resistanceData[symbol][interval][type].length) {
+                            return 0;
                         }
-
-                        this.queryError = null;
-                        this.queryLoading = true;
-                        this.statusMessage = `正在查询 ${symbol} 的阻力位/支撑位...`;
-
-                        axios.get(`/api/resistance_levels/${symbol}`, { timeout: 10000 })
-                            .then(response => {
-                                this.queryResult = { symbol, levels: response.data };
-                                this.queryLoading = false;
-                                this.statusMessage = '阻力位/支撑位查询成功';
-                            })
-                            .catch(error => {
-                                console.error('阻力位查询错误:', error);
-                                this.queryError = '查询失败，请稍后再试';
-                                this.queryLoading = false;
-                                this.statusMessage = '阻力位/支撑位查询失败';
-                            });
+                        return this.resistanceData[symbol][interval][type][index];
                     },
                     formatNumber(num) {
                         if (!num) return "0";
@@ -1092,20 +1137,12 @@
                     formatSymbol(symbol) {
                         return symbol.replace('USDT', '');
                     },
-                    formatTime(date) {
-                        return date.toLocaleTimeString('zh-CN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                        });
-                    },
                     fetchData() {
                         this.dataLoading = true;
                         this.loading = true;
                         this.error = null;
                         this.statusMessage = "获取数据中...";
-                        this.pageRefreshTime = this.formatTime(new Date());
-
+                        
                         // 添加时间戳防止缓存
                         const timestamp = new Date().getTime();
                         const url = `/api/data?t=${timestamp}`;
@@ -1125,6 +1162,11 @@
                                 
                                 this.analysisTime = data.analysis_time || 0;
                                 
+                                // 按符合周期数量排序
+                                this.dailyRising.sort((a, b) => b.period_count - a.period_count);
+                                this.shortTermActive.sort((a, b) => b.period_count - a.period_count);
+                                this.allCycleRising.sort((a, b) => b.period_count - a.period_count);
+                                
                                 this.loading = false;
                                 this.dataLoading = false;
                                 
@@ -1133,7 +1175,7 @@
                                     this.allCycleRising.length === 0) {
                                     this.statusMessage = "数据为空，等待首次分析完成";
                                 } else {
-                                    this.statusMessage = `已加载数据: ${this.formatTime(new Date())}`;
+                                    this.statusMessage = `已加载数据: ${new Date().toLocaleTimeString()}`;
                                 }
                             })
                             .catch(error => {
