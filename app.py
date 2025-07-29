@@ -13,14 +13,10 @@ import queue
 import logging
 import traceback
 import urllib3
-import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
-from scipy.signal import argrelextrema
-from scipy.stats import linregress
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -45,17 +41,13 @@ file_handler.setFormatter(formatter)
 root_logger.addHandler(console_handler)
 root_logger.addHandler(file_handler)
 
-# 降低第三方库的日志级别
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("requests").setLevel(logging.WARNING)
-
 logger = logging.getLogger(__name__)
 logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 
-# Binance API 配置
+# Binance API 配置 - 添加回退机制
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 client = None
@@ -75,14 +67,10 @@ oi_data_cache = {}
 resistance_cache = {}
 RESISTANCE_CACHE_EXPIRATION = 24 * 3600
 OI_CACHE_EXPIRATION = 5 * 60  # 5分钟缓存过期
-SUPPORT_RESISTANCE_CACHE_EXPIRATION = 30 * 60  # 30分钟缓存过期
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
 executor = ThreadPoolExecutor(max_workers=10)
-
-# 添加线程锁保证缓存操作的原子性
-cache_lock = threading.Lock()
 
 PERIOD_MINUTES = {
     '5m': 5,
@@ -116,12 +104,11 @@ def init_client():
             client = Client(
                 api_key=API_KEY, 
                 api_secret=API_SECRET,
-                requests_params={'timeout': 30},
-                testnet=False  # 确保使用实盘环境
+                requests_params={'timeout': 30}
             )
             
-            # 测试连接 - 使用合约API端点
-            server_time = client.futures_coin_time()
+            # 测试连接
+            server_time = client.get_server_time()
             logger.info(f"✅ Binance客户端初始化成功，服务器时间: {datetime.fromtimestamp(server_time['serverTime']/1000)}")
             return True
         except Exception as e:
@@ -154,31 +141,23 @@ def get_next_update_time(period):
 def get_open_interest(symbol, period, use_cache=True):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': []}
 
         current_time = datetime.now(timezone.utc)
         cache_key = f"{symbol}_{period}"
         
-        # 使用锁保证缓存操作的原子性
-        with cache_lock:
-            if use_cache and cache_key in oi_data_cache:
-                cached_data = oi_data_cache[cache_key]
-                # 检查缓存是否过期
-                if 'expiration' in cached_data and cached_data['expiration'] > current_time:
-                    logger.debug(f"📈 使用缓存数据: {symbol} {period}")
-                    return cached_data['data']
+        if use_cache and cache_key in oi_data_cache:
+            cached_data = oi_data_cache[cache_key]
+            # 检查缓存是否过期
+            if 'expiration' in cached_data and cached_data['expiration'] > current_time:
+                logger.debug(f"📈 使用缓存数据: {symbol} {period}")
+                return cached_data['data']
 
         logger.info(f"📡 请求持仓量数据: symbol={symbol}, period={period}")
-        # 使用合约API端点
-        url = "https://dapi.binance.com/dapi/v1/openInterestHist"
-        params = {
-            'pair': symbol.replace('USD_PERP', ''),
-            'period': period,
-            'limit': 30,
-            'contractType': 'PERPETUAL'
-        }
+        url = "https://fapi.binance.com/futures/data/openInterestHist"
+        params = {'symbol': symbol, 'period': period, 'limit': 30}
 
         response = requests.get(url, params=params, timeout=15)
         logger.debug(f"📡 响应状态: {response.status_code}")
@@ -209,13 +188,10 @@ def get_open_interest(symbol, period, use_cache=True):
         
         # 设置5分钟缓存过期
         expiration = current_time + timedelta(seconds=OI_CACHE_EXPIRATION)
-        
-        # 使用锁更新缓存
-        with cache_lock:
-            oi_data_cache[cache_key] = {
-                'data': oi_data,
-                'expiration': expiration
-            }
+        oi_data_cache[cache_key] = {
+            'data': oi_data,
+            'expiration': expiration
+        }
 
         logger.info(f"📈 获取新数据: {symbol} {period} ({len(oi_series)}点)")
         return oi_data
@@ -240,12 +216,11 @@ def calculate_resistance_levels(symbol):
         now = time.time()
         
         # 检查缓存
-        with cache_lock:
-            if symbol in resistance_cache:
-                cache_data = resistance_cache[symbol]
-                if cache_data['expiration'] > now:
-                    logger.debug(f"📊 使用缓存的阻力位数据: {symbol}")
-                    return cache_data['levels']
+        if symbol in resistance_cache:
+            cache_data = resistance_cache[symbol]
+            if cache_data['expiration'] > now:
+                logger.debug(f"📊 使用缓存的阻力位数据: {symbol}")
+                return cache_data['levels']
         
         # 确保客户端已初始化
         if client is None and not init_client():
@@ -254,9 +229,8 @@ def calculate_resistance_levels(symbol):
         
         # 获取当前价格
         try:
-            # 使用合约API获取价格
-            ticker = client.futures_coin_symbol_ticker(symbol=symbol)
-            current_price = float(ticker[0]['price'])
+            ticker = client.futures_symbol_ticker(symbol=symbol)
+            current_price = float(ticker['price'])
             logger.info(f"📊 {symbol}当前价格: {current_price}")
         except Exception as e:
             logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
@@ -268,12 +242,7 @@ def calculate_resistance_levels(symbol):
         for interval in RESISTANCE_INTERVALS:
             try:
                 logger.info(f"📊 获取K线数据: {symbol} {interval}")
-                # 使用合约API获取K线数据
-                klines = client.futures_coin_klines(
-                    symbol=symbol,
-                    interval=interval,
-                    limit=100
-                )
+                klines = client.futures_klines(symbol=symbol, interval=interval, limit=100)
                 
                 if not klines or len(klines) < 10:
                     logger.warning(f"⚠️ {symbol}在{interval}的K线数据不足")
@@ -361,12 +330,10 @@ def calculate_resistance_levels(symbol):
             'support': top_supports
         }
         
-        # 使用锁更新缓存
-        with cache_lock:
-            resistance_cache[symbol] = {
-                'levels': levels,
-                'expiration': now + RESISTANCE_CACHE_EXPIRATION
-            }
+        resistance_cache[symbol] = {
+            'levels': levels,
+            'expiration': now + RESISTANCE_CACHE_EXPIRATION
+        }
         return levels
     except Exception as e:
         logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
@@ -536,11 +503,10 @@ def get_high_volume_symbols():
 
     try:
         logger.info("📊 获取高交易量币种...")
-        # 使用合约API获取交易对
-        tickers = client.futures_coin_ticker()
+        tickers = client.futures_ticker()
         filtered = [
             t for t in tickers if float(t.get('quoteVolume', 0)) > 10000000
-            and t.get('symbol', '').endswith('USD_PERP')
+            and t.get('symbol', '').endswith('USDT')
         ]
         logger.info(f"📊 找到 {len(filtered)} 个高交易量币种")
         return [t['symbol'] for t in filtered]
@@ -595,18 +561,14 @@ def analysis_worker():
                 logger.info(f"日线上涨币种数量: {len(new_data['daily_rising'])}")
                 logger.info(f"短期活跃币种数量: {len(new_data['short_term_active'])}")
                 
-                # 使用锁更新全局缓存
-                with cache_lock:
-                    data_cache = new_data
-                    current_data_cache = new_data.copy()
+                data_cache = new_data
+                current_data_cache = new_data.copy()
                 logger.info(f"✅ 数据更新成功")
             except Exception as e:
                 logger.error(f"❌ 分析过程中出错: {str(e)}")
                 logger.error(traceback.format_exc())
-                # 使用锁恢复缓存
-                with cache_lock:
-                    data_cache = backup_cache
-                    current_data_cache = current_backup
+                data_cache = backup_cache
+                current_data_cache = current_backup
                 logger.info("🔄 恢复历史数据")
 
             analysis_end = datetime.now(timezone.utc)
@@ -655,255 +617,6 @@ def schedule_analysis():
         logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
 
-# 阻力位/支撑位分析函数
-def fetch_binance_data(symbol, timeframe, limit=500):
-    """获取币安K线数据"""
-    # 确保客户端已初始化
-    if client is None and not init_client():
-        logger.error("❌ 无法初始化客户端，无法获取K线数据")
-        return None
-    
-    try:
-        logger.info(f"📊 获取K线数据: {symbol} {timeframe}")
-        # 使用合约API获取K线数据
-        klines = client.futures_coin_klines(
-            symbol=symbol,
-            interval=timeframe,
-            limit=limit
-        )
-        if not klines:
-            return None
-            
-        df = pd.DataFrame(klines, columns=[
-            'open_time', 'open', 'high', 'low', 'close', 'volume',
-            'close_time', 'quote_asset_volume', 'trades',
-            'taker_buy_base', 'taker_buy_quote', 'ignore'
-        ])
-        numeric_cols = ['open', 'high', 'low', 'close', 'volume']
-        df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, axis=1)
-        df['open_time'] = pd.to_datetime(df['open_time'], unit='ms')
-        return df[['open_time', 'open', 'high', 'low', 'close', 'volume']]
-    except Exception as e:
-        logger.error(f"❌ 获取K线数据失败: {symbol} {timeframe}, {str(e)}")
-        return None
-
-def identify_swing_points(df, window=10):
-    """识别关键摆动点"""
-    if df is None or len(df) < window * 2:
-        return [], []
-    
-    highs = df['high'].values
-    lows = df['low'].values
-    
-    high_idx = argrelextrema(highs, np.greater_equal, order=window)[0]
-    low_idx = argrelextrema(lows, np.less_equal, order=window)[0]
-    
-    resistance = [{'price': highs[i], 'time': df['open_time'].iloc[i], 'type': 'swing'} for i in high_idx]
-    support = [{'price': lows[i], 'time': df['open_time'].iloc[i], 'type': 'swing'} for i in low_idx]
-    
-    return support, resistance
-
-def identify_fibonacci_levels(df, lookback=200):
-    """识别斐波那契关键位"""
-    if df is None or len(df) < lookback:
-        return []
-    
-    recent_high = df['high'][-lookback:].max()
-    recent_low = df['low'][-lookback:].min()
-    price_range = recent_high - recent_low
-    
-    levels = []
-    for level in [0.236, 0.382, 0.5, 0.618, 0.786]:
-        price = recent_low + price_range * level
-        levels.append({
-            'price': price,
-            'type': 'fibonacci',
-            'level': level
-        })
-    return levels
-
-def identify_trendline_levels(df, window=20):
-    """识别趋势线形成的支撑/阻力"""
-    levels = []
-    
-    if df is None or len(df) < window * 2:
-        return levels
-    
-    # 下降趋势线（阻力）
-    high_idx = argrelextrema(df['high'].values, np.greater, order=window)[0]
-    if len(high_idx) >= 2:
-        # 取最近的两个高点
-        high_idx = high_idx[-2:]
-        x = high_idx
-        y = df['high'].iloc[high_idx].values
-        slope, intercept, _, _, _ = linregress(x, y)
-        current_price = intercept + slope * (len(df) - 1)
-        levels.append({
-            'price': current_price,
-            'type': 'trendline',
-            'subtype': 'downtrend'
-        })
-    
-    # 上升趋势线（支撑）
-    low_idx = argrelextrema(df['low'].values, np.less, order=window)[0]
-    if len(low_idx) >= 2:
-        # 取最近的两个低点
-        low_idx = low_idx[-2:]
-        x = low_idx
-        y = df['low'].iloc[low_idx].values
-        slope, intercept, _, _, _ = linregress(x, y)
-        current_price = intercept + slope * (len(df) - 1)
-        levels.append({
-            'price': current_price,
-            'type': 'trendline',
-            'subtype': 'uptrend'
-        })
-    
-    return levels
-
-def find_resonance_levels(levels_dict, current_price):
-    """检测多周期共振的关键位"""
-    resonance_levels = {'support': [], 'resistance': []}
-    
-    for level_type in ['support', 'resistance']:
-        levels = levels_dict[level_type]
-        clustered = {}
-        
-        # 聚类相近的价格水平
-        for level in levels:
-            price = level['price']
-            found = False
-            for cluster in clustered.values():
-                if abs(cluster['price'] - price) < price * 0.005:
-                    cluster['count'] += 1
-                    cluster['sources'].append(level['source'])
-                    cluster['original_levels'].append(level)
-                    cluster['types'].append(level['type'])
-                    found = True
-                    break
-            if not found:
-                key = f"{price:.8f}"
-                clustered[key] = {
-                    'price': price,
-                    'count': 1,
-                    'sources': [level['source']],
-                    'original_levels': [level],
-                    'types': [level['type']]
-                }
-        
-        # 筛选重要水平
-        for cluster in clustered.values():
-            if cluster['count'] >= 2:  # 至少两个来源确认
-                strength = min(100, cluster['count'] * 20 + len(set(cluster['sources'])) * 15)
-                
-                # 只保留当前价格附近的水平
-                if abs(cluster['price'] - current_price) < current_price * 0.05:
-                    resonance_levels[level_type].append({
-                        'price': cluster['price'],
-                        'strength': strength,
-                        'sources': cluster['sources'],
-                        'types': list(set(cluster['types'])),
-                        'original_levels': cluster['original_levels']
-                    })
-        
-        # 按强度排序
-        resonance_levels[level_type].sort(key=lambda x: x['strength'], reverse=True)
-    
-    return resonance_levels
-
-def analyze_support_resistance(symbol):
-    """主分析函数"""
-    timeframes = ['15m', '30m', '1h', '4h', '1d']
-    all_levels = {'support': [], 'resistance': []}
-    current_price = 0
-    
-    # 检查缓存
-    cache_key = f"sr_{symbol}"
-    with cache_lock:
-        if cache_key in resistance_cache:
-            cache_data = resistance_cache[cache_key]
-            if cache_data['expiration'] > time.time():
-                logger.info(f"📊 使用缓存的支撑阻力位数据: {symbol}")
-                return cache_data['data']
-    
-    # 确保客户端已初始化
-    if client is None and not init_client():
-        logger.error("❌ 无法初始化客户端，无法计算支撑阻力位")
-        return {
-            'symbol': symbol,
-            'timestamp': datetime.utcnow().isoformat(),
-            'current_price': 0,
-            'resonance_levels': {'support': [], 'resistance': []}
-        }
-    
-    # 获取当前价格
-    try:
-        # 使用合约API获取价格
-        ticker = client.futures_coin_symbol_ticker(symbol=symbol)
-        current_price = float(ticker[0]['price'])
-        logger.info(f"📊 {symbol}当前价格: {current_price}")
-    except Exception as e:
-        logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
-        return {
-            'symbol': symbol,
-            'timestamp': datetime.utcnow().isoformat(),
-            'current_price': 0,
-            'resonance_levels': {'support': [], 'resistance': []}
-        }
-    
-    # 多时间框架分析
-    for tf in timeframes:
-        df = fetch_binance_data(symbol, tf, limit=500)
-        if df is None or df.empty:
-            continue
-        
-        # 识别各类关键位
-        swing_support, swing_resistance = identify_swing_points(df)
-        fib_levels = identify_fibonacci_levels(df)
-        trendline_levels = identify_trendline_levels(df)
-        
-        # 添加来源标记
-        for level in swing_support:
-            level['source'] = tf
-            all_levels['support'].append(level)
-        
-        for level in swing_resistance:
-            level['source'] = tf
-            all_levels['resistance'].append(level)
-        
-        for level in fib_levels:
-            level['source'] = tf
-            if level['level'] < 0.5:
-                all_levels['support'].append(level)
-            else:
-                all_levels['resistance'].append(level)
-        
-        for level in trendline_levels:
-            level['source'] = tf
-            if 'uptrend' in level.get('subtype', ''):
-                all_levels['support'].append(level)
-            else:
-                all_levels['resistance'].append(level)
-    
-    # 检测共振水平
-    resonance_levels = find_resonance_levels(all_levels, current_price)
-    
-    result = {
-        'symbol': symbol,
-        'timestamp': datetime.utcnow().isoformat(),
-        'current_price': current_price,
-        'resonance_levels': resonance_levels
-    }
-    
-    # 设置30分钟缓存
-    with cache_lock:
-        resistance_cache[cache_key] = {
-            'data': result,
-            'expiration': time.time() + SUPPORT_RESISTANCE_CACHE_EXPIRATION
-        }
-    
-    return result
-
 # API路由
 @app.route('/')
 def index():
@@ -931,14 +644,10 @@ def get_data():
     try:
         logger.info("📡 收到 /api/data 请求")
         
-        # 使用锁读取缓存
-        with cache_lock:
-            cache_copy = current_data_cache.copy()
-        
         # 确保数据格式正确
-        if not cache_copy or not isinstance(cache_copy, dict):
+        if not current_data_cache or not isinstance(current_data_cache, dict):
             logger.warning("⚠️ 当前数据缓存格式错误，重置为默认")
-            cache_copy = {
+            current_data_cache = {
                 "last_updated": "从未更新",
                 "daily_rising": [],
                 "short_term_active": [],
@@ -969,21 +678,21 @@ def get_data():
             return valid_coins
         
         # 确保数组类型正确
-        daily_rising = validate_coins(cache_copy.get('daily_rising', []))
-        short_term_active = validate_coins(cache_copy.get('short_term_active', []))
-        all_cycle_rising = validate_coins(cache_copy.get('all_cycle_rising', []))
+        daily_rising = validate_coins(current_data_cache.get('daily_rising', []))
+        short_term_active = validate_coins(current_data_cache.get('short_term_active', []))
+        all_cycle_rising = validate_coins(current_data_cache.get('all_cycle_rising', []))
         
         # 过滤掉全周期上涨的币种（不在日线上涨列表显示）
         all_cycle_symbols = {coin['symbol'] for coin in all_cycle_rising}
         filtered_daily_rising = [coin for coin in daily_rising if coin['symbol'] not in all_cycle_symbols]
         
         data = {
-            'last_updated': cache_copy.get('last_updated', ""),
+            'last_updated': current_data_cache.get('last_updated', ""),
             'daily_rising': filtered_daily_rising,
             'short_term_active': short_term_active,
             'all_cycle_rising': all_cycle_rising,
-            'analysis_time': cache_copy.get('analysis_time', 0),
-            'next_analysis_time': cache_copy.get('next_analysis_time', "")
+            'analysis_time': current_data_cache.get('analysis_time', 0),
+            'next_analysis_time': current_data_cache.get('next_analysis_time', "")
         }
         
         logger.info(f"📦 返回数据: 日线上涨 {len(data['daily_rising'])}个, 全周期上涨 {len(data['all_cycle_rising'])}个")
@@ -1005,7 +714,7 @@ def get_data():
 def get_resistance_levels(symbol):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
@@ -1020,7 +729,7 @@ def get_resistance_levels(symbol):
 def get_oi_chart_data(symbol, period):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
@@ -1038,27 +747,6 @@ def get_oi_chart_data(symbol, period):
         logger.error(f"❌ 获取持仓量图表数据失败: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/support-resistance/<symbol>', methods=['GET'])
-def get_support_resistance(symbol):
-    try:
-        # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
-            logger.warning(f"⚠️ 无效的币种名称: {symbol}")
-            return jsonify({'error': 'Invalid symbol format'}), 400
-        
-        # 确保客户端已初始化
-        if client is None and not init_client():
-            logger.error("❌ 无法初始化客户端，无法计算支撑阻力位")
-            return jsonify({'error': 'Unable to initialize client'}), 500
-        
-        logger.info(f"📊 开始计算支撑阻力位: {symbol}")
-        result = analyze_support_resistance(symbol)
-        logger.info(f"✅ 完成支撑阻力位计算: {symbol}")
-        return jsonify(result)
-    except Exception as e:
-        logger.error(f"❌ 计算支撑阻力位失败: {symbol}, {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/health', methods=['GET'])
 def health_check():
     try:
@@ -1066,7 +754,7 @@ def health_check():
         binance_status = 'ok'
         if client:
             try:
-                client.futures_coin_time()  # 使用合约API检查连接
+                client.get_server_time()
             except:
                 binance_status = 'error'
         else:
@@ -1131,7 +819,7 @@ if __name__ == '__main__':
     PORT = int(os.environ.get("PORT", 9600))
     
     logger.info("=" * 50)
-    logger.info(f"🚀 启动加密货币持仓量分析服务 (合约专用版)")
+    logger.info(f"🚀 启动加密货币持仓量分析服务 (内存存储版)")
     logger.info(f"🔑 API密钥: {API_KEY[:5]}...{API_KEY[-3:] if API_KEY else '未设置'}")
     logger.info(f"🌐 服务端口: {PORT}")
     logger.info("💾 数据存储: 内存存储 (无持久化)")
