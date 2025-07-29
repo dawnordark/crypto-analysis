@@ -13,10 +13,14 @@ import queue
 import logging
 import traceback
 import urllib3
+import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
+from scipy.signal import argrelextrema
+from scipy.stats import linregress
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -47,7 +51,7 @@ logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 
-# Binance API 配置 - 添加回退机制
+# Binance API 配置
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 client = None
@@ -67,6 +71,7 @@ oi_data_cache = {}
 resistance_cache = {}
 RESISTANCE_CACHE_EXPIRATION = 24 * 3600
 OI_CACHE_EXPIRATION = 5 * 60  # 5分钟缓存过期
+SUPPORT_RESISTANCE_CACHE_EXPIRATION = 30 * 60  # 30分钟缓存过期
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
@@ -617,6 +622,247 @@ def schedule_analysis():
         logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
 
+# 阻力位/支撑位分析函数
+def fetch_binance_data(symbol, timeframe, limit=500):
+    """获取币安K线数据"""
+    # 确保客户端已初始化
+    if client is None and not init_client():
+        logger.error("❌ 无法初始化客户端，无法获取K线数据")
+        return None
+    
+    try:
+        logger.info(f"📊 获取K线数据: {symbol} {timeframe}")
+        klines = client.futures_klines(symbol=symbol, interval=timeframe, limit=limit)
+        if not klines:
+            return None
+            
+        df = pd.DataFrame(klines, columns=[
+            'open_time', 'open', 'high', 'low', 'close', 'volume',
+            'close_time', 'quote_asset_volume', 'trades',
+            'taker_buy_base', 'taker_buy_quote', 'ignore'
+        ])
+        numeric_cols = ['open', 'high', 'low', 'close', 'volume']
+        df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, axis=1)
+        df['open_time'] = pd.to_datetime(df['open_time'], unit='ms')
+        return df[['open_time', 'open', 'high', 'low', 'close', 'volume']]
+    except Exception as e:
+        logger.error(f"❌ 获取K线数据失败: {symbol} {timeframe}, {str(e)}")
+        return None
+
+def identify_swing_points(df, window=10):
+    """识别关键摆动点"""
+    if df is None or len(df) < window * 2:
+        return [], []
+    
+    highs = df['high'].values
+    lows = df['low'].values
+    
+    high_idx = argrelextrema(highs, np.greater_equal, order=window)[0]
+    low_idx = argrelextrema(lows, np.less_equal, order=window)[0]
+    
+    resistance = [{'price': highs[i], 'time': df['open_time'].iloc[i], 'type': 'swing'} for i in high_idx]
+    support = [{'price': lows[i], 'time': df['open_time'].iloc[i], 'type': 'swing'} for i in low_idx]
+    
+    return support, resistance
+
+def identify_fibonacci_levels(df, lookback=200):
+    """识别斐波那契关键位"""
+    if df is None or len(df) < lookback:
+        return []
+    
+    recent_high = df['high'][-lookback:].max()
+    recent_low = df['low'][-lookback:].min()
+    price_range = recent_high - recent_low
+    
+    levels = []
+    for level in [0.236, 0.382, 0.5, 0.618, 0.786]:
+        price = recent_low + price_range * level
+        levels.append({
+            'price': price,
+            'type': 'fibonacci',
+            'level': level
+        })
+    return levels
+
+def identify_trendline_levels(df, window=20):
+    """识别趋势线形成的支撑/阻力"""
+    levels = []
+    
+    if df is None or len(df) < window * 2:
+        return levels
+    
+    # 下降趋势线（阻力）
+    high_idx = argrelextrema(df['high'].values, np.greater, order=window)[0]
+    if len(high_idx) >= 2:
+        # 取最近的两个高点
+        high_idx = high_idx[-2:]
+        x = high_idx
+        y = df['high'].iloc[high_idx].values
+        slope, intercept, _, _, _ = linregress(x, y)
+        current_price = intercept + slope * (len(df) - 1)
+        levels.append({
+            'price': current_price,
+            'type': 'trendline',
+            'subtype': 'downtrend'
+        })
+    
+    # 上升趋势线（支撑）
+    low_idx = argrelextrema(df['low'].values, np.less, order=window)[0]
+    if len(low_idx) >= 2:
+        # 取最近的两个低点
+        low_idx = low_idx[-2:]
+        x = low_idx
+        y = df['low'].iloc[low_idx].values
+        slope, intercept, _, _, _ = linregress(x, y)
+        current_price = intercept + slope * (len(df) - 1)
+        levels.append({
+            'price': current_price,
+            'type': 'trendline',
+            'subtype': 'uptrend'
+        })
+    
+    return levels
+
+def find_resonance_levels(levels_dict, current_price):
+    """检测多周期共振的关键位"""
+    resonance_levels = {'support': [], 'resistance': []}
+    
+    for level_type in ['support', 'resistance']:
+        levels = levels_dict[level_type]
+        clustered = {}
+        
+        # 聚类相近的价格水平
+        for level in levels:
+            price = level['price']
+            found = False
+            for cluster in clustered.values():
+                if abs(cluster['price'] - price) < price * 0.005:
+                    cluster['count'] += 1
+                    cluster['sources'].append(level['source'])
+                    cluster['original_levels'].append(level)
+                    cluster['types'].append(level['type'])
+                    found = True
+                    break
+            if not found:
+                key = f"{price:.8f}"
+                clustered[key] = {
+                    'price': price,
+                    'count': 1,
+                    'sources': [level['source']],
+                    'original_levels': [level],
+                    'types': [level['type']]
+                }
+        
+        # 筛选重要水平
+        for cluster in clustered.values():
+            if cluster['count'] >= 2:  # 至少两个来源确认
+                strength = min(100, cluster['count'] * 20 + len(set(cluster['sources'])) * 15)
+                
+                # 只保留当前价格附近的水平
+                if abs(cluster['price'] - current_price) < current_price * 0.05:
+                    resonance_levels[level_type].append({
+                        'price': cluster['price'],
+                        'strength': strength,
+                        'sources': cluster['sources'],
+                        'types': list(set(cluster['types'])),
+                        'original_levels': cluster['original_levels']
+                    })
+        
+        # 按强度排序
+        resonance_levels[level_type].sort(key=lambda x: x['strength'], reverse=True)
+    
+    return resonance_levels
+
+def analyze_support_resistance(symbol):
+    """主分析函数"""
+    timeframes = ['15m', '30m', '1h', '4h', '1d']
+    all_levels = {'support': [], 'resistance': []}
+    current_price = 0
+    
+    # 检查缓存
+    cache_key = f"sr_{symbol}"
+    if cache_key in resistance_cache:
+        cache_data = resistance_cache[cache_key]
+        if cache_data['expiration'] > time.time():
+            logger.info(f"📊 使用缓存的支撑阻力位数据: {symbol}")
+            return cache_data['data']
+    
+    # 确保客户端已初始化
+    if client is None and not init_client():
+        logger.error("❌ 无法初始化客户端，无法计算支撑阻力位")
+        return {
+            'symbol': symbol,
+            'timestamp': datetime.utcnow().isoformat(),
+            'current_price': 0,
+            'resonance_levels': {'support': [], 'resistance': []}
+        }
+    
+    # 获取当前价格
+    try:
+        ticker = client.futures_symbol_ticker(symbol=symbol)
+        current_price = float(ticker['price'])
+        logger.info(f"📊 {symbol}当前价格: {current_price}")
+    except Exception as e:
+        logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
+        return {
+            'symbol': symbol,
+            'timestamp': datetime.utcnow().isoformat(),
+            'current_price': 0,
+            'resonance_levels': {'support': [], 'resistance': []}
+        }
+    
+    # 多时间框架分析
+    for tf in timeframes:
+        df = fetch_binance_data(symbol, tf, limit=500)
+        if df is None or df.empty:
+            continue
+        
+        # 识别各类关键位
+        swing_support, swing_resistance = identify_swing_points(df)
+        fib_levels = identify_fibonacci_levels(df)
+        trendline_levels = identify_trendline_levels(df)
+        
+        # 添加来源标记
+        for level in swing_support:
+            level['source'] = tf
+            all_levels['support'].append(level)
+        
+        for level in swing_resistance:
+            level['source'] = tf
+            all_levels['resistance'].append(level)
+        
+        for level in fib_levels:
+            level['source'] = tf
+            if level['level'] < 0.5:
+                all_levels['support'].append(level)
+            else:
+                all_levels['resistance'].append(level)
+        
+        for level in trendline_levels:
+            level['source'] = tf
+            if 'uptrend' in level.get('subtype', ''):
+                all_levels['support'].append(level)
+            else:
+                all_levels['resistance'].append(level)
+    
+    # 检测共振水平
+    resonance_levels = find_resonance_levels(all_levels, current_price)
+    
+    result = {
+        'symbol': symbol,
+        'timestamp': datetime.utcnow().isoformat(),
+        'current_price': current_price,
+        'resonance_levels': resonance_levels
+    }
+    
+    # 设置30分钟缓存
+    resistance_cache[cache_key] = {
+        'data': result,
+        'expiration': time.time() + SUPPORT_RESISTANCE_CACHE_EXPIRATION
+    }
+    
+    return result
+
 # API路由
 @app.route('/')
 def index():
@@ -745,6 +991,27 @@ def get_oi_chart_data(symbol, period):
         })
     except Exception as e:
         logger.error(f"❌ 获取持仓量图表数据失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/support-resistance/<symbol>', methods=['GET'])
+def get_support_resistance(symbol):
+    try:
+        # 验证币种格式
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+            logger.warning(f"⚠️ 无效的币种名称: {symbol}")
+            return jsonify({'error': 'Invalid symbol format'}), 400
+        
+        # 确保客户端已初始化
+        if client is None and not init_client():
+            logger.error("❌ 无法初始化客户端，无法计算支撑阻力位")
+            return jsonify({'error': 'Unable to initialize client'}), 500
+        
+        logger.info(f"📊 开始计算支撑阻力位: {symbol}")
+        result = analyze_support_resistance(symbol)
+        logger.info(f"✅ 完成支撑阻力位计算: {symbol}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"❌ 计算支撑阻力位失败: {symbol}, {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
