@@ -506,9 +506,10 @@ def analysis_worker():
                 }
                 
                 logger.info(f"📊 分析结果已生成")
-                logger.info(f"全周期上涨币种数量: {len(new_data['all_cycle_rising']}")
-                logger.info(f"日线上涨币种数量: {len(new_data['daily_rising']}")
-                logger.info(f"短期活跃币种数量: {len(new_data['short_term_active']}")
+                # 修复括号问题
+                logger.info(f"全周期上涨币种数量: {len(new_data['all_cycle_rising'])}")
+                logger.info(f"日线上涨币种数量: {len(new_data['daily_rising'])}")
+                logger.info(f"短期活跃币种数量: {len(new_data['short_term_active'])}")
                 
                 data_cache = new_data
                 current_data_cache = new_data.copy()
@@ -526,7 +527,7 @@ def analysis_worker():
             # 记录下一次分析时间
             next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
-            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
             
             logger.info("=" * 50)
         except Exception as e:
@@ -562,7 +563,7 @@ def schedule_analysis():
             logger.info(f"⏳ 调整等待时间: {wait_time:.1f}秒 -> {adjusted_wait:.1f}秒")
             wait_time = adjusted_wait
 
-        logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
 
 # API路由
