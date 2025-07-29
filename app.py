@@ -45,6 +45,10 @@ file_handler.setFormatter(formatter)
 root_logger.addHandler(console_handler)
 root_logger.addHandler(file_handler)
 
+# 降低第三方库的日志级别
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 
@@ -112,11 +116,12 @@ def init_client():
             client = Client(
                 api_key=API_KEY, 
                 api_secret=API_SECRET,
-                requests_params={'timeout': 30}
+                requests_params={'timeout': 30},
+                testnet=False  # 确保使用实盘环境
             )
             
-            # 测试连接
-            server_time = client.get_server_time()
+            # 测试连接 - 使用合约API端点
+            server_time = client.futures_coin_time()
             logger.info(f"✅ Binance客户端初始化成功，服务器时间: {datetime.fromtimestamp(server_time['serverTime']/1000)}")
             return True
         except Exception as e:
@@ -149,7 +154,7 @@ def get_next_update_time(period):
 def get_open_interest(symbol, period, use_cache=True):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': []}
 
@@ -166,8 +171,14 @@ def get_open_interest(symbol, period, use_cache=True):
                     return cached_data['data']
 
         logger.info(f"📡 请求持仓量数据: symbol={symbol}, period={period}")
-        url = "https://fapi.binance.com/futures/data/openInterestHist"
-        params = {'symbol': symbol, 'period': period, 'limit': 30}
+        # 使用合约API端点
+        url = "https://dapi.binance.com/dapi/v1/openInterestHist"
+        params = {
+            'pair': symbol.replace('USD_PERP', ''),
+            'period': period,
+            'limit': 30,
+            'contractType': 'PERPETUAL'
+        }
 
         response = requests.get(url, params=params, timeout=15)
         logger.debug(f"📡 响应状态: {response.status_code}")
@@ -243,8 +254,9 @@ def calculate_resistance_levels(symbol):
         
         # 获取当前价格
         try:
-            ticker = client.futures_symbol_ticker(symbol=symbol)
-            current_price = float(ticker['price'])
+            # 使用合约API获取价格
+            ticker = client.futures_coin_symbol_ticker(symbol=symbol)
+            current_price = float(ticker[0]['price'])
             logger.info(f"📊 {symbol}当前价格: {current_price}")
         except Exception as e:
             logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
@@ -256,7 +268,12 @@ def calculate_resistance_levels(symbol):
         for interval in RESISTANCE_INTERVALS:
             try:
                 logger.info(f"📊 获取K线数据: {symbol} {interval}")
-                klines = client.futures_klines(symbol=symbol, interval=interval, limit=100)
+                # 使用合约API获取K线数据
+                klines = client.futures_coin_klines(
+                    symbol=symbol,
+                    interval=interval,
+                    limit=100
+                )
                 
                 if not klines or len(klines) < 10:
                     logger.warning(f"⚠️ {symbol}在{interval}的K线数据不足")
@@ -519,10 +536,11 @@ def get_high_volume_symbols():
 
     try:
         logger.info("📊 获取高交易量币种...")
-        tickers = client.futures_ticker()
+        # 使用合约API获取交易对
+        tickers = client.futures_coin_ticker()
         filtered = [
             t for t in tickers if float(t.get('quoteVolume', 0)) > 10000000
-            and t.get('symbol', '').endswith('USDT')
+            and t.get('symbol', '').endswith('USD_PERP')
         ]
         logger.info(f"📊 找到 {len(filtered)} 个高交易量币种")
         return [t['symbol'] for t in filtered]
@@ -647,7 +665,12 @@ def fetch_binance_data(symbol, timeframe, limit=500):
     
     try:
         logger.info(f"📊 获取K线数据: {symbol} {timeframe}")
-        klines = client.futures_klines(symbol=symbol, interval=timeframe, limit=limit)
+        # 使用合约API获取K线数据
+        klines = client.futures_coin_klines(
+            symbol=symbol,
+            interval=timeframe,
+            limit=limit
+        )
         if not klines:
             return None
             
@@ -815,8 +838,9 @@ def analyze_support_resistance(symbol):
     
     # 获取当前价格
     try:
-        ticker = client.futures_symbol_ticker(symbol=symbol)
-        current_price = float(ticker['price'])
+        # 使用合约API获取价格
+        ticker = client.futures_coin_symbol_ticker(symbol=symbol)
+        current_price = float(ticker[0]['price'])
         logger.info(f"📊 {symbol}当前价格: {current_price}")
     except Exception as e:
         logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
@@ -981,7 +1005,7 @@ def get_data():
 def get_resistance_levels(symbol):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
@@ -996,7 +1020,7 @@ def get_resistance_levels(symbol):
 def get_oi_chart_data(symbol, period):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
@@ -1018,7 +1042,7 @@ def get_oi_chart_data(symbol, period):
 def get_support_resistance(symbol):
     try:
         # 验证币种格式
-        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+        if not re.match(r"^[A-Z0-9]{2,10}USD_PERP$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
         
@@ -1042,7 +1066,7 @@ def health_check():
         binance_status = 'ok'
         if client:
             try:
-                client.get_server_time()
+                client.futures_coin_time()  # 使用合约API检查连接
             except:
                 binance_status = 'error'
         else:
@@ -1107,7 +1131,7 @@ if __name__ == '__main__':
     PORT = int(os.environ.get("PORT", 9600))
     
     logger.info("=" * 50)
-    logger.info(f"🚀 启动加密货币持仓量分析服务 (内存存储版)")
+    logger.info(f"🚀 启动加密货币持仓量分析服务 (合约专用版)")
     logger.info(f"🔑 API密钥: {API_KEY[:5]}...{API_KEY[-3:] if API_KEY else '未设置'}")
     logger.info(f"🌐 服务端口: {PORT}")
     logger.info("💾 数据存储: 内存存储 (无持久化)")
