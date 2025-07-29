@@ -1,5 +1,6 @@
-flask
-python-binance
-requests
-gunicorn
-psycopg2-binary
+Flask==2.3.2
+requests==2.31.0
+python-binance==1.0.22
+psycopg2-binary==2.9.9
+urllib3==1.26.18
+pandas==2.0.3
