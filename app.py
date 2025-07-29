@@ -66,6 +66,7 @@ current_data_cache = data_cache.copy()
 oi_data_cache = {}
 resistance_cache = {}
 RESISTANCE_CACHE_EXPIRATION = 24 * 3600
+OI_CACHE_EXPIRATION = 5 * 60  # 5分钟缓存过期
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
@@ -142,9 +143,10 @@ def get_open_interest(symbol, period, use_cache=True):
         current_time = datetime.now(timezone.utc)
         cache_key = f"{symbol}_{period}"
         
-        if use_cache and oi_data_cache.get(cache_key):
+        if use_cache and cache_key in oi_data_cache:
             cached_data = oi_data_cache[cache_key]
-            if 'next_update' in cached_data and cached_data['next_update'] > current_time:
+            # 检查缓存是否过期
+            if 'expiration' in cached_data and cached_data['expiration'] > current_time:
                 logger.debug(f"📈 使用缓存数据: {symbol} {period}")
                 return cached_data['data']
 
@@ -179,10 +181,11 @@ def get_open_interest(symbol, period, use_cache=True):
             'timestamps': timestamps
         }
         
-        next_update = get_next_update_time(period)
+        # 设置5分钟缓存过期
+        expiration = current_time + timedelta(seconds=OI_CACHE_EXPIRATION)
         oi_data_cache[cache_key] = {
             'data': oi_data,
-            'next_update': next_update
+            'expiration': expiration
         }
 
         logger.info(f"📈 获取新数据: {symbol} {period} ({len(oi_series)}点)")
@@ -310,12 +313,13 @@ def analyze_symbol(symbol):
             daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
             logger.info(f"📊 {symbol} 日线上涨条件满足，涨幅: {daily_change:.2f}%")
             
-            symbol_result['daily_rising'] = {
+            # 创建临时对象存储日线数据
+            daily_rising_item = {
                 'symbol': symbol,
                 'oi': daily_series[-1],
-                'change': round(daily_change, 2),
-                'period_count': 1
+                'change': round(daily_change, 2)
             }
+            symbol_result['daily_rising'] = daily_rising_item
             symbol_result['period_status']['1d'] = True
             symbol_result['period_count'] = 1
 
@@ -346,6 +350,9 @@ def analyze_symbol(symbol):
                     'change': round(daily_change, 2),
                     'period_count': symbol_result['period_count']
                 }
+            
+            # 更新日线上涨币种的周期计数
+            daily_rising_item['period_count'] = symbol_result['period_count']
 
         # 4. 短期活跃度分析
         min5_oi = get_open_interest(symbol, '5m')
@@ -499,6 +506,10 @@ def analysis_worker():
                 }
                 
                 logger.info(f"📊 分析结果已生成")
+                logger.info(f"全周期上涨币种数量: {len(new_data['all_cycle_rising']}")
+                logger.info(f"日线上涨币种数量: {len(new_data['daily_rising']}")
+                logger.info(f"短期活跃币种数量: {len(new_data['short_term_active']}")
+                
                 data_cache = new_data
                 current_data_cache = new_data.copy()
                 logger.info(f"✅ 数据更新成功")
@@ -515,7 +526,7 @@ def analysis_worker():
             # 记录下一次分析时间
             next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
-            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')}")
             
             logger.info("=" * 50)
         except Exception as e:
@@ -551,7 +562,7 @@ def schedule_analysis():
             logger.info(f"⏳ 调整等待时间: {wait_time:.1f}秒 -> {adjusted_wait:.1f}秒")
             wait_time = adjusted_wait
 
-        logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
+        logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')}")
         time.sleep(wait_time)
 
 # API路由
@@ -632,7 +643,7 @@ def get_data():
             'next_analysis_time': current_data_cache.get('next_analysis_time', "")
         }
         
-        logger.info(f"📦 返回数据: {len(data['daily_rising'])} 日线上涨币种")
+        logger.info(f"📦 返回数据: 日线上涨 {len(data['daily_rising'])}个, 全周期上涨 {len(data['all_cycle_rising'])}个")
         return jsonify(data)
     
     except Exception as e:
