@@ -451,9 +451,6 @@
         .interval-title {
             font-size: 13px;
             margin-bottom: 5px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
             padding: 5px 0;
             border-bottom: 1px dashed;
         }
@@ -676,8 +673,8 @@
                     <span v-else>刷新中...</span>
                 </button>
                 <button class="theme-toggle" @click="toggleTheme">
-                    <span v-if="theme === 'dark-theme'">☀️</span>
-                    <span v-else>🌙</span>
+                    <span v-if="theme === 'light-theme'">🌙</span>
+                    <span v-else>☀️</span>
                 </button>
             </div>
         </div>
@@ -733,11 +730,10 @@
                             <div class="interval-levels">
                                 <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-res'">
                                     <div class="interval-group">
-                                        <div class="interval-title" @click="toggleIntervalCollapse(interval, 'res')">
+                                        <div class="interval-title">
                                             <span>{{ interval }}</span>
-                                            <span class="collapse-icon">▼</span>
                                         </div>
-                                        <div v-if="!collapsedIntervals[interval + 'res']" v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
+                                        <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
                                             <span>{{ level ? level.toFixed(4) : '-' }}</span>
                                         </div>
                                     </div>
@@ -755,11 +751,10 @@
                             <div class="interval-levels">
                                 <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-sup'">
                                     <div class="interval-group">
-                                        <div class="interval-title" @click="toggleIntervalCollapse(interval, 'sup')">
+                                        <div class="interval-title">
                                             <span>{{ interval }}</span>
-                                            <span class="collapse-icon">▼</span>
                                         </div>
-                                        <div v-if="!collapsedIntervals[interval + 'sup']" v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
+                                        <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
                                             <span>{{ level ? level.toFixed(4) : '-' }}</span>
                                         </div>
                                     </div>
@@ -1099,7 +1094,6 @@
                         resistance: false,
                         support: false
                     },
-                    collapsedIntervals: {},
                     collapsedLists: {
                         allCycleRising: false,
                         dailyRising: false,
@@ -1123,6 +1117,9 @@
                     const savedTheme = localStorage.getItem('themePreference');
                     if (savedTheme) {
                         this.theme = savedTheme;
+                    } else {
+                        // 默认暗色主题
+                        localStorage.setItem('themePreference', 'dark-theme');
                     }
                     
                     this.fetchData();
@@ -1339,7 +1336,6 @@
                                     resistance: false,
                                     support: false
                                 };
-                                this.collapsedIntervals = {};
                             })
                             .catch(error => {
                                 this.queryError = '查询失败: ' + error.message;
@@ -1348,10 +1344,6 @@
                     },
                     toggleCollapse(section) {
                         this.collapsedSections[section] = !this.collapsedSections[section];
-                    },
-                    toggleIntervalCollapse(interval, type) {
-                        const key = interval + type;
-                        this.$set(this.collapsedIntervals, key, !this.collapsedIntervals[key]);
                     },
                     formatSymbolInput() {
                         this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
