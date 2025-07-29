@@ -532,7 +532,7 @@ def schedule_analysis():
 
     while True:
         analysis_start = datetime.now(timezone.utc)
-        logger.info(f"🔔 触发定时分析任务 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')})")
+        logger.info(f"🔔 触发定时分析任务 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')}")
         analysis_queue.put("ANALYZE")
         analysis_queue.join()
 
