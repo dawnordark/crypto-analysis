@@ -165,6 +165,10 @@
             margin-bottom: 10px;
             font-weight: bold;
             border-bottom: 1px solid var(--binance-gray);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .resistance-header {
             color: var(--binance-red);
@@ -181,6 +185,9 @@
             font-size: 13px;
             color: #9aa1ab;
             margin-bottom: 5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
         }
         .level-value {
             display: flex;
@@ -381,6 +388,15 @@
             font-size: 13px;
         }
 
+        /* 折叠图标 */
+        .collapse-icon {
+            font-size: 16px;
+            transition: transform 0.3s;
+        }
+        .collapsed .collapse-icon {
+            transform: rotate(-90deg);
+        }
+
         /* 移动端适配 */
         @media (max-width: 768px) {
             .list-container {
@@ -459,24 +475,40 @@
             <div v-if="queryResult" class="resistance-result">
                 <div class="resistance-grid">
                     <div class="resistance-column">
-                        <div class="column-header resistance-header">阻力位</div>
-                        <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-res'">
-                            <div class="interval-levels">
-                                <div class="interval-title">{{ interval }}</div>
-                                <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
-                                    <span>{{ level ? level.toFixed(4) : '-' }}</span>
+                        <div class="column-header resistance-header" @click="toggleCollapse('resistance')">
+                            <span>阻力位</span>
+                            <span class="collapse-icon">▼</span>
+                        </div>
+                        <div v-if="!collapsedSections.resistance">
+                            <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-res'">
+                                <div class="interval-levels" @click="toggleIntervalCollapse(interval, 'res')">
+                                    <div class="interval-title">
+                                        <span>{{ interval }}</span>
+                                        <span class="collapse-icon">▼</span>
+                                    </div>
+                                    <div v-if="!collapsedIntervals[interval + 'res']" v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
+                                        <span>{{ level ? level.toFixed(4) : '-' }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
                     <div class="resistance-column">
-                        <div class="column-header support-header">支撑位</div>
-                        <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-sup'">
-                            <div class="interval-levels">
-                                <div class="interval-title">{{ interval }}</div>
-                                <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
-                                    <span>{{ level ? level.toFixed(4) : '-' }}</span>
+                        <div class="column-header support-header" @click="toggleCollapse('support')">
+                            <span>支撑位</span>
+                            <span class="collapse-icon">▼</span>
+                        </div>
+                        <div v-if="!collapsedSections.support">
+                            <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-sup'">
+                                <div class="interval-levels" @click="toggleIntervalCollapse(interval, 'sup')">
+                                    <div class="interval-title">
+                                        <span>{{ interval }}</span>
+                                        <span class="collapse-icon">▼</span>
+                                    </div>
+                                    <div v-if="!collapsedIntervals[interval + 'sup']" v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
+                                        <span>{{ level ? level.toFixed(4) : '-' }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -518,10 +550,6 @@
                                             <span class="stat-label">涨幅:</span>
                                             <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
-                                        <div>
-                                            <span class="stat-label">符合周期:</span>
-                                            <span class="stat-value">{{ coin.period_count }}</span>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -571,23 +599,6 @@
                                             <div v-for="(level, idx) in getTopLevels(coin.symbol, 'support')" :key="'support'+idx" class="support-value">
                                                 {{ level.toFixed(4) }}
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div class="resistance-section">
-                                        <div class="resistance-block">
-                                            <div class="block-header">1小时</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1h', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '1h', 'support', 0).toFixed(4) }}</div>
-                                        </div>
-                                        <div class="resistance-block">
-                                            <div class="block-header">4小时</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
-                                        </div>
-                                        <div class="resistance-block">
-                                            <div class="block-header">日线</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1d', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -615,8 +626,7 @@
                     <div v-else-if="dailyRising.length === 0" class="loading">
                         暂无数据
                     </div>
-                    <!-- 使用正确排序的数据 -->
-                    <div v-else v-for="coin in sortedDailyRising" :key="coin.symbol + 'daily'">
+                    <div v-else v-for="coin in dailyRising" :key="coin.symbol + 'daily'">
                         <div class="coin-item">
                             <div class="coin-header">
                                 <div>
@@ -631,10 +641,6 @@
                                         <div>
                                             <span class="stat-label">涨幅:</span>
                                             <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
-                                        </div>
-                                        <div>
-                                            <span class="stat-label">符合周期:</span>
-                                            <span class="stat-value">{{ coin.period_count }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -685,23 +691,6 @@
                                             <div v-for="(level, idx) in getTopLevels(coin.symbol, 'support')" :key="'support'+idx" class="support-value">
                                                 {{ level.toFixed(4) }}
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div class="resistance-section">
-                                        <div class="resistance-block">
-                                            <div class="block-header">1小时</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1h', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '1h', 'support', 0).toFixed(4) }}</div>
-                                        </div>
-                                        <div class="resistance-block">
-                                            <div class="block-header">4小时</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
-                                        </div>
-                                        <div class="resistance-block">
-                                            <div class="block-header">日线</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1d', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -745,10 +734,6 @@
                                             <span class="stat-label">活跃比:</span>
                                             <span class="stat-value">{{ coin.ratio }}x</span>
                                         </div>
-                                        <div>
-                                            <span class="stat-label">符合周期:</span>
-                                            <span class="stat-value">{{ coin.period_count }}</span>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -800,23 +785,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="resistance-section">
-                                        <div class="resistance-block">
-                                            <div class="block-header">1小时</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1h', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '1h', 'support', 0).toFixed(4) }}</div>
-                                        </div>
-                                        <div class="resistance-block">
-                                            <div class="block-header">4小时</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '4h', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '4h', 'support', 0).toFixed(4) }}</div>
-                                        </div>
-                                        <div class="resistance-block">
-                                            <div class="block-header">日线</div>
-                                            <div class="resistance-value">{{ getLevel(coin.symbol, '1d', 'resistance', 0).toFixed(4) }}</div>
-                                            <div class="support-value">{{ getLevel(coin.symbol, '1d', 'support', 0).toFixed(4) }}</div>
-                                        </div>
-                                    </div>
                                 </div>
                                 <div v-else class="loading">
                                     <span class="loading-spinner"></span> 加载阻力位数据中...
@@ -854,21 +822,12 @@
                     error: null,
                     statusMessage: "初始化中...",
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
-                    chartErrors: {}
-                },
-                computed: {
-                    // 新增计算属性：正确排序的日线上涨币种列表
-                    sortedDailyRising() {
-                        return this.dailyRising.sort((a, b) => {
-                            // 首先按符合周期数量降序排序
-                            if (b.period_count !== a.period_count) {
-                                return b.period_count - a.period_count;
-                            }
-                            
-                            // 如果周期数量相同，则按持仓量降序排序
-                            return b.oi - a.oi;
-                        });
-                    }
+                    chartErrors: {},
+                    collapsedSections: {
+                        resistance: false,
+                        support: false
+                    },
+                    collapsedIntervals: {}
                 },
                 mounted() {
                     this.fetchData();
@@ -1083,11 +1042,25 @@
                                     levels: response.data
                                 };
                                 this.queryLoading = false;
+                                
+                                // 重置折叠状态
+                                this.collapsedSections = {
+                                    resistance: false,
+                                    support: false
+                                };
+                                this.collapsedIntervals = {};
                             })
                             .catch(error => {
                                 this.queryError = '查询失败: ' + error.message;
                                 this.queryLoading = false;
                             });
+                    },
+                    toggleCollapse(section) {
+                        this.collapsedSections[section] = !this.collapsedSections[section];
+                    },
+                    toggleIntervalCollapse(interval, type) {
+                        const key = interval + type;
+                        this.$set(this.collapsedIntervals, key, !this.collapsedIntervals[key]);
                     },
                     formatSymbolInput() {
                         this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1157,8 +1130,6 @@
                                 // 确保数组正确初始化
                                 this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
                                 this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
-                                
-                                // 对日线上涨币种进行特殊排序
                                 this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
                                 
                                 this.analysisTime = data.analysis_time || 0;
@@ -1166,6 +1137,7 @@
                                 // 其他列表按符合周期数量排序
                                 this.shortTermActive.sort((a, b) => b.period_count - a.period_count);
                                 this.allCycleRising.sort((a, b) => b.period_count - a.period_count);
+                                this.dailyRising.sort((a, b) => b.period_count - a.period_count);
                                 
                                 this.loading = false;
                                 this.dataLoading = false;
