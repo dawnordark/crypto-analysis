@@ -704,14 +704,14 @@
                 </div>
                 
                 <div v-if="!collapsedLists.allCycleRising">
-                    <div class="list-desc">(包含5分钟周期)</div>
+                    <div class="list-desc">(包含所有周期上涨的币种)</div>
                     
                     <div class="coin-list">
                         <div v-if="dataLoading" class="loading">
                             <span class="loading-spinner"></span> 正在加载数据...
                         </div>
                         <div v-else-if="allCycleRising.length === 0" class="loading">
-                            暂无数据
+                            暂无全周期上涨币种
                         </div>
                         <div v-else v-for="coin in sortedAllCycleRising" :key="coin.symbol + 'allcycle'">
                             <div class="coin-item">
@@ -728,6 +728,10 @@
                                             <div>
                                                 <span class="stat-label">涨幅:</span>
                                                 <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                            </div>
+                                            <div>
+                                                <span class="stat-label">符合周期:</span>
+                                                <span class="stat-value">{{ coin.period_count }}个</span>
                                             </div>
                                         </div>
                                     </div>
@@ -809,7 +813,7 @@
                             <span class="loading-spinner"></span> 正在加载数据...
                         </div>
                         <div v-else-if="dailyRising.length === 0" class="loading">
-                            暂无数据
+                            暂无日线上涨币种
                         </div>
                         <div v-else v-for="coin in sortedDailyRising" :key="coin.symbol + 'daily'">
                             <div class="coin-item">
@@ -826,6 +830,10 @@
                                             <div>
                                                 <span class="stat-label">涨幅:</span>
                                                 <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                            </div>
+                                            <div>
+                                                <span class="stat-label">符合周期:</span>
+                                                <span class="stat-value">{{ coin.period_count }}个</span>
                                             </div>
                                         </div>
                                     </div>
@@ -907,7 +915,7 @@
                             <span class="loading-spinner"></span> 正在加载数据...
                         </div>
                         <div v-else-if="shortTermActive.length === 0" class="loading">
-                            暂无数据
+                            暂无短期活跃币种
                         </div>
                         <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
                             <div class="coin-item">
@@ -924,6 +932,10 @@
                                             <div>
                                                 <span class="stat-label">活跃比:</span>
                                                 <span class="stat-value">{{ coin.ratio }}x</span>
+                                            </div>
+                                            <div>
+                                                <span class="stat-label">符合周期:</span>
+                                                <span class="stat-value">{{ coin.period_count }}个</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1027,13 +1039,31 @@
                 },
                 computed: {
                     sortedDailyRising() {
-                        return [...this.dailyRising].sort((a, b) => b.period_count - a.period_count);
+                        // 按符合周期数量降序，相同数量时按持仓量降序
+                        return [...this.dailyRising].sort((a, b) => {
+                            if (b.period_count !== a.period_count) {
+                                return b.period_count - a.period_count;
+                            }
+                            return b.oi - a.oi;
+                        });
                     },
                     sortedShortTermActive() {
-                        return [...this.shortTermActive].sort((a, b) => b.period_count - a.period_count);
+                        // 按符合周期数量降序，相同数量时按活跃比降序
+                        return [...this.shortTermActive].sort((a, b) => {
+                            if (b.period_count !== a.period_count) {
+                                return b.period_count - a.period_count;
+                            }
+                            return b.ratio - a.ratio;
+                        });
                     },
                     sortedAllCycleRising() {
-                        return [...this.allCycleRising].sort((a, b) => b.period_count - a.period_count);
+                        // 按符合周期数量降序，相同数量时按持仓量降序
+                        return [...this.allCycleRising].sort((a, b) => {
+                            if (b.period_count !== a.period_count) {
+                                return b.period_count - a.period_count;
+                            }
+                            return b.oi - a.oi;
+                        });
                     }
                 },
                 mounted() {
