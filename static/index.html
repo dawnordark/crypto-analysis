@@ -308,6 +308,7 @@
             align-items: center;
             justify-content: center;
             transition: background 0.2s;
+            background: rgba(240, 185, 11, 0.1);
         }
         .dark-theme .theme-toggle {
             color: var(--dark-yellow);
@@ -316,7 +317,7 @@
             color: var(--light-yellow);
         }
         .theme-toggle:hover {
-            background: rgba(0,0,0,0.05);
+            background: rgba(240, 185, 11, 0.2);
         }
         
         /* 数据状态指示器 */
@@ -504,7 +505,7 @@
             font-weight: bold;
         }
 
-        /* 状态标签 */
+        /* 状态标签 - 修复颜色问题 */
         .period-status {
             display: flex;
             flex-wrap: wrap;
@@ -520,10 +521,39 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
+            border: 1px solid;
+        }
+        .dark-theme .status-tag.status-up {
+            color: var(--dark-green);
+            border-color: var(--dark-green);
+        }
+        .dark-theme .status-tag.status-down {
+            color: var(--dark-red);
+            border-color: var(--dark-red);
+        }
+        .light-theme .status-tag.status-up {
+            color: var(--light-green);
+            border-color: var(--light-green);
+        }
+        .light-theme .status-tag.status-down {
+            color: var(--light-red);
+            border-color: var(--light-red);
         }
         .status-tag:hover {
             transform: translateY(-2px);
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .status-tag.active {
+            border-width: 2px;
+        }
+        .status-tag.chart-open {
+            border-width: 2px;
+        }
+        .dark-theme .status-tag.chart-open {
+            border-color: var(--dark-yellow);
+        }
+        .light-theme .status-tag.chart-open {
+            border-color: var(--light-yellow);
         }
 
         /* 持仓量图表容器 */
@@ -577,7 +607,7 @@
         }
     </style>
 </head>
-<body :class="theme">
+<body>
     <div id="app" class="container">
         <!-- 标题区域 -->
         <div class="header">
@@ -997,7 +1027,6 @@
                 },
                 computed: {
                     sortedDailyRising() {
-                        // 确保按符合周期数量排序
                         return [...this.dailyRising].sort((a, b) => b.period_count - a.period_count);
                     },
                     sortedShortTermActive() {
@@ -1013,17 +1042,37 @@
                     if (savedTheme) {
                         this.theme = savedTheme;
                     } else {
-                        // 默认暗色主题
-                        this.theme = 'dark-theme';
-                        localStorage.setItem('themePreference', 'dark-theme');
+                        // 使用系统偏好
+                        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        this.theme = prefersDark ? 'dark-theme' : 'light-theme';
                     }
                     
+                    // 设置body主题
+                    document.body.className = this.theme;
                     this.fetchData();
                 },
                 methods: {
                     toggleTheme() {
-                        this.theme = this.theme === 'dark-theme' ? 'light-theme' : 'dark-theme';
-                        localStorage.setItem('themePreference', this.theme);
+                        const newTheme = this.theme === 'dark-theme' ? 'light-theme' : 'dark-theme';
+                        this.theme = newTheme;
+                        localStorage.setItem('themePreference', newTheme);
+                        
+                        // 更新body主题
+                        document.body.className = newTheme;
+                        
+                        // 重新渲染图表
+                        if (this.activeChart.symbol && this.activeChart.period) {
+                            const cacheKey = `${this.activeChart.symbol}-${this.activeChart.period}`;
+                            if (this.chartDataCache[cacheKey]) {
+                                this.$nextTick(() => {
+                                    this.renderChart(
+                                        this.activeChart.symbol, 
+                                        this.activeChart.period, 
+                                        this.chartDataCache[cacheKey]
+                                    );
+                                });
+                            }
+                        }
                     },
                     toggleListCollapse(list) {
                         this.collapsedLists[list] = !this.collapsedLists[list];
@@ -1136,7 +1185,7 @@
                         });
                         
                         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                        if (this.theme === 'dark-theme') {
+                        if (document.body.className === 'dark-theme') {
                             gradient.addColorStop(0, 'rgba(58, 123, 213, 0.8)');
                             gradient.addColorStop(1, 'rgba(0, 210, 255, 0.3)');
                         } else {
@@ -1152,7 +1201,7 @@
                                     label: '持仓量',
                                     data: data,
                                     backgroundColor: gradient,
-                                    borderColor: this.theme === 'dark-theme' ? 'rgba(75, 192, 192, 1)' : 'rgba(65, 105, 225, 1)',
+                                    borderColor: document.body.className === 'dark-theme' ? 'rgba(75, 192, 192, 1)' : 'rgba(65, 105, 225, 1)',
                                     borderWidth: 1,
                                     borderRadius: 2,
                                     barPercentage: 0.6,
@@ -1166,10 +1215,10 @@
                                         display: false
                                     },
                                     tooltip: {
-                                        backgroundColor: this.theme === 'dark-theme' ? '#1e2026' : '#ffffff',
-                                        titleColor: this.theme === 'dark-theme' ? '#eaecef' : '#1e2329',
-                                        bodyColor: this.theme === 'dark-theme' ? '#9aa1ab' : '#707a8a',
-                                        borderColor: this.theme === 'dark-theme' ? '#2b2f36' : '#e0e3eb',
+                                        backgroundColor: document.body.className === 'dark-theme' ? '#1e2026' : '#ffffff',
+                                        titleColor: document.body.className === 'dark-theme' ? '#eaecef' : '#1e2329',
+                                        bodyColor: document.body.className === 'dark-theme' ? '#9aa1ab' : '#707a8a',
+                                        borderColor: document.body.className === 'dark-theme' ? '#2b2f36' : '#e0e3eb',
                                         borderWidth: 1,
                                         padding: 10,
                                         callbacks: {
@@ -1186,7 +1235,7 @@
                                             drawBorder: false
                                         },
                                         ticks: {
-                                            color: this.theme === 'dark-theme' ? '#9aa1ab' : '#707a8a',
+                                            color: document.body.className === 'dark-theme' ? '#9aa1ab' : '#707a8a',
                                             maxRotation: 0,
                                             autoSkip: true,
                                             maxTicksLimit: 8
@@ -1197,11 +1246,11 @@
                                         min: Math.max(0, minValue - padding),
                                         max: maxValue + padding,
                                         grid: {
-                                            color: this.theme === 'dark-theme' ? '#2b2f36' : '#e0e3eb',
+                                            color: document.body.className === 'dark-theme' ? '#2b2f36' : '#e0e3eb',
                                             drawBorder: false
                                         },
                                         ticks: {
-                                            color: this.theme === 'dark-theme' ? '#9aa1ab' : '#707a8a',
+                                            color: document.body.className === 'dark-theme' ? '#9aa1ab' : '#707a8a',
                                             callback: function(value) {
                                                 if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
                                                 if (value >= 1000) return (value/1000).toFixed(1) + 'K';
