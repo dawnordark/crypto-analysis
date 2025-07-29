@@ -89,25 +89,6 @@
             color: var(--dark-text);
         }
         body.dark-theme .query-btn:hover { background: #474d57; }
-        body.dark-theme .resistance-column {
-            background: #1c1f26;
-            border: 1px solid var(--dark-card-border);
-        }
-        body.dark-theme .column-header {
-            border-bottom: 1px solid var(--dark-card-border);
-        }
-        body.dark-theme .resistance-header {
-            color: var(--dark-red);
-        }
-        body.dark-theme .support-header {
-            color: var(--dark-green);
-        }
-        body.dark-theme .interval-levels {
-            border-bottom: 1px solid #2b2f36;
-        }
-        body.dark-theme .interval-title {
-            color: var(--dark-text-secondary);
-        }
         body.dark-theme .coin-item {
             background: #1c1f26;
             border: 1px solid var(--dark-card-border);
@@ -222,25 +203,6 @@
             color: var(--light-text);
         }
         body.light-theme .query-btn:hover { background: #e0e3eb; }
-        body.light-theme .resistance-column {
-            background: #ffffff;
-            border: 1px solid var(--light-card-border);
-        }
-        body.light-theme .column-header {
-            border-bottom: 1px solid #e0e3eb;
-        }
-        body.light-theme .resistance-header {
-            color: var(--light-red);
-        }
-        body.light-theme .support-header {
-            color: var(--light-green);
-        }
-        body.light-theme .interval-levels {
-            border-bottom: 1px solid #e0e3eb;
-        }
-        body.light-theme .interval-title {
-            color: var(--light-text-secondary);
-        }
         body.light-theme .coin-item {
             background: #ffffff;
             border: 1px solid var(--light-card-border);
@@ -389,6 +351,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+            cursor: pointer;
         }
         .resistance-title {
             font-size: 18px;
@@ -414,51 +377,35 @@
             transition: background 0.2s;
         }
 
-        /* 阻力位结果横向布局 */
-        .resistance-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: space-between;
-        }
-        .resistance-column {
-            flex: 1;
-            min-width: 300px;
+        /* 阻力位结果单行布局 */
+        .resistance-display {
             border-radius: 8px;
             padding: 12px;
+            margin-top: 10px;
         }
-        .column-header {
-            text-align: center;
-            padding: 8px;
-            margin-bottom: 10px;
-            font-weight: bold;
-            border-bottom: 1px solid;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .interval-levels {
+        .resistance-section {
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
-            margin-bottom: 15px;
         }
-        .interval-group {
+        .resistance-block {
             flex: 1;
-            min-width: 200px;
+            min-width: 120px;
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
         }
-        .interval-title {
-            font-size: 13px;
+        .block-header {
+            font-size: 12px;
             margin-bottom: 5px;
-            padding: 5px 0;
-            border-bottom: 1px dashed;
         }
-        .level-value {
-            display: flex;
-            justify-content: space-between;
+        .resistance-value {
+            font-weight: bold;
             font-size: 13px;
-            padding: 3px 0;
+        }
+        .support-value {
+            font-weight: bold;
+            font-size: 13px;
         }
 
         /* 列表容器 */
@@ -603,32 +550,6 @@
             padding: 20px;
         }
 
-        /* 阻力位支撑位简约布局 - 横向 */
-        .resistance-display {
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 10px;
-        }
-        .resistance-section {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .resistance-block {
-            border-radius: 6px;
-            padding: 8px;
-            text-align: center;
-        }
-        .block-header {
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-        .resistance-value, .support-value {
-            font-weight: bold;
-            font-size: 13px;
-        }
-
         /* 折叠图标 */
         .collapse-icon {
             font-size: 16px;
@@ -647,11 +568,11 @@
                 flex-wrap: wrap;
                 gap: 8px;
             }
-            .resistance-grid {
-                flex-direction: column;
-            }
             .chart-container {
                 height: 180px;
+            }
+            .resistance-block {
+                min-width: 100px;
             }
         }
     </style>
@@ -673,8 +594,8 @@
                     <span v-else>刷新中...</span>
                 </button>
                 <button class="theme-toggle" @click="toggleTheme">
-                    <span v-if="theme === 'light-theme'">🌙</span>
-                    <span v-else>☀️</span>
+                    <span v-if="theme === 'dark-theme'">☀️</span>
+                    <span v-else>🌙</span>
                 </button>
             </div>
         </div>
@@ -698,8 +619,9 @@
 
         <!-- 阻力位查询区域 -->
         <div class="resistance-query">
-            <div class="resistance-header">
+            <div class="resistance-header" @click="toggleCollapse('resistance')">
                 <div class="resistance-title">阻力位/支撑位查询</div>
+                <span class="collapse-icon">{{ collapsedSections.resistance ? '►' : '▼' }}</span>
             </div>
             <div class="query-container">
                 <input 
@@ -719,46 +641,19 @@
                 </button>
             </div>
 
-            <div v-if="queryResult" class="resistance-result">
-                <div class="resistance-grid">
-                    <div class="resistance-column">
-                        <div class="column-header resistance-header" @click="toggleCollapse('resistance')">
-                            <span>阻力位</span>
-                            <span class="collapse-icon">▼</span>
-                        </div>
-                        <div v-if="!collapsedSections.resistance">
-                            <div class="interval-levels">
-                                <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-res'">
-                                    <div class="interval-group">
-                                        <div class="interval-title">
-                                            <span>{{ interval }}</span>
-                                        </div>
-                                        <div v-for="(level, idx) in levels.resistance" :key="'resistance'+idx" class="level-value">
-                                            <span>{{ level ? level.toFixed(4) : '-' }}</span>
-                                        </div>
-                                    </div>
-                                </div>
+            <div v-if="queryResult && !collapsedSections.resistance" class="resistance-result">
+                <div class="resistance-display">
+                    <div class="resistance-section">
+                        <div class="resistance-block">
+                            <div class="block-header">阻力位</div>
+                            <div v-for="(level, idx) in getTopResistanceLevels()" :key="'resistance'+idx" class="resistance-value">
+                                {{ level.toFixed(4) }}
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="resistance-column">
-                        <div class="column-header support-header" @click="toggleCollapse('support')">
-                            <span>支撑位</span>
-                            <span class="collapse-icon">▼</span>
-                        </div>
-                        <div v-if="!collapsedSections.support">
-                            <div class="interval-levels">
-                                <div v-for="(levels, interval) in queryResult.levels" :key="interval + '-sup'">
-                                    <div class="interval-group">
-                                        <div class="interval-title">
-                                            <span>{{ interval }}</span>
-                                        </div>
-                                        <div v-for="(level, idx) in levels.support" :key="'support'+idx" class="level-value">
-                                            <span>{{ level ? level.toFixed(4) : '-' }}</span>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div class="resistance-block">
+                            <div class="block-header">支撑位</div>
+                            <div v-for="(level, idx) in getTopSupportLevels()" :key="'support'+idx" class="support-value">
+                                {{ level.toFixed(4) }}
                             </div>
                         </div>
                     </div>
@@ -1091,8 +986,7 @@
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
                     collapsedSections: {
-                        resistance: false,
-                        support: false
+                        resistance: false
                     },
                     collapsedLists: {
                         allCycleRising: false,
@@ -1103,6 +997,7 @@
                 },
                 computed: {
                     sortedDailyRising() {
+                        // 确保按符合周期数量排序
                         return [...this.dailyRising].sort((a, b) => b.period_count - a.period_count);
                     },
                     sortedShortTermActive() {
@@ -1119,6 +1014,7 @@
                         this.theme = savedTheme;
                     } else {
                         // 默认暗色主题
+                        this.theme = 'dark-theme';
                         localStorage.setItem('themePreference', 'dark-theme');
                     }
                     
@@ -1131,6 +1027,9 @@
                     },
                     toggleListCollapse(list) {
                         this.collapsedLists[list] = !this.collapsedLists[list];
+                    },
+                    toggleCollapse(section) {
+                        this.collapsedSections[section] = !this.collapsedSections[section];
                     },
                     toggleResistance(symbol) {
                         this.$set(this.resistanceExpanded, symbol, !this.resistanceExpanded[symbol]);
@@ -1331,19 +1230,11 @@
                                     levels: response.data
                                 };
                                 this.queryLoading = false;
-                                
-                                this.collapsedSections = {
-                                    resistance: false,
-                                    support: false
-                                };
                             })
                             .catch(error => {
                                 this.queryError = '查询失败: ' + error.message;
                                 this.queryLoading = false;
                             });
-                    },
-                    toggleCollapse(section) {
-                        this.collapsedSections[section] = !this.collapsedSections[section];
                     },
                     formatSymbolInput() {
                         this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1363,14 +1254,13 @@
                         
                         return uniqueLevels.slice(0, 3);
                     },
-                    getLevel(symbol, interval, type, index) {
-                        if (!this.resistanceData[symbol] || 
-                            !this.resistanceData[symbol][interval] || 
-                            !this.resistanceData[symbol][interval][type] || 
-                            index >= this.resistanceData[symbol][interval][type].length) {
-                            return 0;
-                        }
-                        return this.resistanceData[symbol][interval][type][index];
+                    getTopResistanceLevels() {
+                        if (!this.queryResult) return [];
+                        return this.getTopLevels(this.queryResult.symbol, 'resistance');
+                    },
+                    getTopSupportLevels() {
+                        if (!this.queryResult) return [];
+                        return this.getTopLevels(this.queryResult.symbol, 'support');
                     },
                     formatNumber(num) {
                         if (!num) return "0";
