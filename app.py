@@ -126,14 +126,20 @@ def get_next_update_time(period):
         period_minutes = int(period[:-1])
         current_minute = now.minute
         current_period_minute = (current_minute // period_minutes) * period_minutes
-        next_update = now.replace(minute=current_period_minute, second=0, microsecond=0) + timedelta(minutes=period_minutes)
+        # 增加2秒延迟，对齐币安API
+        next_update = now.replace(minute=current_period_minute, second=2, microsecond=0) + timedelta(minutes=period_minutes)
+        # 如果计算出的时间已经过去，则再加一个周期
+        if next_update < now:
+            next_update += timedelta(minutes=period_minutes)
     elif period.endswith('h'):
         period_hours = int(period[:-1])
         current_hour = now.hour
         current_period_hour = (current_hour // period_hours) * period_hours
-        next_update = now.replace(hour=current_period_hour, minute=0, second=0, microsecond=0) + timedelta(hours=period_hours)
+        # 增加2秒延迟，对齐币安API
+        next_update = now.replace(hour=current_period_hour, minute=0, second=2, microsecond=0) + timedelta(hours=period_hours)
     else:  # 1d
-        next_update = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        # 增加2秒延迟，对齐币安API
+        next_update = now.replace(hour=0, minute=0, second=2, microsecond=0) + timedelta(days=1)
 
     return next_update
 
