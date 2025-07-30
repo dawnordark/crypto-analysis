@@ -499,16 +499,22 @@
             margin-left: 5px;
         }
         .coin-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
             margin-top: 8px;
         }
+        .coin-stat {
+            display: flex;
+            flex-direction: column;
+        }
         .stat-label {
+            font-size: 12px;
             font-weight: normal;
         }
         .stat-value {
             font-weight: bold;
+            font-size: 14px;
         }
 
         /* 状态标签 */
@@ -735,17 +741,13 @@
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                         </div>
                                         <div class="coin-stats">
-                                            <div>
-                                                <span class="stat-label">持仓量:</span>
+                                            <div class="coin-stat">
+                                                <span class="stat-label">持仓量</span>
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
-                                            <div>
-                                                <span class="stat-label">涨幅:</span>
+                                            <div class="coin-stat">
+                                                <span class="stat-label">涨幅</span>
                                                 <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
-                                            </div>
-                                            <div>
-                                                <span class="stat-label">符合周期:</span>
-                                                <span class="stat-value">{{ coin.period_count }}个</span>
                                             </div>
                                         </div>
                                     </div>
@@ -845,17 +847,13 @@
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                         </div>
                                         <div class="coin-stats">
-                                            <div>
-                                                <span class="stat-label">持仓量:</span>
+                                            <div class="coin-stat">
+                                                <span class="stat-label">持仓量</span>
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
-                                            <div>
-                                                <span class="stat-label">涨幅:</span>
+                                            <div class="coin-stat">
+                                                <span class="stat-label">涨幅</span>
                                                 <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
-                                            </div>
-                                            <div>
-                                                <span class="stat-label">符合周期:</span>
-                                                <span class="stat-value">{{ coin.period_count }}个</span>
                                             </div>
                                         </div>
                                     </div>
@@ -955,45 +953,27 @@
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                         </div>
                                         <div class="coin-stats">
-                                            <div>
-                                                <span class="stat-label">持仓量:</span>
+                                            <div class="coin-stat">
+                                                <span class="stat-label">持仓量</span>
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
-                                            <div>
-                                                <span class="stat-label">活跃比:</span>
+                                            <div class="coin-stat">
+                                                <span class="stat-label">活跃比</span>
                                                 <span class="stat-value">{{ coin.ratio }}x</span>
-                                            </div>
-                                            <div>
-                                                <span class="stat-label">符合周期:</span>
-                                                <span class="stat-value">{{ coin.period_count }}个</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div class="period-status">
-                                    <span 
-                                        v-for="period in periods" 
-                                        :key="period" 
-                                        class="status-tag"
-                                        :class="{
-                                            'status-up': coin.period_status[period], 
-                                            'status-down': !coin.period_status[period],
-                                            'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
-                                        }"
-                                        @click="togglePeriodChart(coin.symbol, period)"
-                                    >
-                                        {{ period }}
-                                    </span>
-                                </div>
-
+                                
+                                <!-- 短期活跃不显示趋势标签 -->
+                                
                                 <!-- 持仓量图表 -->
                                 <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
                                     <div class="chart-title">
                                         {{ formatSymbol(coin.symbol) }} - {{ activeChart.period || '选择周期' }} 持仓量走势
                                     </div>
                                     <div v-if="!activeChart.period" class="chart-placeholder">
-                                        请点击上方周期标签查看持仓量走势
+                                        请点击币种名称查看持仓量走势
                                     </div>
                                     <div v-else-if="chartErrors[coin.symbol+'-'+activeChart.period]" class="chart-error">
                                         {{ chartErrors[coin.symbol+'-'+activeChart.period] }}
@@ -1077,31 +1057,16 @@
                 },
                 computed: {
                     sortedDailyRising() {
-                        // 按符合周期数量降序，相同数量时按持仓量降序
-                        return [...this.dailyRising].sort((a, b) => {
-                            if (b.period_count !== a.period_count) {
-                                return b.period_count - a.period_count;
-                            }
-                            return b.oi - a.oi;
-                        });
+                        // 按涨幅降序
+                        return [...this.dailyRising].sort((a, b) => b.change - a.change);
                     },
                     sortedShortTermActive() {
-                        // 按符合周期数量降序，相同数量时按活跃比降序
-                        return [...this.shortTermActive].sort((a, b) => {
-                            if (b.period_count !== a.period_count) {
-                                return b.period_count - a.period_count;
-                            }
-                            return b.ratio - a.ratio;
-                        });
+                        // 按活跃比降序
+                        return [...this.shortTermActive].sort((a, b) => b.ratio - a.ratio);
                     },
                     sortedAllCycleRising() {
-                        // 按符合周期数量降序，相同数量时按持仓量降序
-                        return [...this.allCycleRising].sort((a, b) => {
-                            if (b.period_count !== a.period_count) {
-                                return b.period_count - a.period_count;
-                            }
-                            return b.oi - a.oi;
-                        });
+                        // 按符合周期数量降序
+                        return [...this.allCycleRising].sort((a, b) => b.period_count - a.period_count);
                     }
                 },
                 mounted() {
