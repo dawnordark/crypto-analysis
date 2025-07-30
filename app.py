@@ -302,7 +302,7 @@ def calculate_resistance_levels(symbol):
         # 确保客户端已初始化
         if client is None and not init_client():
             logger.error("❌ 无法初始化Binance客户端，无法计算阻力位")
-            return {'resistance': [], 'support': []}
+            return {'resistance': [], 'support': [], 'current_price': 0}
         
         # 获取当前价格
         try:
@@ -311,9 +311,10 @@ def calculate_resistance_levels(symbol):
             logger.info(f"📊 {symbol}当前价格: {current_price}")
         except Exception as e:
             logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
-            current_price = None
+            current_price = 0
         
         all_levels = []
+        interval_levels_map = {}
         
         for interval in RESISTANCE_INTERVALS:
             try:
@@ -344,14 +345,10 @@ def calculate_resistance_levels(symbol):
                 
                 # 合并所有水平
                 interval_levels = swing_highs + swing_lows + fib_levels + trendline_levels
-                
-                # 4. 共振水平检测
-                resonance_levels = detect_resonance_levels(interval_levels)
-                logger.info(f"📊 {symbol}在{interval}的共振阻力位: {resonance_levels['resistance']}, 支撑位: {resonance_levels['support']}")
+                interval_levels_map[interval] = interval_levels
                 
                 # 添加到全局列表
-                all_levels.extend(resonance_levels['resistance'])
-                all_levels.extend(resonance_levels['support'])
+                all_levels.extend(interval_levels)
                 
             except Exception as e:
                 logger.error(f"计算{symbol}在{interval}的阻力位失败: {str(e)}")
@@ -361,15 +358,64 @@ def calculate_resistance_levels(symbol):
         final_levels = detect_resonance_levels(all_levels)
         logger.info(f"📊 {symbol}全局最优阻力位: {final_levels['resistance']}, 支撑位: {final_levels['support']}")
         
+        # 找出关键阻力位和支撑位（最接近当前价格的）
+        key_resistance = None
+        key_support = None
+        
+        if current_price > 0:
+            # 找出最接近的阻力位（高于当前价格）
+            resistances_above = [r for r in final_levels['resistance'] if r > current_price]
+            if resistances_above:
+                key_resistance = min(resistances_above, key=lambda x: abs(x - current_price))
+                resistance_distance = ((key_resistance - current_price) / current_price) * 100
+            
+            # 找出最接近的支撑位（低于当前价格）
+            supports_below = [s for s in final_levels['support'] if s < current_price]
+            if supports_below:
+                key_support = max(supports_below, key=lambda x: abs(x - current_price))
+                support_distance = ((current_price - key_support) / current_price) * 100
+        
+        # 找出关键周期（共振强度最高的阻力位/支撑位出现的周期）
+        key_resistance_intervals = {}
+        key_support_intervals = {}
+        
+        for interval, levels in interval_levels_map.items():
+            for level in levels:
+                # 检查是否为关键阻力位
+                if key_resistance and abs(level - key_resistance) / key_resistance < 0.01:
+                    key_resistance_intervals[interval] = level
+                
+                # 检查是否为关键支撑位
+                if key_support and abs(level - key_support) / key_support < 0.01:
+                    key_support_intervals[interval] = level
+        
+        result = {
+            'resistance': final_levels['resistance'],
+            'support': final_levels['support'],
+            'current_price': current_price,
+            'key_resistance': key_resistance,
+            'key_support': key_support,
+            'key_resistance_intervals': key_resistance_intervals,
+            'key_support_intervals': key_support_intervals
+        }
+        
         resistance_cache[symbol] = {
-            'levels': final_levels,
+            'levels': result,
             'expiration': now + RESISTANCE_CACHE_EXPIRATION
         }
-        return final_levels
+        return result
     except Exception as e:
         logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
         logger.error(traceback.format_exc())
-        return {'resistance': [], 'support': []}
+        return {
+            'resistance': [], 
+            'support': [], 
+            'current_price': 0,
+            'key_resistance': None,
+            'key_support': None,
+            'key_resistance_intervals': {},
+            'key_support_intervals': {}
+        }
 
 def analyze_daily_rising(symbol):
     """分析日线上涨条件"""
@@ -383,10 +429,15 @@ def analyze_daily_rising(symbol):
             daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
             logger.info(f"📊 {symbol} 日线上涨条件满足，涨幅: {daily_change:.2f}%")
             
+            # 获取关键阻力位
+            resistance_data = calculate_resistance_levels(symbol)
+            key_resistance = resistance_data.get('key_resistance', 0)
+            
             return {
                 'symbol': symbol,
                 'oi': daily_series[-1],
-                'change': round(daily_change, 2)
+                'change': round(daily_change, 2),
+                'key_resistance': key_resistance
             }
         return None
     except Exception as e:
@@ -399,6 +450,9 @@ def analyze_all_cycles(symbol, daily_rising_item):
         logger.info(f"📊 开始全周期分析: {symbol}")
         period_status = {}
         period_count = 0
+        
+        # 确保日线状态为True
+        period_status['1d'] = True
         
         for period in ALL_PERIODS:
             if period == '1d':
@@ -419,12 +473,18 @@ def analyze_all_cycles(symbol, daily_rising_item):
         
         if all_intervals_up:
             logger.info(f"📊 {symbol} 全周期上涨条件满足")
+            
+            # 获取关键阻力位
+            resistance_data = calculate_resistance_levels(symbol)
+            key_resistance = resistance_data.get('key_resistance', 0)
+            
             return {
                 'symbol': symbol,
                 'oi': daily_rising_item['oi'],
                 'change': daily_rising_item['change'],
                 'period_status': period_status,
-                'period_count': period_count
+                'period_count': period_count,
+                'key_resistance': key_resistance
             }
         return None
     except Exception as e:
@@ -640,8 +700,7 @@ def schedule_analysis():
         analysis_start = datetime.now(timezone.utc)
         logger.info(f"🔔 触发定时分析任务 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')}")
         analysis_queue.put("ANALYZE")
-        analysis_queue.join()
-
+        
         analysis_duration = (datetime.now(timezone.utc) - analysis_start).total_seconds()
         now = datetime.now(timezone.utc)
         next_time = get_next_update_time()
@@ -717,6 +776,8 @@ def get_data():
                     coin['period_count'] = 0
                 if 'period_status' not in coin:
                     coin['period_status'] = {}
+                if 'key_resistance' not in coin:
+                    coin['key_resistance'] = 0
                 valid_coins.append(coin)
             return valid_coins
         
