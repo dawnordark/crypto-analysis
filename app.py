@@ -48,7 +48,7 @@ logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 
-# Binance API 配置 - 添加回退机制
+# Binance API 配置
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 client = None
@@ -469,7 +469,12 @@ def analyze_trends():
     
     if not symbols:
         logger.warning("⚠️ 没有找到高交易量币种")
-        return data_cache
+        return {
+            'daily_rising': [],
+            'short_term_active': [],
+            'all_cycle_rising': [],
+            'analysis_time': 0
+        }
 
     logger.info(f"🔍 开始分析 {len(symbols)} 个币种")
 
@@ -477,52 +482,47 @@ def analyze_trends():
     short_term_active = []
     all_cycle_rising = []
 
-    # 第一步：分析日线上涨
-    daily_futures = {
-        executor.submit(analyze_daily_rising, symbol): symbol
-        for symbol in symbols
-    }
-    
-    for future in as_completed(daily_futures):
-        symbol = daily_futures[future]
-        try:
-            result = future.result()
-            if result:
-                daily_rising.append(result)
-        except Exception as e:
-            logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
-    
-    # 第二步：分析全周期上涨（基于日线上涨的结果）
-    all_cycle_futures = {}
-    for coin in daily_rising:
-        future = executor.submit(analyze_all_cycles, coin['symbol'], coin)
-        all_cycle_futures[future] = coin['symbol']
-    
-    for future in as_completed(all_cycle_futures):
-        symbol = all_cycle_futures[future]
-        try:
-            result = future.result()
-            if result:
-                all_cycle_rising.append(result)
-        except Exception as e:
-            logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
-    
-    # 第三步：分析短期活跃（基于所有高交易量币种）
-    short_term_futures = {
-        executor.submit(analyze_short_term_active, symbol): symbol
-        for symbol in symbols
-    }
-    
-    for future in as_completed(short_term_futures):
-        symbol = short_term_futures[future]
-        try:
-            result = future.result()
-            if result:
-                short_term_active.append(result)
-        except Exception as e:
-            logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
+    # 使用10个线程并行处理
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        # 第一步：并行分析日线上涨
+        daily_futures = {executor.submit(analyze_daily_rising, symbol): symbol for symbol in symbols}
+        
+        # 第二步：并行分析短期活跃
+        short_term_futures = {executor.submit(analyze_short_term_active, symbol): symbol for symbol in symbols}
+        
+        # 等待日线上涨结果
+        for future in as_completed(daily_futures):
+            symbol = daily_futures[future]
+            try:
+                result = future.result()
+                if result:
+                    daily_rising.append(result)
+            except Exception as e:
+                logger.error(f"❌ 处理{symbol}的日线上涨时出错: {str(e)}")
+        
+        # 第三步：分析全周期上涨（基于日线上涨的结果）
+        if daily_rising:
+            all_cycle_futures = {executor.submit(analyze_all_cycles, coin['symbol'], coin): coin['symbol'] for coin in daily_rising}
+            for future in as_completed(all_cycle_futures):
+                symbol = all_cycle_futures[future]
+                try:
+                    result = future.result()
+                    if result:
+                        all_cycle_rising.append(result)
+                except Exception as e:
+                    logger.error(f"❌ 处理{symbol}的全周期时出错: {str(e)}")
+        
+        # 等待短期活跃结果
+        for future in as_completed(short_term_futures):
+            symbol = short_term_futures[future]
+            try:
+                result = future.result()
+                if result:
+                    short_term_active.append(result)
+            except Exception as e:
+                logger.error(f"❌ 处理{symbol}的短期活跃时出错: {str(e)}")
 
-    # 排序结果 - 按符合周期数量排序
+    # 排序结果
     daily_rising.sort(key=lambda x: x.get('change', 0), reverse=True)
     short_term_active.sort(key=lambda x: x.get('ratio', 0), reverse=True)
     all_cycle_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
@@ -713,6 +713,10 @@ def get_data():
                     coin['change'] = 0
                 if 'ratio' not in coin:
                     coin['ratio'] = 0
+                if 'period_count' not in coin:
+                    coin['period_count'] = 0
+                if 'period_status' not in coin:
+                    coin['period_status'] = {}
                 valid_coins.append(coin)
             return valid_coins
         
