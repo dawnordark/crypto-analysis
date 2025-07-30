@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>持仓量分析</title>
+    <title>持仓量分析系统</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -553,7 +553,7 @@
             color: var(--light-yellow);
         }
 
-        /* 状态标签 */
+        /* 状态标签 - 修复颜色问题 */
         .period-status {
             display: flex;
             flex-wrap: wrap;
@@ -582,6 +582,24 @@
         }
         .light-theme .status-tag.chart-open {
             border-color: var(--light-yellow);
+        }
+        
+        /* 修复标签颜色问题 */
+        .status-up {
+            color: var(--light-green);
+            border-color: var(--light-green);
+        }
+        .dark-theme .status-up {
+            color: var(--dark-green);
+            border-color: var(--dark-green);
+        }
+        .status-down {
+            color: var(--light-red);
+            border-color: var(--light-red);
+        }
+        .dark-theme .status-down {
+            color: var(--dark-red);
+            border-color: var(--dark-red);
         }
 
         /* 持仓量图表容器 */
@@ -775,8 +793,8 @@
                                         :key="period" 
                                         class="status-tag"
                                         :class="{
-                                            'status-up': coin.period_status[period], 
-                                            'status-down': !coin.period_status[period],
+                                            'status-up': coin.period_status[period] === true, 
+                                            'status-down': coin.period_status[period] === false,
                                             'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
                                         }"
                                         @click="togglePeriodChart(coin.symbol, period)"
@@ -849,8 +867,8 @@
                                         :key="period" 
                                         class="status-tag"
                                         :class="{
-                                            'status-up': coin.period_status[period], 
-                                            'status-down': !coin.period_status[period],
+                                            'status-up': coin.period_status[period] === true, 
+                                            'status-down': coin.period_status[period] === false,
                                             'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
                                         }"
                                         @click="togglePeriodChart(coin.symbol, period)"
