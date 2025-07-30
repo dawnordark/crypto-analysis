@@ -519,6 +519,7 @@ def analysis_worker():
             task = analysis_queue.get()
             if task == "STOP":
                 logger.info("🛑 收到停止信号，结束分析线程")
+                analysis_queue.task_done()  # 关键修复：标记任务完成
                 break
 
             analysis_start = datetime.now(timezone.utc)
@@ -565,9 +566,14 @@ def analysis_worker():
             logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
             
             logger.info("=" * 50)
+            
+            # 关键修复：标记任务完成
+            analysis_queue.task_done()
         except Exception as e:
             logger.error(f"❌ 分析失败: {str(e)}")
             logger.error(traceback.format_exc())
+            # 确保即使出错也标记任务完成
+            analysis_queue.task_done()
 
 def schedule_analysis():
     logger.info("⏰ 定时分析调度器启动")
@@ -581,7 +587,7 @@ def schedule_analysis():
         analysis_start = datetime.now(timezone.utc)
         logger.info(f"🔔 触发定时分析任务 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')}")
         analysis_queue.put("ANALYZE")
-        analysis_queue.join()
+        analysis_queue.join()  # 等待分析任务完成
 
         analysis_duration = (datetime.now(timezone.utc) - analysis_start).total_seconds()
         now = datetime.now(timezone.utc)
@@ -717,8 +723,8 @@ def get_oi_chart_data(symbol, period):
         logger.info(f"📈 获取持仓量图表数据: symbol={symbol}, period={period}")
         oi_data = get_open_interest(symbol, period, use_cache=True)
         return jsonify({
-            'data': oi_series,
-            'timestamps': timestamps
+            'data': oi_data.get('series', []),
+            'timestamps': oi_data.get('timestamps', [])
         })
     except Exception as e:
         logger.error(f"❌ 获取持仓量图表数据失败: {str(e)}")
