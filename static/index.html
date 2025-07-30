@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>持仓量分析系统</title>
+    <title>持仓量分析</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -104,9 +104,6 @@
         }
         body.dark-theme .positive { color: var(--dark-green); }
         body.dark-theme .negative { color: var(--dark-red); }
-        body.dark-theme .resistance-distance {
-            color: var(--dark-yellow);
-        }
         body.dark-theme .status-tag {
             background: rgba(43, 47, 54, 0.5);
             border: 1px solid var(--dark-card-border);
@@ -154,11 +151,6 @@
         }
         body.dark-theme .support-value {
             color: var(--dark-green);
-        }
-        body.dark-theme .key-resistance {
-            color: var(--dark-yellow);
-            font-weight: bold;
-            margin-left: 10px;
         }
 
         /* 亮色主题 */
@@ -226,9 +218,6 @@
         }
         body.light-theme .positive { color: var(--light-green); }
         body.light-theme .negative { color: var(--light-red); }
-        body.light-theme .resistance-distance {
-            color: var(--light-yellow);
-        }
         body.light-theme .status-tag {
             background: rgba(224, 227, 235, 0.5);
             border: 1px solid var(--light-card-border);
@@ -276,11 +265,6 @@
         }
         body.light-theme .support-value {
             color: var(--light-green);
-        }
-        body.light-theme .key-resistance {
-            color: var(--light-yellow);
-            font-weight: bold;
-            margin-left: 10px;
         }
 
         /* 通用样式 */
@@ -430,28 +414,6 @@
             padding: 12px;
             margin-top: 10px;
         }
-        .key-level-info {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 6px;
-            background: rgba(240, 185, 11, 0.1);
-        }
-        .key-level-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .level-intervals {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 5px;
-        }
-        .interval-tag {
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 11px;
-            background: rgba(0,0,0,0.1);
-        }
 
         /* 列表容器 */
         .list-container {
@@ -520,44 +482,29 @@
         .coin-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             margin-bottom: 10px;
-        }
-        .coin-name-container {
-            display: flex;
-            align-items: baseline;
-            flex-wrap: wrap;
         }
         .coin-name {
             font-size: 16px;
             font-weight: bold;
-            cursor: pointer;
             transition: color 0.2s;
-        }
-        .coin-name:hover {
-            opacity: 0.8;
         }
         .symbol-usdt {
             font-size: 12px;
             margin-left: 5px;
         }
         .coin-stats {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
             margin-top: 8px;
         }
-        .coin-stat {
-            display: flex;
-            flex-direction: column;
-        }
         .stat-label {
-            font-size: 12px;
             font-weight: normal;
         }
         .stat-value {
             font-weight: bold;
-            font-size: 14px;
         }
 
         /* 状态标签 */
@@ -573,7 +520,6 @@
             font-size: 11px;
             min-width: 40px;
             text-align: center;
-            cursor: pointer;
             transition: all 0.2s;
             border: 1px solid;
         }
@@ -657,14 +603,6 @@
             }
             .resistance-block {
                 min-width: 100px;
-            }
-            .coin-name-container {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .key-resistance {
-                margin-left: 0;
-                margin-top: 5px;
             }
         }
     </style>
@@ -758,33 +696,6 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- 关键阻力位/支撑位信息 -->
-                    <div v-if="queryResult.levels.key_resistance || queryResult.levels.key_support" class="key-level-info">
-                        <div v-if="queryResult.levels.key_resistance">
-                            <div class="key-level-title">关键阻力位: {{ queryResult.levels.key_resistance.toFixed(4) }}</div>
-                            <div>距离: +{{ ((queryResult.levels.key_resistance - queryResult.levels.current_price) / queryResult.levels.current_price * 100).toFixed(2) }}%</div>
-                            <div class="level-intervals">
-                                <span v-for="(value, interval) in queryResult.levels.key_resistance_intervals" 
-                                      :key="'resistance-interval-'+interval"
-                                      class="interval-tag">
-                                    {{ interval }}: {{ value.toFixed(4) }}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div v-if="queryResult.levels.key_support" style="margin-top: 10px;">
-                            <div class="key-level-title">关键支撑位: {{ queryResult.levels.key_support.toFixed(4) }}</div>
-                            <div>距离: -{{ ((queryResult.levels.current_price - queryResult.levels.key_support) / queryResult.levels.current_price * 100).toFixed(2) }}%</div>
-                            <div class="level-intervals">
-                                <span v-for="(value, interval) in queryResult.levels.key_support_intervals" 
-                                      :key="'support-interval-'+interval"
-                                      class="interval-tag">
-                                    {{ interval }}: {{ value.toFixed(4) }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -814,23 +725,20 @@
                         <div v-else v-for="coin in sortedAllCycleRising" :key="coin.symbol + 'allcycle'">
                             <div class="coin-item">
                                 <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-name" @click="toggleResistance(coin.symbol)">
+                                    <div>
+                                        <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                         </div>
-                                        <div v-if="coin.key_resistance" class="key-resistance">
-                                            阻力位: {{ coin.key_resistance.toFixed(4) }}
+                                        <div class="coin-stats">
+                                            <div>
+                                                <span class="stat-label">持仓量:</span>
+                                                <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                            </div>
+                                            <div>
+                                                <span class="stat-label">涨幅:</span>
+                                                <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="coin-stats">
-                                    <div class="coin-stat">
-                                        <span class="stat-label">持仓量</span>
-                                        <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
-                                    </div>
-                                    <div class="coin-stat">
-                                        <span class="stat-label">涨幅</span>
-                                        <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                     </div>
                                 </div>
 
@@ -862,64 +770,6 @@
                                         {{ chartErrors[coin.symbol+'-'+activeChart.period] }}
                                     </div>
                                     <canvas v-else :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
-                                </div>
-                                
-                                <!-- 币种项中的阻力位显示 -->
-                                <div v-if="resistanceExpanded[coin.symbol]" class="resistance-display">
-                                    <div v-if="resistanceData[coin.symbol]">
-                                        <div class="resistance-row">
-                                            <div class="resistance-block">
-                                                <div class="block-header">阻力位</div>
-                                                <div v-for="(level, idx) in resistanceData[coin.symbol].resistance" :key="'resistance'+idx" 
-                                                     class="resistance-value">
-                                                    {{ level.toFixed(4) }}
-                                                </div>
-                                                <div v-if="resistanceData[coin.symbol].resistance.length === 0" class="resistance-value">
-                                                    无数据
-                                                </div>
-                                            </div>
-                                            <div class="resistance-block">
-                                                <div class="block-header">支撑位</div>
-                                                <div v-for="(level, idx) in resistanceData[coin.symbol].support" :key="'support'+idx" 
-                                                     class="support-value">
-                                                    {{ level.toFixed(4) }}
-                                                </div>
-                                                <div v-if="resistanceData[coin.symbol].support.length === 0" class="support-value">
-                                                    无数据
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 关键阻力位/支撑位信息 -->
-                                        <div v-if="resistanceData[coin.symbol].key_resistance || resistanceData[coin.symbol].key_support" class="key-level-info">
-                                            <div v-if="resistanceData[coin.symbol].key_resistance">
-                                                <div class="key-level-title">关键阻力位: {{ resistanceData[coin.symbol].key_resistance.toFixed(4) }}</div>
-                                                <div>距离: +{{ ((resistanceData[coin.symbol].key_resistance - resistanceData[coin.symbol].current_price) / resistanceData[coin.symbol].current_price * 100).toFixed(2) }}%</div>
-                                                <div class="level-intervals">
-                                                    <span v-for="(value, interval) in resistanceData[coin.symbol].key_resistance_intervals" 
-                                                          :key="'resistance-interval-'+interval"
-                                                          class="interval-tag">
-                                                        {{ interval }}: {{ value.toFixed(4) }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            
-                                            <div v-if="resistanceData[coin.symbol].key_support" style="margin-top: 10px;">
-                                                <div class="key-level-title">关键支撑位: {{ resistanceData[coin.symbol].key_support.toFixed(4) }}</div>
-                                                <div>距离: -{{ ((resistanceData[coin.symbol].current_price - resistanceData[coin.symbol].key_support) / resistanceData[coin.symbol].current_price * 100).toFixed(2) }}%</div>
-                                                <div class="level-intervals">
-                                                    <span v-for="(value, interval) in resistanceData[coin.symbol].key_support_intervals" 
-                                                          :key="'support-interval-'+interval"
-                                                          class="interval-tag">
-                                                        {{ interval }}: {{ value.toFixed(4) }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div v-else class="loading">
-                                        <span class="loading-spinner"></span> 加载阻力位数据中...
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -950,23 +800,20 @@
                         <div v-else v-for="coin in sortedDailyRising" :key="coin.symbol + 'daily'">
                             <div class="coin-item">
                                 <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-name" @click="toggleResistance(coin.symbol)">
+                                    <div>
+                                        <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                         </div>
-                                        <div v-if="coin.key_resistance" class="key-resistance">
-                                            阻力位: {{ coin.key_resistance.toFixed(4) }}
+                                        <div class="coin-stats">
+                                            <div>
+                                                <span class="stat-label">持仓量:</span>
+                                                <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                            </div>
+                                            <div>
+                                                <span class="stat-label">涨幅:</span>
+                                                <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="coin-stats">
-                                    <div class="coin-stat">
-                                        <span class="stat-label">持仓量</span>
-                                        <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
-                                    </div>
-                                    <div class="coin-stat">
-                                        <span class="stat-label">涨幅</span>
-                                        <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                     </div>
                                 </div>
 
@@ -999,64 +846,6 @@
                                     </div>
                                     <canvas v-else :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
                                 </div>
-                                
-                                <!-- 币种项中的阻力位显示 -->
-                                <div v-if="resistanceExpanded[coin.symbol]" class="resistance-display">
-                                    <div v-if="resistanceData[coin.symbol]">
-                                        <div class="resistance-row">
-                                            <div class="resistance-block">
-                                                <div class="block-header">阻力位</div>
-                                                <div v-for="(level, idx) in resistanceData[coin.symbol].resistance" :key="'resistance'+idx" 
-                                                     class="resistance-value">
-                                                    {{ level.toFixed(4) }}
-                                                </div>
-                                                <div v-if="resistanceData[coin.symbol].resistance.length === 0" class="resistance-value">
-                                                    无数据
-                                                </div>
-                                            </div>
-                                            <div class="resistance-block">
-                                                <div class="block-header">支撑位</div>
-                                                <div v-for="(level, idx) in resistanceData[coin.symbol].support" :key="'support'+idx" 
-                                                     class="support-value">
-                                                    {{ level.toFixed(4) }}
-                                                </div>
-                                                <div v-if="resistanceData[coin.symbol].support.length === 0" class="support-value">
-                                                    无数据
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 关键阻力位/支撑位信息 -->
-                                        <div v-if="resistanceData[coin.symbol].key_resistance || resistanceData[coin.symbol].key_support" class="key-level-info">
-                                            <div v-if="resistanceData[coin.symbol].key_resistance">
-                                                <div class="key-level-title">关键阻力位: {{ resistanceData[coin.symbol].key_resistance.toFixed(4) }}</div>
-                                                <div>距离: +{{ ((resistanceData[coin.symbol].key_resistance - resistanceData[coin.symbol].current_price) / resistanceData[coin.symbol].current_price * 100).toFixed(2) }}%</div>
-                                                <div class="level-intervals">
-                                                    <span v-for="(value, interval) in resistanceData[coin.symbol].key_resistance_intervals" 
-                                                          :key="'resistance-interval-'+interval"
-                                                          class="interval-tag">
-                                                        {{ interval }}: {{ value.toFixed(4) }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            
-                                            <div v-if="resistanceData[coin.symbol].key_support" style="margin-top: 10px;">
-                                                <div class="key-level-title">关键支撑位: {{ resistanceData[coin.symbol].key_support.toFixed(4) }}</div>
-                                                <div>距离: -{{ ((resistanceData[coin.symbol].current_price - resistanceData[coin.symbol].key_support) / resistanceData[coin.symbol].current_price * 100).toFixed(2) }}%</div>
-                                                <div class="level-intervals">
-                                                    <span v-for="(value, interval) in resistanceData[coin.symbol].key_support_intervals" 
-                                                          :key="'support-interval-'+interval"
-                                                          class="interval-tag">
-                                                        {{ interval }}: {{ value.toFixed(4) }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div v-else class="loading">
-                                        <span class="loading-spinner"></span> 加载阻力位数据中...
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -1086,96 +875,23 @@
                         <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
                             <div class="coin-item">
                                 <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-name" @click="toggleResistance(coin.symbol)">
+                                    <div>
+                                        <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="coin-stats">
-                                    <div class="coin-stat">
-                                        <span class="stat-label">持仓量</span>
-                                        <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
-                                    </div>
-                                    <div class="coin-stat">
-                                        <span class="stat-label">活跃比</span>
-                                        <span class="stat-value">{{ coin.ratio }}x</span>
-                                    </div>
-                                </div>
-                                
-                                <!-- 短期活跃不显示趋势标签 -->
-                                
-                                <!-- 持仓量图表 -->
-                                <div v-if="activeChart.symbol === coin.symbol" class="chart-container">
-                                    <div class="chart-title">
-                                        {{ formatSymbol(coin.symbol) }} - {{ activeChart.period || '选择周期' }} 持仓量走势
-                                    </div>
-                                    <div v-if="!activeChart.period" class="chart-placeholder">
-                                        请点击币种名称查看持仓量走势
-                                    </div>
-                                    <div v-else-if="chartErrors[coin.symbol+'-'+activeChart.period]" class="chart-error">
-                                        {{ chartErrors[coin.symbol+'-'+activeChart.period] }}
-                                    </div>
-                                    <canvas v-else :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
-                                </div>
-                                
-                                <!-- 币种项中的阻力位显示 -->
-                                <div v-if="resistanceExpanded[coin.symbol]" class="resistance-display">
-                                    <div v-if="resistanceData[coin.symbol]">
-                                        <div class="resistance-row">
-                                            <div class="resistance-block">
-                                                <div class="block-header">阻力位</div>
-                                                <div v-for="(level, idx) in resistanceData[coin.symbol].resistance" :key="'resistance'+idx" 
-                                                     class="resistance-value">
-                                                    {{ level.toFixed(4) }}
-                                                </div>
-                                                <div v-if="resistanceData[coin.symbol].resistance.length === 0" class="resistance-value">
-                                                    无数据
-                                                </div>
+                                        <div class="coin-stats">
+                                            <div>
+                                                <span class="stat-label">持仓量:</span>
+                                                <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
-                                            <div class="resistance-block">
-                                                <div class="block-header">支撑位</div>
-                                                <div v-for="(level, idx) in resistanceData[coin.symbol].support" :key="'support'+idx" 
-                                                     class="support-value">
-                                                    {{ level.toFixed(4) }}
-                                                </div>
-                                                <div v-if="resistanceData[coin.symbol].support.length === 0" class="support-value">
-                                                    无数据
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 关键阻力位/支撑位信息 -->
-                                        <div v-if="resistanceData[coin.symbol].key_resistance || resistanceData[coin.symbol].key_support" class="key-level-info">
-                                            <div v-if="resistanceData[coin.symbol].key_resistance">
-                                                <div class="key-level-title">关键阻力位: {{ resistanceData[coin.symbol].key_resistance.toFixed(4) }}</div>
-                                                <div>距离: +{{ ((resistanceData[coin.symbol].key_resistance - resistanceData[coin.symbol].current_price) / resistanceData[coin.symbol].current_price * 100).toFixed(2) }}%</div>
-                                                <div class="level-intervals">
-                                                    <span v-for="(value, interval) in resistanceData[coin.symbol].key_resistance_intervals" 
-                                                          :key="'resistance-interval-'+interval"
-                                                          class="interval-tag">
-                                                        {{ interval }}: {{ value.toFixed(4) }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            
-                                            <div v-if="resistanceData[coin.symbol].key_support" style="margin-top: 10px;">
-                                                <div class="key-level-title">关键支撑位: {{ resistanceData[coin.symbol].key_support.toFixed(4) }}</div>
-                                                <div>距离: -{{ ((resistanceData[coin.symbol].current_price - resistanceData[coin.symbol].key_support) / resistanceData[coin.symbol].current_price * 100).toFixed(2) }}%</div>
-                                                <div class="level-intervals">
-                                                    <span v-for="(value, interval) in resistanceData[coin.symbol].key_support_intervals" 
-                                                          :key="'support-interval-'+interval"
-                                                          class="interval-tag">
-                                                        {{ interval }}: {{ value.toFixed(4) }}
-                                                    </span>
-                                                </div>
+                                            <div>
+                                                <span class="stat-label">活跃比:</span>
+                                                <span class="stat-value">{{ coin.ratio }}x</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-else class="loading">
-                                        <span class="loading-spinner"></span> 加载阻力位数据中...
-                                    </div>
                                 </div>
+                                <!-- 短期活跃币种不显示趋势标签和图表 -->
                             </div>
                         </div>
                     </div>
@@ -1198,8 +914,6 @@
                         symbol: null,
                         period: null
                     },
-                    resistanceExpanded: {},
-                    resistanceData: {},
                     resistanceQuery: '',
                     queryResult: null,
                     queryLoading: false,
@@ -1222,16 +936,26 @@
                 },
                 computed: {
                     sortedDailyRising() {
-                        // 按涨幅降序
-                        return [...this.dailyRising].sort((a, b) => b.change - a.change);
+                        // 按符合周期数量降序，相同数量时按持仓量降序
+                        return [...this.dailyRising].sort((a, b) => {
+                            if (b.period_count !== a.period_count) {
+                                return b.period_count - a.period_count;
+                            }
+                            return b.oi - a.oi;
+                        });
                     },
                     sortedShortTermActive() {
                         // 按活跃比降序
                         return [...this.shortTermActive].sort((a, b) => b.ratio - a.ratio);
                     },
                     sortedAllCycleRising() {
-                        // 按符合周期数量降序
-                        return [...this.allCycleRising].sort((a, b) => b.period_count - a.period_count);
+                        // 按符合周期数量降序，相同数量时按持仓量降序
+                        return [...this.allCycleRising].sort((a, b) => {
+                            if (b.period_count !== a.period_count) {
+                                return b.period_count - a.period_count;
+                            }
+                            return b.oi - a.oi;
+                        });
                     }
                 },
                 mounted() {
@@ -1278,13 +1002,6 @@
                     toggleCollapse(section) {
                         this.collapsedSections[section] = !this.collapsedSections[section];
                     },
-                    toggleResistance(symbol) {
-                        this.$set(this.resistanceExpanded, symbol, !this.resistanceExpanded[symbol]);
-                        
-                        if (this.resistanceExpanded[symbol] && !this.resistanceData[symbol]) {
-                            this.fetchResistanceLevels(symbol);
-                        }
-                    },
                     togglePeriodChart(symbol, period) {
                         if (this.activeChart.symbol === symbol && this.activeChart.period === period) {
                             this.activeChart.symbol = null;
@@ -1307,59 +1024,102 @@
                             }
                         }
                     },
-                    fetchResistanceLevels(symbol) {
+                    queryResistanceLevels() {
+                        if (!this.resistanceQuery) return;
+                        
+                        const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
+                        this.queryLoading = true;
+                        
                         axios.get(`/api/resistance_levels/${symbol}`)
                             .then(response => {
-                                this.$set(this.resistanceData, symbol, response.data);
+                                this.queryResult = {
+                                    symbol: symbol,
+                                    levels: response.data
+                                };
+                                this.queryLoading = false;
                             })
                             .catch(error => {
-                                console.error('获取阻力位失败:', error);
-                                // 设置空数据避免前端错误
-                                this.$set(this.resistanceData, symbol, {
-                                    resistance: [],
-                                    support: [],
-                                    current_price: 0,
-                                    key_resistance: null,
-                                    key_support: null,
-                                    key_resistance_intervals: {},
-                                    key_support_intervals: {}
-                                });
+                                console.error('阻力位查询失败:', error);
+                                this.queryResult = {
+                                    symbol: symbol,
+                                    levels: { resistance: [], support: [] }
+                                };
+                                this.queryLoading = false;
                             });
                     },
-                    loadChartData(symbol, period) {
-                        axios.get(`/api/oi_chart/${symbol}/${period}`)
+                    formatSymbolInput() {
+                        this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    },
+                    formatNumber(num) {
+                        if (!num) return "0";
+                        if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+                        if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+                        return num.toFixed(2);
+                    },
+                    formatSymbol(symbol) {
+                        return symbol.replace('USDT', '');
+                    },
+                    fetchData() {
+                        this.dataLoading = true;
+                        this.loading = true;
+                        this.error = null;
+                        this.statusMessage = "获取数据中...";
+                        
+                        const lastData = {
+                            dailyRising: this.dailyRising,
+                            shortTermActive: this.shortTermActive,
+                            allCycleRising: this.allCycleRising,
+                            lastUpdated: this.lastUpdated,
+                            nextAnalysisTime: this.nextAnalysisTime
+                        };
+                        
+                        const timestamp = new Date().getTime();
+                        const url = `/api/data?t=${timestamp}`;
+
+                        axios.get(url, { timeout: 15000 })
                             .then(response => {
                                 const data = response.data;
-                                const cacheKey = `${symbol}-${period}`;
                                 
-                                if (this.chartErrors[cacheKey]) {
-                                    this.$delete(this.chartErrors, cacheKey);
-                                }
-
-                                if (!data.data || data.data.length === 0) {
-                                    this.$set(this.chartErrors, cacheKey, '没有可用的持仓量数据');
-                                    return;
-                                }
-
-                                this.chartDataCache[cacheKey] = {
-                                    series: data.data || [],
-                                    timestamps: data.timestamps || []
-                                };
+                                this.lastUpdated = data.last_updated || '未知时间';
+                                this.nextAnalysisTime = data.next_analysis_time || '计算中...';
                                 
-                                this.$nextTick(() => {
-                                    this.renderChart(symbol, period, this.chartDataCache[cacheKey]);
-                                });
+                                this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
+                                this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
+                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
+                                
+                                this.analysisTime = data.analysis_time || 0;
+                                
+                                this.loading = false;
+                                this.dataLoading = false;
+                                
+                                if (this.dailyRising.length === 0 && 
+                                    this.shortTermActive.length === 0 && 
+                                    this.allCycleRising.length === 0) {
+                                    this.statusMessage = "数据为空，等待首次分析完成";
+                                } else {
+                                    this.statusMessage = `已加载数据: ${new Date().toLocaleTimeString()}`;
+                                }
                             })
                             .catch(error => {
-                                console.error('持仓量数据加载错误:', error);
-                                const cacheKey = `${symbol}-${period}`;
-                                let errorMsg = '加载持仓量数据失败';
+                                console.error('API请求错误:', error);
+                                this.loading = false;
+                                this.dataLoading = false;
+                                
+                                this.dailyRising = lastData.dailyRising;
+                                this.shortTermActive = lastData.shortTermActive;
+                                this.allCycleRising = lastData.allCycleRising;
+                                this.lastUpdated = lastData.lastUpdated;
+                                this.nextAnalysisTime = lastData.nextAnalysisTime;
+                                
                                 if (error.response) {
-                                    errorMsg += `: ${error.response.status} ${error.response.statusText}`;
+                                    this.error = `服务器错误: ${error.response.status} ${error.response.statusText}`;
+                                } else if (error.request) {
+                                    this.error = '网络错误: 无法连接到服务器';
                                 } else {
-                                    errorMsg += `: ${error.message}`;
+                                    this.error = `请求失败: ${error.message}`;
                                 }
-                                this.$set(this.chartErrors, cacheKey, errorMsg);
+                                
+                                this.statusMessage = "使用最后缓存数据";
                             });
                     },
                     renderChart(symbol, period, chartData) {
@@ -1473,113 +1233,6 @@
                                 }
                             }
                         });
-                    },
-                    queryResistanceLevels() {
-                        if (!this.resistanceQuery) return;
-                        
-                        const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
-                        this.queryLoading = true;
-                        
-                        axios.get(`/api/resistance_levels/${symbol}`)
-                            .then(response => {
-                                this.queryResult = {
-                                    symbol: symbol,
-                                    levels: response.data
-                                };
-                                this.queryLoading = false;
-                            })
-                            .catch(error => {
-                                console.error('阻力位查询失败:', error);
-                                this.queryResult = {
-                                    symbol: symbol,
-                                    levels: { 
-                                        resistance: [], 
-                                        support: [],
-                                        current_price: 0,
-                                        key_resistance: null,
-                                        key_support: null,
-                                        key_resistance_intervals: {},
-                                        key_support_intervals: {}
-                                    }
-                                };
-                                this.queryLoading = false;
-                            });
-                    },
-                    formatSymbolInput() {
-                        this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                    },
-                    formatNumber(num) {
-                        if (!num) return "0";
-                        if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
-                        if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
-                        return num.toFixed(2);
-                    },
-                    formatSymbol(symbol) {
-                        return symbol.replace('USDT', '');
-                    },
-                    fetchData() {
-                        this.dataLoading = true;
-                        this.loading = true;
-                        this.error = null;
-                        this.statusMessage = "获取数据中...";
-                        
-                        const lastData = {
-                            dailyRising: this.dailyRising,
-                            shortTermActive: this.shortTermActive,
-                            allCycleRising: this.allCycleRising,
-                            lastUpdated: this.lastUpdated,
-                            nextAnalysisTime: this.nextAnalysisTime
-                        };
-                        
-                        const timestamp = new Date().getTime();
-                        const url = `/api/data?t=${timestamp}`;
-
-                        axios.get(url, { timeout: 30000 }) // 增加超时时间到30秒
-                            .then(response => {
-                                const data = response.data;
-                                
-                                this.lastUpdated = data.last_updated || '未知时间';
-                                this.nextAnalysisTime = data.next_analysis_time || '计算中...';
-                                
-                                // 确保数据格式正确
-                                this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
-                                this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
-                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
-                                
-                                this.analysisTime = data.analysis_time || 0;
-                                
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                if (this.dailyRising.length === 0 && 
-                                    this.shortTermActive.length === 0 && 
-                                    this.allCycleRising.length === 0) {
-                                    this.statusMessage = "数据为空，等待首次分析完成";
-                                } else {
-                                    this.statusMessage = `已加载数据: ${new Date().toLocaleTimeString()}`;
-                                }
-                            })
-                            .catch(error => {
-                                console.error('API请求错误:', error);
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                this.dailyRising = lastData.dailyRising;
-                                this.shortTermActive = lastData.shortTermActive;
-                                this.allCycleRising = lastData.allCycleRising;
-                                this.lastUpdated = lastData.lastUpdated;
-                                this.nextAnalysisTime = lastData.nextAnalysisTime;
-                                
-                                if (error.response) {
-                                    this.error = `服务器错误: ${error.response.status} ${error.response.statusText}`;
-                                } else if (error.request) {
-                                    this.error = '网络错误: 无法连接到服务器';
-                                } else {
-                                    this.error = `请求失败: ${error.message}`;
-                                }
-                                
-                                this.statusMessage = "使用最后缓存数据";
-                            });
                     }
                 }
             });
