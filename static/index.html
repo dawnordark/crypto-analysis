@@ -569,6 +569,13 @@
             cursor: pointer;
             transition: all 0.2s;
             border: 1px solid;
+            /* 默认颜色 - 确保有基础样式 */
+            color: var(--light-text-secondary);
+            border-color: var(--light-card-border);
+        }
+        .dark-theme .status-tag {
+            color: var(--dark-text-secondary);
+            border-color: var(--dark-card-border);
         }
         .status-tag:hover {
             transform: translateY(-2px);
@@ -582,6 +589,24 @@
         }
         .light-theme .status-tag.chart-open {
             border-color: var(--light-yellow);
+        }
+        
+        /* 修复标签颜色问题 - 确保高优先级 */
+        .status-tag.status-up {
+            color: var(--light-green) !important;
+            border-color: var(--light-green) !important;
+        }
+        .dark-theme .status-tag.status-up {
+            color: var(--dark-green) !important;
+            border-color: var(--dark-green) !important;
+        }
+        .status-tag.status-down {
+            color: var(--light-red) !important;
+            border-color: var(--light-red) !important;
+        }
+        .dark-theme .status-tag.status-down {
+            color: var(--dark-red) !important;
+            border-color: var(--dark-red) !important;
         }
         
         /* 持仓量图表容器 */
