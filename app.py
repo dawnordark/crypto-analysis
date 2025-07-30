@@ -13,7 +13,6 @@ import queue
 import logging
 import traceback
 import urllib3
-import numpy as np
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
@@ -48,7 +47,7 @@ logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 
-# Binance API 配置
+# Binance API 配置 - 添加回退机制
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 client = None
@@ -85,8 +84,9 @@ PERIOD_MINUTES = {
     '1d': 1440
 }
 
-RESISTANCE_INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
-ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
+RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', 
+                        '1d', '3d', '1w', '1M']
+ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '3d', '1w', '1M']
 
 def init_client():
     global client
@@ -119,14 +119,23 @@ def init_client():
     logger.critical("🔥 无法初始化Binance客户端，已达到最大重试次数")
     return False
 
-def get_next_update_time():
+def get_next_update_time(period):
     now = datetime.now(timezone.utc)
-    # 计算下一个5分5秒的时间点
-    current_minute = now.minute
-    current_second = now.second
-    minutes_to_add = 5 - (current_minute % 5)
-    seconds_to_add = 5 - current_second if minutes_to_add == 0 else (5 - current_second) + (minutes_to_add - 1) * 60
-    next_update = now + timedelta(seconds=seconds_to_add)
+    minutes = PERIOD_MINUTES.get(period, 5)
+    
+    if period.endswith('m'):
+        period_minutes = int(period[:-1])
+        current_minute = now.minute
+        current_period_minute = (current_minute // period_minutes) * period_minutes
+        next_update = now.replace(minute=current_period_minute, second=0, microsecond=0) + timedelta(minutes=period_minutes)
+    elif period.endswith('h'):
+        period_hours = int(period[:-1])
+        current_hour = now.hour
+        current_period_hour = (current_hour // period_hours) * period_hours
+        next_update = now.replace(hour=current_period_hour, minute=0, second=0, microsecond=0) + timedelta(hours=period_hours)
+    else:  # 1d
+        next_update = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+
     return next_update
 
 def get_open_interest(symbol, period, use_cache=True):
@@ -201,92 +210,6 @@ def is_latest_highest(oi_data):
     
     return latest_value > max(prev_data) if prev_data else False
 
-def find_swing_points(prices, window=5):
-    """识别摆动点（局部高点和低点）"""
-    highs = []
-    lows = []
-    
-    for i in range(window, len(prices) - window):
-        # 检查是否为局部高点
-        if all(prices[i] > prices[i - j] for j in range(1, window+1)) and \
-           all(prices[i] > prices[i + j] for j in range(1, window+1)):
-            highs.append(prices[i])
-        
-        # 检查是否为局部低点
-        if all(prices[i] < prices[i - j] for j in range(1, window+1)) and \
-           all(prices[i] < prices[i + j] for j in range(1, window+1)):
-            lows.append(prices[i])
-    
-    return highs, lows
-
-def calculate_fib_levels(high, low):
-    """计算斐波那契回调水平"""
-    if high <= low:
-        return []
-    
-    levels = []
-    ratios = [0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.272, 1.618]
-    
-    for ratio in ratios:
-        level = high - (high - low) * ratio
-        levels.append(level)
-    
-    return levels
-
-def calculate_trendline_levels(prices):
-    """使用线性回归计算趋势线水平"""
-    if len(prices) < 10:
-        return []
-    
-    try:
-        # 使用线性回归
-        x = np.arange(len(prices))
-        y = np.array(prices)
-        
-        # 计算斜率 (m) 和截距 (b)
-        A = np.vstack([x, np.ones(len(x))]).T
-        m, b = np.linalg.lstsq(A, y, rcond=None)[0]
-        
-        # 计算当前时刻的趋势线价格
-        current_level = m * len(prices) + b
-        return [current_level]
-    except:
-        return []
-
-def detect_resonance_levels(levels, tolerance=0.005):
-    """检测共振水平（聚类分析）"""
-    if not levels:
-        return {'resistance': [], 'support': []}
-    
-    levels.sort()
-    clusters = []
-    current_cluster = [levels[0]]
-    
-    for level in levels[1:]:
-        if level <= current_cluster[-1] * (1 + tolerance):
-            current_cluster.append(level)
-        else:
-            clusters.append(current_cluster)
-            current_cluster = [level]
-    
-    clusters.append(current_cluster)
-    
-    # 计算每个聚类的平均水平和强度
-    cluster_levels = []
-    for cluster in clusters:
-        avg = sum(cluster) / len(cluster)
-        strength = len(cluster)
-        cluster_levels.append((avg, strength))
-    
-    # 按强度降序排序
-    cluster_levels.sort(key=lambda x: x[1], reverse=True)
-    
-    # 只返回前3个阻力位和前3个支撑位
-    resistance = [x[0] for x in cluster_levels if x[0] > 0][:3]
-    support = [x[0] for x in cluster_levels if x[0] > 0][:3]
-    
-    return {'resistance': resistance, 'support': support}
-
 def calculate_resistance_levels(symbol):
     try:
         logger.info(f"📊 计算阻力位: {symbol}")
@@ -302,7 +225,7 @@ def calculate_resistance_levels(symbol):
         # 确保客户端已初始化
         if client is None and not init_client():
             logger.error("❌ 无法初始化Binance客户端，无法计算阻力位")
-            return {'resistance': [], 'support': [], 'current_price': 0}
+            return {'resistance': [], 'support': []}
         
         # 获取当前价格
         try:
@@ -311,10 +234,10 @@ def calculate_resistance_levels(symbol):
             logger.info(f"📊 {symbol}当前价格: {current_price}")
         except Exception as e:
             logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
-            current_price = 0
+            current_price = None
         
-        all_levels = []
-        interval_levels_map = {}
+        global_resistances = []
+        global_supports = []
         
         for interval in RESISTANCE_INTERVALS:
             try:
@@ -329,97 +252,106 @@ def calculate_resistance_levels(symbol):
                 low_prices = [float(k[3]) for k in klines]
                 close_prices = [float(k[4]) for k in klines]
                 
-                # 1. 识别摆动点
-                swing_highs, swing_lows = find_swing_points(high_prices)
-                logger.debug(f"📊 {symbol}在{interval}的摆动高点: {swing_highs}, 摆动低点: {swing_lows}")
+                # 计算近期高点和低点
+                lookback = min(30, len(high_prices))
+                recent_high = max(high_prices[-lookback:])
+                recent_low = min(low_prices[-lookback:])
                 
-                # 2. 计算斐波那契水平
-                recent_high = max(high_prices[-30:]) if len(high_prices) >= 30 else max(high_prices)
-                recent_low = min(low_prices[-30:]) if len(low_prices) >= 30 else min(low_prices)
-                fib_levels = calculate_fib_levels(recent_high, recent_low)
-                logger.debug(f"📊 {symbol}在{interval}的斐波那契水平: {fib_levels}")
+                if recent_high <= recent_low:
+                    logger.warning(f"⚠️ {symbol}在{interval}的最近高点和低点无效")
+                    continue
                 
-                # 3. 计算趋势线水平
-                trendline_levels = calculate_trendline_levels(close_prices)
-                logger.debug(f"📊 {symbol}在{interval}的趋势线水平: {trendline_levels}")
+                # 计算斐波那契回撤位
+                fib_levels = {
+                    '0.236': recent_high - (recent_high - recent_low) * 0.236,
+                    '0.382': recent_high - (recent_high - recent_low) * 0.382,
+                    '0.5': (recent_high + recent_low) / 2,
+                    '0.618': recent_high - (recent_high - recent_low) * 0.618,
+                    '0.786': recent_high - (recent_high - recent_low) * 0.786,
+                    '1.0': recent_high,
+                    '1.272': recent_high + (recent_high - recent_low) * 0.272,
+                    '1.618': recent_high + (recent_high - recent_low) * 0.618
+                }
                 
-                # 合并所有水平
-                interval_levels = swing_highs + swing_lows + fib_levels + trendline_levels
-                interval_levels_map[interval] = interval_levels
-                
-                # 添加到全局列表
-                all_levels.extend(interval_levels)
-                
+                # 只保留当前价格附近的水平
+                if current_price:
+                    # 阻力位：高于当前价格，取最接近的3个
+                    resistances = [p for p in fib_levels.values() if p > current_price]
+                    resistances.sort(key=lambda p: abs(p - current_price))
+                    
+                    # 支撑位：低于当前价格，取最接近的3个
+                    supports = [p for p in fib_levels.values() if p < current_price]
+                    supports.sort(key=lambda p: abs(p - current_price))
+                    
+                    # 添加整数位
+                    base = 10 ** (math.floor(math.log10(current_price)) - 1)
+                    integer_level = round(current_price / base) * base
+                    
+                    # 添加整数位阻力/支撑
+                    if integer_level > current_price:
+                        resistances.append(integer_level)
+                    else:
+                        supports.append(integer_level)
+                    
+                    # 添加近期高点和低点
+                    resistances.append(recent_high)
+                    supports.append(recent_low)
+                    
+                    # 去重并排序
+                    resistances = sorted(set(resistances))
+                    supports = sorted(set(supports))
+                    
+                    # 取每个周期最有效的3个阻力和支撑
+                    best_resistances = resistances[:3] if resistances else []
+                    best_supports = supports[:3] if supports else []
+                    
+                    # 添加到全局列表
+                    global_resistances.extend(best_resistances)
+                    global_supports.extend(best_supports)
+                    
+                    logger.info(f"📊 {symbol}在{interval}的有效阻力位: {best_resistances}, 支撑位: {best_supports}")
             except Exception as e:
                 logger.error(f"计算{symbol}在{interval}的阻力位失败: {str(e)}")
                 logger.error(traceback.format_exc())
 
-        # 全局共振检测
-        final_levels = detect_resonance_levels(all_levels)
-        logger.info(f"📊 {symbol}全局最优阻力位: {final_levels['resistance']}, 支撑位: {final_levels['support']}")
+        # 全局排序：按有效性（距离当前价格）排序
+        if current_price:
+            global_resistances = sorted(set(global_resistances), key=lambda p: abs(p - current_price))
+            global_supports = sorted(set(global_supports), key=lambda p: abs(p - current_price))
         
-        # 找出关键阻力位和支撑位（最接近当前价格的）
-        key_resistance = None
-        key_support = None
+        # 取全局最优的3个阻力和支撑
+        top_resistances = global_resistances[:3] if global_resistances else []
+        top_supports = global_supports[:3] if global_supports else []
         
-        if current_price > 0:
-            # 找出最接近的阻力位（高于当前价格）
-            resistances_above = [r for r in final_levels['resistance'] if r > current_price]
-            if resistances_above:
-                key_resistance = min(resistances_above, key=lambda x: abs(x - current_price))
-                resistance_distance = ((key_resistance - current_price) / current_price) * 100
-            
-            # 找出最接近的支撑位（低于当前价格）
-            supports_below = [s for s in final_levels['support'] if s < current_price]
-            if supports_below:
-                key_support = max(supports_below, key=lambda x: abs(x - current_price))
-                support_distance = ((current_price - key_support) / current_price) * 100
+        logger.info(f"📊 {symbol}全局最优阻力位: {top_resistances}, 支撑位: {top_supports}")
         
-        # 找出关键周期（共振强度最高的阻力位/支撑位出现的周期）
-        key_resistance_intervals = {}
-        key_support_intervals = {}
-        
-        for interval, levels in interval_levels_map.items():
-            for level in levels:
-                # 检查是否为关键阻力位
-                if key_resistance and abs(level - key_resistance) / key_resistance < 0.01:
-                    key_resistance_intervals[interval] = level
-                
-                # 检查是否为关键支撑位
-                if key_support and abs(level - key_support) / key_support < 0.01:
-                    key_support_intervals[interval] = level
-        
-        result = {
-            'resistance': final_levels['resistance'],
-            'support': final_levels['support'],
-            'current_price': current_price,
-            'key_resistance': key_resistance,
-            'key_support': key_support,
-            'key_resistance_intervals': key_resistance_intervals,
-            'key_support_intervals': key_support_intervals
+        levels = {
+            'resistance': top_resistances,
+            'support': top_supports
         }
         
         resistance_cache[symbol] = {
-            'levels': result,
+            'levels': levels,
             'expiration': now + RESISTANCE_CACHE_EXPIRATION
         }
-        return result
+        return levels
     except Exception as e:
         logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
         logger.error(traceback.format_exc())
-        return {
-            'resistance': [], 
-            'support': [], 
-            'current_price': 0,
-            'key_resistance': None,
-            'key_support': None,
-            'key_resistance_intervals': {},
-            'key_support_intervals': {}
+        return {'resistance': [], 'support': []}
+
+def analyze_symbol(symbol):
+    try:
+        logger.info(f"🔍 开始分析币种: {symbol}")
+        symbol_result = {
+            'symbol': symbol,
+            'daily_rising': None,
+            'short_term_active': None,
+            'all_cycle_rising': None,
+            'period_status': {p: False for p in ALL_PERIODS},
+            'period_count': 0
         }
 
-def analyze_daily_rising(symbol):
-    """分析日线上涨条件"""
-    try:
         # 1. 获取日线持仓量数据
         daily_oi = get_open_interest(symbol, '1d')
         daily_series = daily_oi.get('series', [])
@@ -429,78 +361,50 @@ def analyze_daily_rising(symbol):
             daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
             logger.info(f"📊 {symbol} 日线上涨条件满足，涨幅: {daily_change:.2f}%")
             
-            # 获取关键阻力位
-            resistance_data = calculate_resistance_levels(symbol)
-            key_resistance = resistance_data.get('key_resistance', 0)
-            
-            return {
+            # 创建临时对象存储日线数据
+            daily_rising_item = {
                 'symbol': symbol,
                 'oi': daily_series[-1],
-                'change': round(daily_change, 2),
-                'key_resistance': key_resistance
+                'change': round(daily_change, 2)
             }
-        return None
-    except Exception as e:
-        logger.error(f"❌ 分析{symbol}日线上涨时出错: {str(e)}")
-        return None
+            symbol_result['daily_rising'] = daily_rising_item
+            symbol_result['period_status']['1d'] = True
+            symbol_result['period_count'] = 1
 
-def analyze_all_cycles(symbol, daily_rising_item):
-    """分析全周期上涨条件"""
-    try:
-        logger.info(f"📊 开始全周期分析: {symbol}")
-        period_status = {}
-        period_count = 0
-        
-        # 确保日线状态为True
-        period_status['1d'] = True
-        
-        for period in ALL_PERIODS:
-            if period == '1d':
-                continue
+            # 3. 全周期分析
+            logger.info(f"📊 开始全周期分析: {symbol}")
+            all_intervals_up = True
+            for period in ALL_PERIODS:
+                if period == '1d':
+                    continue
+                    
+                oi_data = get_open_interest(symbol, period)
+                oi_series = oi_data.get('series', [])
                 
-            oi_data = get_open_interest(symbol, period)
-            oi_series = oi_data.get('series', [])
-            
-            # 确保正确计算周期数量
-            status = len(oi_series) >= 30 and is_latest_highest(oi_series)
-            period_status[period] = status
-            
-            if status:
-                period_count += 1
-        
-        # 检查是否所有周期都满足条件
-        all_intervals_up = all(period_status.values())
-        
-        if all_intervals_up:
-            logger.info(f"📊 {symbol} 全周期上涨条件满足")
-            
-            # 获取关键阻力位
-            resistance_data = calculate_resistance_levels(symbol)
-            key_resistance = resistance_data.get('key_resistance', 0)
-            
-            return {
-                'symbol': symbol,
-                'oi': daily_rising_item['oi'],
-                'change': daily_rising_item['change'],
-                'period_status': period_status,
-                'period_count': period_count,
-                'key_resistance': key_resistance
-            }
-        return None
-    except Exception as e:
-        logger.error(f"❌ 分析{symbol}全周期时出错: {str(e)}")
-        return None
+                # 确保正确计算周期数量
+                status = len(oi_series) >= 30 and is_latest_highest(oi_series)
+                symbol_result['period_status'][period] = status
+                
+                if status:
+                    symbol_result['period_count'] += 1
+                else:
+                    all_intervals_up = False
 
-def analyze_short_term_active(symbol):
-    """分析短期活跃条件"""
-    try:
-        # 获取5分钟持仓量数据
+            if all_intervals_up:
+                logger.info(f"📊 {symbol} 全周期上涨条件满足")
+                symbol_result['all_cycle_rising'] = {
+                    'symbol': symbol,
+                    'oi': daily_series[-1],
+                    'change': round(daily_change, 2),
+                    'period_count': symbol_result['period_count']
+                }
+            
+            # 更新日线上涨币种的周期计数
+            daily_rising_item['period_count'] = symbol_result['period_count']
+
+        # 4. 短期活跃度分析
         min5_oi = get_open_interest(symbol, '5m')
         min5_series = min5_oi.get('series', [])
-        
-        # 获取日线持仓量数据
-        daily_oi = get_open_interest(symbol, '1d')
-        daily_series = daily_oi.get('series', [])
         
         if len(min5_series) >= 30 and len(daily_series) >= 30:
             min5_max = max(min5_series[-30:])
@@ -512,15 +416,23 @@ def analyze_short_term_active(symbol):
                 
                 if ratio > 1.5:
                     logger.info(f"📊 {symbol} 短期活跃条件满足")
-                    return {
+                    symbol_result['short_term_active'] = {
                         'symbol': symbol,
                         'oi': min5_series[-1],
-                        'ratio': round(ratio, 2)
+                        'ratio': round(ratio, 2),
+                        'period_count': symbol_result['period_count']
                     }
-        return None
+
+        logger.info(f"✅ 完成分析币种: {symbol}")
+        return symbol_result
     except Exception as e:
-        logger.error(f"❌ 分析{symbol}短期活跃时出错: {str(e)}")
-        return None
+        logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {
+            'symbol': symbol,
+            'period_status': {p: False for p in ALL_PERIODS},
+            'period_count': 0
+        }
 
 def analyze_trends():
     start_time = time.time()
@@ -529,12 +441,7 @@ def analyze_trends():
     
     if not symbols:
         logger.warning("⚠️ 没有找到高交易量币种")
-        return {
-            'daily_rising': [],
-            'short_term_active': [],
-            'all_cycle_rising': [],
-            'analysis_time': 0
-        }
+        return data_cache
 
     logger.info(f"🔍 开始分析 {len(symbols)} 个币种")
 
@@ -542,49 +449,39 @@ def analyze_trends():
     short_term_active = []
     all_cycle_rising = []
 
-    # 使用10个线程并行处理
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        # 第一步：并行分析日线上涨
-        daily_futures = {executor.submit(analyze_daily_rising, symbol): symbol for symbol in symbols}
-        
-        # 第二步：并行分析短期活跃
-        short_term_futures = {executor.submit(analyze_short_term_active, symbol): symbol for symbol in symbols}
-        
-        # 等待日线上涨结果
-        for future in as_completed(daily_futures):
-            symbol = daily_futures[future]
-            try:
-                result = future.result()
-                if result:
-                    daily_rising.append(result)
-            except Exception as e:
-                logger.error(f"❌ 处理{symbol}的日线上涨时出错: {str(e)}")
-        
-        # 第三步：分析全周期上涨（基于日线上涨的结果）
-        if daily_rising:
-            all_cycle_futures = {executor.submit(analyze_all_cycles, coin['symbol'], coin): coin['symbol'] for coin in daily_rising}
-            for future in as_completed(all_cycle_futures):
-                symbol = all_cycle_futures[future]
-                try:
-                    result = future.result()
-                    if result:
-                        all_cycle_rising.append(result)
-                except Exception as e:
-                    logger.error(f"❌ 处理{symbol}的全周期时出错: {str(e)}")
-        
-        # 等待短期活跃结果
-        for future in as_completed(short_term_futures):
-            symbol = short_term_futures[future]
-            try:
-                result = future.result()
-                if result:
-                    short_term_active.append(result)
-            except Exception as e:
-                logger.error(f"❌ 处理{symbol}的短期活跃时出错: {str(e)}")
+    futures = {
+        executor.submit(analyze_symbol, symbol): symbol
+        for symbol in symbols
+    }
+    processed = 0
+    total_symbols = len(symbols)
 
-    # 排序结果
-    daily_rising.sort(key=lambda x: x.get('change', 0), reverse=True)
-    short_term_active.sort(key=lambda x: x.get('ratio', 0), reverse=True)
+    for future in as_completed(futures):
+        processed += 1
+        symbol = futures[future]
+
+        try:
+            result = future.result()
+            if result.get('daily_rising'):
+                # 添加 period_status 到币种对象
+                result['daily_rising']['period_status'] = result['period_status']
+                daily_rising.append(result['daily_rising'])
+            if result.get('short_term_active'):
+                result['short_term_active']['period_status'] = result['period_status']
+                short_term_active.append(result['short_term_active'])
+            if result.get('all_cycle_rising'):
+                result['all_cycle_rising']['period_status'] = result['period_status']
+                all_cycle_rising.append(result['all_cycle_rising'])
+        except Exception as e:
+            logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
+            logger.error(traceback.format_exc())
+
+        if processed % max(1, total_symbols // 10) == 0 or processed == total_symbols:
+            logger.info(f"⏳ 分析进度: {processed}/{total_symbols} ({int(processed/total_symbols*100)}%)")
+
+    # 排序结果 - 按符合周期数量排序
+    daily_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
+    short_term_active.sort(key=lambda x: x.get('period_count', 0), reverse=True)
     all_cycle_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
 
     analysis_time = time.time() - start_time
@@ -648,7 +545,7 @@ def analysis_worker():
 
             try:
                 result = analyze_trends()
-                next_analysis_time = get_next_update_time()
+                next_analysis_time = get_next_update_time('5m')
                 
                 new_data = {
                     "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
@@ -679,7 +576,7 @@ def analysis_worker():
             logger.info(f"⏱️ 分析耗时: {analysis_duration:.2f}秒")
             
             # 记录下一次分析时间
-            next_time = get_next_update_time()
+            next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
             logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
             
@@ -691,7 +588,7 @@ def analysis_worker():
 def schedule_analysis():
     logger.info("⏰ 定时分析调度器启动")
     now = datetime.now(timezone.utc)
-    next_time = get_next_update_time()
+    next_time = get_next_update_time('5m')
     initial_wait = (next_time - now).total_seconds()
     logger.info(f"⏳ 首次分析将在 {initial_wait:.1f} 秒后开始 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})...")
     time.sleep(max(0, initial_wait))
@@ -700,21 +597,22 @@ def schedule_analysis():
         analysis_start = datetime.now(timezone.utc)
         logger.info(f"🔔 触发定时分析任务 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')}")
         analysis_queue.put("ANALYZE")
-        
-        analysis_duration = (datetime.now(timezone.utc) - analysis_start).total_seconds()
-        now = datetime.now(timezone.utc)
-        next_time = get_next_update_time()
-        wait_time = (next_time - now).total_seconds()
+        analysis_queue.join()
 
-        if wait_time < 0:
-            wait_time = 0
-        elif analysis_duration > 240:
-            wait_time = 0
-            logger.warning("⚠️ 分析耗时过长，立即开始下一次分析")
-        elif wait_time > 300:
-            adjusted_wait = max(60, wait_time - 120)
-            logger.info(f"⏳ 调整等待时间: {wait_time:.1f}秒 -> {adjusted_wait:.1f}秒")
-            wait_time = adjusted_wait
+        # === 修复定时调度逻辑 ===
+        # 重新计算下一次分析时间（确保总是未来时间）
+        next_time = get_next_update_time('5m')
+        now = datetime.now(timezone.utc)
+        wait_time = (next_time - now).total_seconds()
+        
+        # 确保最小等待时间为10秒（防止连续触发）
+        if wait_time <= 0:
+            # 如果错过周期，直接等待下一个周期
+            next_time = get_next_update_time('5m')
+            wait_time = (next_time - now).total_seconds()
+            wait_time = max(10, wait_time)  # 最小等待10秒
+            logger.warning(f"⚠️ 分析错过周期，调整到下一个周期: {wait_time:.1f}秒后")
+        # ======================
 
         logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
@@ -776,8 +674,6 @@ def get_data():
                     coin['period_count'] = 0
                 if 'period_status' not in coin:
                     coin['period_status'] = {}
-                if 'key_resistance' not in coin:
-                    coin['key_resistance'] = 0
                 valid_coins.append(coin)
             return valid_coins
         
