@@ -485,21 +485,36 @@
             align-items: center;
             margin-bottom: 10px;
         }
+        .coin-name-container {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
         .coin-name {
             font-size: 16px;
             font-weight: bold;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
         }
         .symbol-usdt {
             font-size: 12px;
-            margin-left: 5px;
+            opacity: 0.7;
         }
-        .change-percentage {
-            margin-left: 8px;
+        .coin-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
             font-size: 14px;
-            font-weight: bold;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+        }
+        .stat-label {
+            margin-right: 4px;
+            opacity: 0.7;
+        }
+        .stat-value {
+            font-weight: 500;
         }
         .positive {
             color: var(--light-green);
@@ -513,17 +528,29 @@
         .dark-theme .negative {
             color: var(--dark-red);
         }
-        .coin-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 8px;
-            margin-top: 8px;
+        
+        /* 短期活跃币种突出显示 */
+        .short-term-active .coin-name {
+            font-size: 18px;
+            font-weight: 800;
         }
-        .stat-label {
-            font-weight: normal;
+        .dark-theme .short-term-active .coin-name {
+            color: var(--dark-yellow);
         }
-        .stat-value {
+        .light-theme .short-term-active .coin-name {
+            color: var(--light-yellow);
+        }
+        .short-term-active .active-ratio {
+            background: rgba(240, 185, 11, 0.15);
+            padding: 2px 8px;
+            border-radius: 10px;
             font-weight: bold;
+        }
+        .dark-theme .short-term-active .active-ratio {
+            color: var(--dark-yellow);
+        }
+        .light-theme .short-term-active .active-ratio {
+            color: var(--light-yellow);
         }
 
         /* 状态标签 */
@@ -543,28 +570,9 @@
             transition: all 0.2s;
             border: 1px solid;
         }
-        .dark-theme .status-tag.status-up {
-            color: var(--dark-green);
-            border-color: var(--dark-green);
-        }
-        .dark-theme .status-tag.status-down {
-            color: var(--dark-red);
-            border-color: var(--dark-red);
-        }
-        .light-theme .status-tag.status-up {
-            color: var(--light-green);
-            border-color: var(--light-green);
-        }
-        .light-theme .status-tag.status-down {
-            color: var(--light-red);
-            border-color: var(--light-red);
-        }
         .status-tag:hover {
             transform: translateY(-2px);
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .status-tag.active {
-            border-width: 2px;
         }
         .status-tag.chart-open {
             border-width: 2px;
@@ -614,15 +622,15 @@
             .list-container {
                 grid-template-columns: 1fr;
             }
-            .coin-stats {
-                flex-wrap: wrap;
-                gap: 8px;
-            }
             .chart-container {
                 height: 180px;
             }
             .resistance-block {
                 min-width: 100px;
+            }
+            .coin-info {
+                flex-direction: column;
+                gap: 4px;
             }
         }
     </style>
@@ -745,19 +753,17 @@
                         <div v-else v-for="coin in sortedAllCycleRising" :key="coin.symbol + 'allcycle'">
                             <div class="coin-item">
                                 <div class="coin-header">
-                                    <div>
+                                    <div class="coin-name-container">
                                         <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
-                                            <span class="change-percentage positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
-                                        <div class="coin-stats">
-                                            <div>
+                                        <div class="coin-info">
+                                            <div class="info-item">
                                                 <span class="stat-label">持仓量:</span>
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
-                                            <div>
-                                                <span class="stat-label">上涨周期:</span>
-                                                <span class="stat-value">{{ coin.period_count }}</span>
+                                            <div class="info-item positive">
+                                                <span class="stat-value">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -821,19 +827,17 @@
                         <div v-else v-for="coin in sortedDailyRising" :key="coin.symbol + 'daily'">
                             <div class="coin-item">
                                 <div class="coin-header">
-                                    <div>
+                                    <div class="coin-name-container">
                                         <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
-                                            <span class="change-percentage positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
-                                        <div class="coin-stats">
-                                            <div>
+                                        <div class="coin-info">
+                                            <div class="info-item">
                                                 <span class="stat-label">持仓量:</span>
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
-                                            <div>
-                                                <span class="stat-label">上涨周期:</span>
-                                                <span class="stat-value">{{ coin.period_count }}</span>
+                                            <div class="info-item positive">
+                                                <span class="stat-value">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                             </div>
                                         </div>
                                     </div>
@@ -895,21 +899,19 @@
                             暂无短期活跃币种
                         </div>
                         <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
-                            <div class="coin-item">
+                            <div class="coin-item short-term-active">
                                 <div class="coin-header">
-                                    <div>
+                                    <div class="coin-name-container">
                                         <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
-                                            <span class="stat-value">{{ coin.ratio }}x</span>
                                         </div>
-                                        <div class="coin-stats">
-                                            <div>
+                                        <div class="coin-info">
+                                            <div class="info-item">
                                                 <span class="stat-label">持仓量:</span>
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
-                                            <div>
-                                                <span class="stat-label">活跃比:</span>
-                                                <span class="stat-value">{{ coin.ratio }}x</span>
+                                            <div class="info-item">
+                                                <span class="active-ratio">{{ coin.ratio }}x</span>
                                             </div>
                                         </div>
                                     </div>
