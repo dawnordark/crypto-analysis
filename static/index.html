@@ -488,11 +488,30 @@
         .coin-name {
             font-size: 16px;
             font-weight: bold;
-            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
         }
         .symbol-usdt {
             font-size: 12px;
             margin-left: 5px;
+        }
+        .change-percentage {
+            margin-left: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .positive {
+            color: var(--light-green);
+        }
+        .dark-theme .positive {
+            color: var(--dark-green);
+        }
+        .negative {
+            color: var(--light-red);
+        }
+        .dark-theme .negative {
+            color: var(--dark-red);
         }
         .coin-stats {
             display: grid;
@@ -520,6 +539,7 @@
             font-size: 11px;
             min-width: 40px;
             text-align: center;
+            cursor: pointer;
             transition: all 0.2s;
             border: 1px solid;
         }
@@ -728,6 +748,7 @@
                                     <div>
                                         <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
+                                            <span class="change-percentage positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
                                         <div class="coin-stats">
                                             <div>
@@ -735,8 +756,8 @@
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
                                             <div>
-                                                <span class="stat-label">涨幅:</span>
-                                                <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                                <span class="stat-label">上涨周期:</span>
+                                                <span class="stat-value">{{ coin.period_count }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -803,6 +824,7 @@
                                     <div>
                                         <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
+                                            <span class="change-percentage positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
                                         <div class="coin-stats">
                                             <div>
@@ -810,8 +832,8 @@
                                                 <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
                                             </div>
                                             <div>
-                                                <span class="stat-label">涨幅:</span>
-                                                <span class="stat-value positive">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                                <span class="stat-label">上涨周期:</span>
+                                                <span class="stat-value">{{ coin.period_count }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -878,6 +900,7 @@
                                     <div>
                                         <div class="coin-name">
                                             {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">USDT</span>
+                                            <span class="stat-value">{{ coin.ratio }}x</span>
                                         </div>
                                         <div class="coin-stats">
                                             <div>
@@ -936,7 +959,6 @@
                 },
                 computed: {
                     sortedDailyRising() {
-                        // 按符合周期数量降序，相同数量时按持仓量降序
                         return [...this.dailyRising].sort((a, b) => {
                             if (b.period_count !== a.period_count) {
                                 return b.period_count - a.period_count;
@@ -945,11 +967,9 @@
                         });
                     },
                     sortedShortTermActive() {
-                        // 按活跃比降序
                         return [...this.shortTermActive].sort((a, b) => b.ratio - a.ratio);
                     },
                     sortedAllCycleRising() {
-                        // 按符合周期数量降序，相同数量时按持仓量降序
                         return [...this.allCycleRising].sort((a, b) => {
                             if (b.period_count !== a.period_count) {
                                 return b.period_count - a.period_count;
@@ -959,17 +979,14 @@
                     }
                 },
                 mounted() {
-                    // 从本地存储加载主题偏好
                     const savedTheme = localStorage.getItem('themePreference');
                     if (savedTheme) {
                         this.theme = savedTheme;
                     } else {
-                        // 使用系统偏好
                         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                         this.theme = prefersDark ? 'dark-theme' : 'light-theme';
                     }
                     
-                    // 设置body主题
                     document.body.className = this.theme;
                     this.fetchData();
                 },
@@ -978,11 +995,8 @@
                         const newTheme = this.theme === 'dark-theme' ? 'light-theme' : 'dark-theme';
                         this.theme = newTheme;
                         localStorage.setItem('themePreference', newTheme);
-                        
-                        // 更新body主题
                         document.body.className = newTheme;
                         
-                        // 重新渲染图表
                         if (this.activeChart.symbol && this.activeChart.period) {
                             const cacheKey = `${this.activeChart.symbol}-${this.activeChart.period}`;
                             if (this.chartDataCache[cacheKey]) {
@@ -1024,102 +1038,40 @@
                             }
                         }
                     },
-                    queryResistanceLevels() {
-                        if (!this.resistanceQuery) return;
-                        
-                        const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
-                        this.queryLoading = true;
-                        
-                        axios.get(`/api/resistance_levels/${symbol}`)
-                            .then(response => {
-                                this.queryResult = {
-                                    symbol: symbol,
-                                    levels: response.data
-                                };
-                                this.queryLoading = false;
-                            })
-                            .catch(error => {
-                                console.error('阻力位查询失败:', error);
-                                this.queryResult = {
-                                    symbol: symbol,
-                                    levels: { resistance: [], support: [] }
-                                };
-                                this.queryLoading = false;
-                            });
-                    },
-                    formatSymbolInput() {
-                        this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                    },
-                    formatNumber(num) {
-                        if (!num) return "0";
-                        if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
-                        if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
-                        return num.toFixed(2);
-                    },
-                    formatSymbol(symbol) {
-                        return symbol.replace('USDT', '');
-                    },
-                    fetchData() {
-                        this.dataLoading = true;
-                        this.loading = true;
-                        this.error = null;
-                        this.statusMessage = "获取数据中...";
-                        
-                        const lastData = {
-                            dailyRising: this.dailyRising,
-                            shortTermActive: this.shortTermActive,
-                            allCycleRising: this.allCycleRising,
-                            lastUpdated: this.lastUpdated,
-                            nextAnalysisTime: this.nextAnalysisTime
-                        };
-                        
-                        const timestamp = new Date().getTime();
-                        const url = `/api/data?t=${timestamp}`;
-
-                        axios.get(url, { timeout: 15000 })
+                    loadChartData(symbol, period) {
+                        axios.get(`/api/oi_chart/${symbol}/${period}`)
                             .then(response => {
                                 const data = response.data;
+                                const cacheKey = `${symbol}-${period}`;
                                 
-                                this.lastUpdated = data.last_updated || '未知时间';
-                                this.nextAnalysisTime = data.next_analysis_time || '计算中...';
-                                
-                                this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
-                                this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
-                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
-                                
-                                this.analysisTime = data.analysis_time || 0;
-                                
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                if (this.dailyRising.length === 0 && 
-                                    this.shortTermActive.length === 0 && 
-                                    this.allCycleRising.length === 0) {
-                                    this.statusMessage = "数据为空，等待首次分析完成";
-                                } else {
-                                    this.statusMessage = `已加载数据: ${new Date().toLocaleTimeString()}`;
+                                if (this.chartErrors[cacheKey]) {
+                                    this.$delete(this.chartErrors, cacheKey);
                                 }
+
+                                if (!data.data || data.data.length === 0) {
+                                    this.$set(this.chartErrors, cacheKey, '没有可用的持仓量数据');
+                                    return;
+                                }
+
+                                this.chartDataCache[cacheKey] = {
+                                    series: data.data || [],
+                                    timestamps: data.timestamps || []
+                                };
+                                
+                                this.$nextTick(() => {
+                                    this.renderChart(symbol, period, this.chartDataCache[cacheKey]);
+                                });
                             })
                             .catch(error => {
-                                console.error('API请求错误:', error);
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                this.dailyRising = lastData.dailyRising;
-                                this.shortTermActive = lastData.shortTermActive;
-                                this.allCycleRising = lastData.allCycleRising;
-                                this.lastUpdated = lastData.lastUpdated;
-                                this.nextAnalysisTime = lastData.nextAnalysisTime;
-                                
+                                console.error('持仓量数据加载错误:', error);
+                                const cacheKey = `${symbol}-${period}`;
+                                let errorMsg = '加载持仓量数据失败';
                                 if (error.response) {
-                                    this.error = `服务器错误: ${error.response.status} ${error.response.statusText}`;
-                                } else if (error.request) {
-                                    this.error = '网络错误: 无法连接到服务器';
+                                    errorMsg += `: ${error.response.status} ${error.response.statusText}`;
                                 } else {
-                                    this.error = `请求失败: ${error.message}`;
+                                    errorMsg += `: ${error.message}`;
                                 }
-                                
-                                this.statusMessage = "使用最后缓存数据";
+                                this.$set(this.chartErrors, cacheKey, errorMsg);
                             });
                     },
                     renderChart(symbol, period, chartData) {
@@ -1127,6 +1079,7 @@
                         const canvas = document.getElementById(canvasId);
                         if (!canvas) return;
                         
+                        // 销毁现有图表
                         if (canvas.chart) {
                             canvas.chart.destroy();
                         }
@@ -1136,7 +1089,6 @@
                         const timestamps = chartData.timestamps;
                         
                         if (!data || data.length === 0) {
-                            console.error('没有可用的持仓量数据');
                             return;
                         }
                         
@@ -1233,6 +1185,96 @@
                                 }
                             }
                         });
+                    },
+                    queryResistanceLevels() {
+                        if (!this.resistanceQuery) return;
+                        
+                        const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
+                        this.queryLoading = true;
+                        
+                        axios.get(`/api/resistance_levels/${symbol}`)
+                            .then(response => {
+                                this.queryResult = {
+                                    symbol: symbol,
+                                    levels: response.data
+                                };
+                                this.queryLoading = false;
+                            })
+                            .catch(error => {
+                                console.error('阻力位查询失败:', error);
+                                this.queryResult = {
+                                    symbol: symbol,
+                                    levels: { resistance: [], support: [] }
+                                };
+                                this.queryLoading = false;
+                            });
+                    },
+                    formatSymbolInput() {
+                        this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                    },
+                    formatNumber(num) {
+                        if (!num) return "0";
+                        if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
+                        if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+                        return num.toFixed(2);
+                    },
+                    formatSymbol(symbol) {
+                        return symbol.replace('USDT', '');
+                    },
+                    fetchData() {
+                        this.dataLoading = true;
+                        this.loading = true;
+                        this.error = null;
+                        this.statusMessage = "获取数据中...";
+                        
+                        const lastData = {
+                            dailyRising: this.dailyRising,
+                            shortTermActive: this.shortTermActive,
+                            allCycleRising: this.allCycleRising,
+                            lastUpdated: this.lastUpdated,
+                            nextAnalysisTime: this.nextAnalysisTime
+                        };
+                        
+                        const timestamp = new Date().getTime();
+                        const url = `/api/data?t=${timestamp}`;
+
+                        axios.get(url, { timeout: 15000 })
+                            .then(response => {
+                                const data = response.data;
+                                
+                                this.lastUpdated = data.last_updated || '未知时间';
+                                this.nextAnalysisTime = data.next_analysis_time || '计算中...';
+                                
+                                this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
+                                this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
+                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
+                                
+                                this.analysisTime = data.analysis_time || 0;
+                                
+                                this.loading = false;
+                                this.dataLoading = false;
+                                
+                                if (this.dailyRising.length === 0 && 
+                                    this.shortTermActive.length === 0 && 
+                                    this.allCycleRising.length === 0) {
+                                    this.statusMessage = "数据为空，等待首次分析完成";
+                                } else {
+                                    this.statusMessage = `已加载数据: ${this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length}个币种`;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('数据加载失败:', error);
+                                this.error = '数据加载失败，请稍后再试';
+                                this.loading = false;
+                                this.dataLoading = false;
+                                
+                                // 恢复之前的数据
+                                this.dailyRising = lastData.dailyRising;
+                                this.shortTermActive = lastData.shortTermActive;
+                                this.allCycleRising = lastData.allCycleRising;
+                                this.lastUpdated = lastData.lastUpdated;
+                                this.nextAnalysisTime = lastData.nextAnalysisTime;
+                            });
                     }
                 }
             });
