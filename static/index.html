@@ -108,11 +108,11 @@
             background: rgba(43, 47, 54, 0.5);
             border: 1px solid var(--dark-card-border);
         }
-        body.dark-theme .status-up {
+        body.dark-theme .status-tag.status-up {
             color: var(--dark-green);
             border-color: var(--dark-green);
         }
-        body.dark-theme .status-down {
+        body.dark-theme .status-tag.status-down {
             color: var(--dark-red);
             border-color: var(--dark-red);
         }
@@ -222,11 +222,11 @@
             background: rgba(224, 227, 235, 0.5);
             border: 1px solid var(--light-card-border);
         }
-        body.light-theme .status-up {
+        body.light-theme .status-tag.status-up {
             color: var(--light-green);
             border-color: var(--light-green);
         }
-        body.light-theme .status-down {
+        body.light-theme .status-tag.status-down {
             color: var(--light-red);
             border-color: var(--light-red);
         }
@@ -584,24 +584,6 @@
             border-color: var(--light-yellow);
         }
         
-        /* 修复标签颜色问题 */
-        .status-up {
-            color: var(--light-green) !important;
-            border-color: var(--light-green) !important;
-        }
-        .dark-theme .status-up {
-            color: var(--dark-green) !important;
-            border-color: var(--dark-green) !important;
-        }
-        .status-down {
-            color: var(--light-red) !important;
-            border-color: var(--light-red) !important;
-        }
-        .dark-theme .status-down {
-            color: var(--dark-red) !important;
-            border-color: var(--dark-red) !important;
-        }
-
         /* 持仓量图表容器 */
         .chart-container {
             margin-top: 15px;
