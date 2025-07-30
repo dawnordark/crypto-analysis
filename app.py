@@ -177,8 +177,8 @@ def get_open_interest(symbol, period, use_cache=True):
         oi_series = [float(item['sumOpenInterest']) for item in data]
         timestamps = [item['timestamp'] for item in data]
 
-        if len(oi_series) < 5:
-            logger.warning(f"⚠️ {symbol}的{period}持仓量数据不足")
+        if len(oi_series) < 30:  # 确保获取30个数据点
+            logger.warning(f"⚠️ {symbol}的{period}持仓量数据不足30个点")
             return {'series': [], 'timestamps': []}
             
         oi_data = {
@@ -352,7 +352,7 @@ def analyze_symbol(symbol):
             'period_count': 0
         }
 
-        # 1. 获取日线持仓量数据
+        # 1. 获取日线持仓量数据 (确保30个数据点)
         daily_oi = get_open_interest(symbol, '1d')
         daily_series = daily_oi.get('series', [])
         
@@ -371,7 +371,7 @@ def analyze_symbol(symbol):
             symbol_result['period_status']['1d'] = True
             symbol_result['period_count'] = 1
 
-            # 3. 全周期分析
+            # 3. 全周期分析 (包括所有周期)
             logger.info(f"📊 开始全周期分析: {symbol}")
             all_intervals_up = True
             for period in ALL_PERIODS:
@@ -402,7 +402,7 @@ def analyze_symbol(symbol):
             # 更新日线上涨币种的周期计数
             daily_rising_item['period_count'] = symbol_result['period_count']
 
-        # 4. 短期活跃度分析
+        # 4. 短期活跃度分析 (仅计算活跃比值)
         min5_oi = get_open_interest(symbol, '5m')
         min5_series = min5_oi.get('series', [])
         
@@ -416,11 +416,11 @@ def analyze_symbol(symbol):
                 
                 if ratio > 1.5:
                     logger.info(f"📊 {symbol} 短期活跃条件满足")
+                    # 短期活跃只返回必要字段
                     symbol_result['short_term_active'] = {
                         'symbol': symbol,
                         'oi': min5_series[-1],
-                        'ratio': round(ratio, 2),
-                        'period_count': symbol_result['period_count']
+                        'ratio': round(ratio, 2)
                     }
 
         logger.info(f"✅ 完成分析币种: {symbol}")
@@ -467,7 +467,7 @@ def analyze_trends():
                 result['daily_rising']['period_status'] = result['period_status']
                 daily_rising.append(result['daily_rising'])
             if result.get('short_term_active'):
-                result['short_term_active']['period_status'] = result['period_status']
+                # 短期活跃不包含period_status
                 short_term_active.append(result['short_term_active'])
             if result.get('all_cycle_rising'):
                 result['all_cycle_rising']['period_status'] = result['period_status']
@@ -481,7 +481,7 @@ def analyze_trends():
 
     # 排序结果 - 按符合周期数量排序
     daily_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
-    short_term_active.sort(key=lambda x: x.get('period_count', 0), reverse=True)
+    short_term_active.sort(key=lambda x: x.get('ratio', 0), reverse=True)  # 短期活跃按ratio排序
     all_cycle_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
 
     analysis_time = time.time() - start_time
@@ -599,20 +599,20 @@ def schedule_analysis():
         analysis_queue.put("ANALYZE")
         analysis_queue.join()
 
-        # === 修复定时调度逻辑 ===
-        # 重新计算下一次分析时间（确保总是未来时间）
-        next_time = get_next_update_time('5m')
+        analysis_duration = (datetime.now(timezone.utc) - analysis_start).total_seconds()
         now = datetime.now(timezone.utc)
+        next_time = get_next_update_time('5m')
         wait_time = (next_time - now).total_seconds()
-        
-        # 确保最小等待时间为10秒（防止连续触发）
-        if wait_time <= 0:
-            # 如果错过周期，直接等待下一个周期
-            next_time = get_next_update_time('5m')
-            wait_time = (next_time - now).total_seconds()
-            wait_time = max(10, wait_time)  # 最小等待10秒
-            logger.warning(f"⚠️ 分析错过周期，调整到下一个周期: {wait_time:.1f}秒后")
-        # ======================
+
+        if wait_time < 0:
+            wait_time = 0
+        elif analysis_duration > 240:
+            wait_time = 0
+            logger.warning("⚠️ 分析耗时过长，立即开始下一次分析")
+        elif wait_time > 300:
+            adjusted_wait = max(60, wait_time - 120)
+            logger.info(f"⏳ 调整等待时间: {wait_time:.1f}秒 -> {adjusted_wait:.1f}秒")
+            wait_time = adjusted_wait
 
         logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
@@ -670,8 +670,10 @@ def get_data():
                     coin['change'] = 0
                 if 'ratio' not in coin:
                     coin['ratio'] = 0
+                # 短期活跃不包含period_count
                 if 'period_count' not in coin:
                     coin['period_count'] = 0
+                # 短期活跃不包含period_status
                 if 'period_status' not in coin:
                     coin['period_status'] = {}
                 valid_coins.append(coin)
