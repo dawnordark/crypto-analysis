@@ -47,7 +47,7 @@ logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
 
-# Binance API 配置 - 添加回退机制
+# Binance API 配置
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 client = None
@@ -93,9 +93,8 @@ def init_client():
     max_retries = 5
     retry_delay = 5
     
-    # 检查API密钥是否设置
     if not API_KEY or not API_SECRET:
-        logger.error("❌ Binance API密钥未设置，请设置环境变量BINANCE_API_KEY和BINANCE_API_SECRET")
+        logger.error("❌ Binance API密钥未设置")
         return False
     
     for attempt in range(max_retries):
@@ -449,35 +448,20 @@ def analyze_trends():
     short_term_active = []
     all_cycle_rising = []
 
-    futures = {
-        executor.submit(analyze_symbol, symbol): symbol
-        for symbol in symbols
-    }
-    processed = 0
-    total_symbols = len(symbols)
-
+    # 使用批量任务处理
+    futures = [executor.submit(analyze_symbol, symbol) for symbol in symbols]
+    
     for future in as_completed(futures):
-        processed += 1
-        symbol = futures[future]
-
         try:
             result = future.result()
             if result.get('daily_rising'):
-                # 添加 period_status 到币种对象
-                result['daily_rising']['period_status'] = result['period_status']
                 daily_rising.append(result['daily_rising'])
             if result.get('short_term_active'):
-                # 短期活跃不包含period_status
                 short_term_active.append(result['short_term_active'])
             if result.get('all_cycle_rising'):
-                result['all_cycle_rising']['period_status'] = result['period_status']
                 all_cycle_rising.append(result['all_cycle_rising'])
         except Exception as e:
-            logger.error(f"❌ 处理{symbol}时出错: {str(e)}")
-            logger.error(traceback.format_exc())
-
-        if processed % max(1, total_symbols // 10) == 0 or processed == total_symbols:
-            logger.info(f"⏳ 分析进度: {processed}/{total_symbols} ({int(processed/total_symbols*100)}%)")
+            logger.error(f"❌ 处理币种时出错: {str(e)}")
 
     # 排序结果 - 按符合周期数量排序
     daily_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
@@ -632,7 +616,6 @@ def static_files(filename):
 
 @app.after_request
 def add_cors_headers(response):
-    # 添加 CORS 头
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
@@ -644,7 +627,6 @@ def get_data():
     try:
         logger.info("📡 收到 /api/data 请求")
         
-        # 确保数据格式正确
         if not current_data_cache or not isinstance(current_data_cache, dict):
             logger.warning("⚠️ 当前数据缓存格式错误，重置为默认")
             current_data_cache = {
@@ -656,7 +638,6 @@ def get_data():
                 "next_analysis_time": "计算中..."
             }
         
-        # 确保所有数组元素都有必要的字段
         def validate_coins(coins):
             valid_coins = []
             for coin in coins:
@@ -670,16 +651,13 @@ def get_data():
                     coin['change'] = 0
                 if 'ratio' not in coin:
                     coin['ratio'] = 0
-                # 短期活跃不包含period_count
                 if 'period_count' not in coin:
                     coin['period_count'] = 0
-                # 短期活跃不包含period_status
                 if 'period_status' not in coin:
                     coin['period_status'] = {}
                 valid_coins.append(coin)
             return valid_coins
         
-        # 确保数组类型正确
         daily_rising = validate_coins(current_data_cache.get('daily_rising', []))
         short_term_active = validate_coins(current_data_cache.get('short_term_active', []))
         all_cycle_rising = validate_coins(current_data_cache.get('all_cycle_rising', []))
@@ -702,7 +680,6 @@ def get_data():
     
     except Exception as e:
         logger.error(f"❌ 获取数据失败: {str(e)}")
-        # 返回有结构的空数据而不是错误
         return jsonify({
             'last_updated': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             'daily_rising': [],
@@ -715,7 +692,6 @@ def get_data():
 @app.route('/api/resistance_levels/<symbol>', methods=['GET'])
 def get_resistance_levels(symbol):
     try:
-        # 验证币种格式
         if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
@@ -730,7 +706,6 @@ def get_resistance_levels(symbol):
 @app.route('/api/oi_chart/<symbol>/<period>', methods=['GET'])
 def get_oi_chart_data(symbol, period):
     try:
-        # 验证币种格式
         if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
@@ -742,8 +717,8 @@ def get_oi_chart_data(symbol, period):
         logger.info(f"📈 获取持仓量图表数据: symbol={symbol}, period={period}")
         oi_data = get_open_interest(symbol, period, use_cache=True)
         return jsonify({
-            'data': oi_data.get('series', []),
-            'timestamps': oi_data.get('timestamps', [])
+            'data': oi_series,
+            'timestamps': timestamps
         })
     except Exception as e:
         logger.error(f"❌ 获取持仓量图表数据失败: {str(e)}")
@@ -752,7 +727,6 @@ def get_oi_chart_data(symbol, period):
 @app.route('/health', methods=['GET'])
 def health_check():
     try:
-        # 检查Binance连接
         binance_status = 'ok'
         if client:
             try:
@@ -775,26 +749,21 @@ def health_check():
         }), 500
 
 def start_background_threads():
-    # 确保静态文件夹存在
     static_path = app.static_folder
     if not os.path.exists(static_path):
         os.makedirs(static_path)
     
-    # 确保 index.html 存在
     index_path = os.path.join(static_path, 'index.html')
     if not os.path.exists(index_path):
         with open(index_path, 'w') as f:
             f.write("<html><body><h1>请将前端文件放入static目录</h1></body></html>")
     
-    # 初始化客户端
     if not init_client():
         logger.critical("❌ 无法初始化客户端")
         return False
     
-    # 确保缓存中有初始数据
     global current_data_cache
     if not current_data_cache or not current_data_cache.get('last_updated') or current_data_cache.get('last_updated') == "从未更新":
-        # 创建初始数据记录
         current_data_cache = {
             "last_updated": "等待首次分析",
             "daily_rising": [],
@@ -805,7 +774,6 @@ def start_background_threads():
         }
         logger.info("🆕 创建初始内存数据记录")
     
-    # 启动后台线程
     worker_thread = threading.Thread(target=analysis_worker, name="AnalysisWorker")
     worker_thread.daemon = True
     worker_thread.start()
