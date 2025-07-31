@@ -971,32 +971,40 @@
                     this.fetchData();
                 },
                 methods: {
-                    // 重构方法：动态计算状态标签的类
                     getStatusTagClasses(coin, period) {
                         const isActive = this.activeChart.symbol === coin.symbol && 
                                         this.activeChart.period === period;
                         
                         const status = coin.period_status[period];
-                        const isUp = status === true;
-                        const isDown = status === false;
                         
+                        // 修复：确保正确显示上涨和下跌状态的颜色
                         const classes = [];
                         
-                        if (this.theme === 'dark-theme') {
-                            if (isUp) classes.push('status-tag-up-dark');
-                            if (isDown) classes.push('status-tag-down-dark');
-                            if (isActive) classes.push('status-tag-chart-open-dark');
-                        } else {
-                            if (isUp) classes.push('status-tag-up-light');
-                            if (isDown) classes.push('status-tag-down-light');
-                            if (isActive) classes.push('status-tag-chart-open-light');
+                        // 上涨趋势（绿色）
+                        if (status === true) {
+                            classes.push('positive');
+                            classes.push(this.theme === 'dark-theme' 
+                                ? 'status-tag-up-dark' 
+                                : 'status-tag-up-light');
+                        } 
+                        // 下跌趋势（红色）
+                        else if (status === false) {
+                            classes.push('negative');
+                            classes.push(this.theme === 'dark-theme' 
+                                ? 'status-tag-down-dark' 
+                                : 'status-tag-down-light');
                         }
                         
-                        if (isActive) classes.push('chart-open');
+                        // 图表打开状态
+                        if (isActive) {
+                            classes.push('chart-open');
+                            classes.push(this.theme === 'dark-theme' 
+                                ? 'status-tag-chart-open-dark' 
+                                : 'status-tag-chart-open-light');
+                        }
                         
                         return classes;
                     },
-                    
                     toggleTheme() {
                         const newTheme = this.theme === 'dark-theme' ? 'light-theme' : 'dark-theme';
                         this.theme = newTheme;
