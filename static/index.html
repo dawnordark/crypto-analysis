@@ -104,10 +104,6 @@
         }
         body.dark-theme .positive { color: var(--dark-green); }
         body.dark-theme .negative { color: var(--dark-red); }
-        body.dark-theme .status-tag {
-            background: rgba(43, 47, 54, 0.5);
-            border: 1px solid var(--dark-card-border);
-        }
         body.dark-theme .chart-container {
             background: #1a1d24;
             border: 1px solid var(--dark-card-border);
@@ -203,10 +199,6 @@
         }
         body.light-theme .positive { color: var(--light-green); }
         body.light-theme .negative { color: var(--light-red); }
-        body.light-theme .status-tag {
-            background: rgba(224, 227, 235, 0.5);
-            border: 1px solid var(--light-card-border);
-        }
         body.light-theme .chart-container {
             background: #f8f9fa;
             border: 1px solid var(--light-card-border);
@@ -523,7 +515,7 @@
             color: var(--light-yellow);
         }
 
-        /* 状态标签 - 修复颜色问题 */
+        /* 状态标签 - 完全重构样式实现 */
         .period-status {
             display: flex;
             flex-wrap: wrap;
@@ -539,13 +531,6 @@
             cursor: pointer;
             transition: all 0.2s;
             border: 1px solid;
-            /* 默认颜色 */
-            color: var(--light-text-secondary);
-            border-color: var(--light-card-border);
-        }
-        .dark-theme .status-tag {
-            color: var(--dark-text-secondary);
-            border-color: var(--dark-card-border);
         }
         .status-tag:hover {
             transform: translateY(-2px);
@@ -554,29 +539,35 @@
         .status-tag.chart-open {
             border-width: 2px;
         }
-        .dark-theme .status-tag.chart-open {
-            border-color: var(--dark-yellow);
-        }
-        .light-theme .status-tag.chart-open {
-            border-color: var(--light-yellow);
-        }
         
-        /* 修复标签颜色问题 - 确保高优先级 */
-        .status-tag.status-up {
-            color: var(--light-green) !important;
-            border-color: var(--light-green) !important;
+        /* 完全独立定义状态标签样式 */
+        .status-tag-up-light {
+            color: var(--light-green);
+            border-color: var(--light-green);
+            background: rgba(3, 166, 109, 0.1);
         }
-        .dark-theme .status-tag.status-up {
-            color: var(--dark-green) !important;
-            border-color: var(--dark-green) !important;
+        .status-tag-down-light {
+            color: var(--light-red);
+            border-color: var(--light-red);
+            background: rgba(207, 48, 74, 0.1);
         }
-        .status-tag.status-down {
-            color: var(--light-red) !important;
-            border-color: var(--light-red) !important;
+        .status-tag-up-dark {
+            color: var(--dark-green);
+            border-color: var(--dark-green);
+            background: rgba(3, 166, 109, 0.2);
         }
-        .dark-theme .status-tag.status-down {
-            color: var(--dark-red) !important;
-            border-color: var(--dark-red) !important;
+        .status-tag-down-dark {
+            color: var(--dark-red);
+            border-color: var(--dark-red);
+            background: rgba(207, 48, 74, 0.2);
+        }
+        .status-tag-chart-open-light {
+            border-color: var(--light-yellow);
+            background: rgba(240, 185, 11, 0.1);
+        }
+        .status-tag-chart-open-dark {
+            border-color: var(--dark-yellow);
+            background: rgba(240, 185, 11, 0.2);
         }
         
         /* 持仓量图表容器 */
@@ -769,11 +760,7 @@
                                         v-for="period in periods" 
                                         :key="period" 
                                         class="status-tag"
-                                        :class="{
-                                            'status-up': coin.period_status[period] === true, 
-                                            'status-down': coin.period_status[period] === false,
-                                            'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
-                                        }"
+                                        :class="getStatusTagClasses(coin, period)"
                                         @click="togglePeriodChart(coin.symbol, period)"
                                     >
                                         {{ period }}
@@ -843,11 +830,7 @@
                                         v-for="period in periods" 
                                         :key="period" 
                                         class="status-tag"
-                                        :class="{
-                                            'status-up': coin.period_status[period] === true, 
-                                            'status-down': coin.period_status[period] === false,
-                                            'chart-open': activeChart.symbol === coin.symbol && activeChart.period === period
-                                        }"
+                                        :class="getStatusTagClasses(coin, period)"
                                         @click="togglePeriodChart(coin.symbol, period)"
                                     >
                                         {{ period }}
@@ -988,6 +971,32 @@
                     this.fetchData();
                 },
                 methods: {
+                    // 重构方法：动态计算状态标签的类
+                    getStatusTagClasses(coin, period) {
+                        const isActive = this.activeChart.symbol === coin.symbol && 
+                                        this.activeChart.period === period;
+                        
+                        const status = coin.period_status[period];
+                        const isUp = status === true;
+                        const isDown = status === false;
+                        
+                        const classes = [];
+                        
+                        if (this.theme === 'dark-theme') {
+                            if (isUp) classes.push('status-tag-up-dark');
+                            if (isDown) classes.push('status-tag-down-dark');
+                            if (isActive) classes.push('status-tag-chart-open-dark');
+                        } else {
+                            if (isUp) classes.push('status-tag-up-light');
+                            if (isDown) classes.push('status-tag-down-light');
+                            if (isActive) classes.push('status-tag-chart-open-light');
+                        }
+                        
+                        if (isActive) classes.push('chart-open');
+                        
+                        return classes;
+                    },
+                    
                     toggleTheme() {
                         const newTheme = this.theme === 'dark-theme' ? 'light-theme' : 'dark-theme';
                         this.theme = newTheme;
@@ -1238,7 +1247,7 @@
                         axios.get(url, { timeout: 15000 })
                             .then(response => {
                                 const data = response.data;
-                                console.log("API返回数据:", data); // 调试信息
+                                console.log("API返回数据:", data);
                                 
                                 this.lastUpdated = data.last_updated || '未知时间';
                                 this.nextAnalysisTime = data.next_analysis_time || '计算中...';
@@ -1273,8 +1282,8 @@
                                     this.statusMessage = `已加载数据: ${this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length}个币种`;
                                 }
                                 
-                                console.log("全周期上涨币种:", this.allCycleRising); // 调试信息
-                                console.log("日线上涨币种:", this.dailyRising); // 调试信息
+                                console.log("全周期上涨币种:", this.allCycleRising);
+                                console.log("日线上涨币种:", this.dailyRising);
                             })
                             .catch(error => {
                                 console.error('数据加载失败:', error);
