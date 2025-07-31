@@ -362,50 +362,58 @@ def analyze_symbol(symbol):
         daily_series = daily_oi.get('series', [])
         
         # 2. 检查日线上涨条件
-        if len(daily_series) >= 30 and is_latest_highest(daily_series):
-            daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
-            logger.info(f"📊 {symbol} 日线上涨条件满足，涨幅: {daily_change:.2f}%")
+        if len(daily_series) >= 30:
+            # 修复：确保正确计算趋势状态
+            daily_status = is_latest_highest(daily_series)
+            symbol_result['period_status']['1d'] = daily_status
             
-            # 创建临时对象存储日线数据
-            daily_rising_item = {
-                'symbol': symbol,
-                'oi': daily_series[-1],
-                'change': round(daily_change, 2)
-            }
-            symbol_result['daily_rising'] = daily_rising_item
-            symbol_result['period_status']['1d'] = True
-            symbol_result['period_count'] = 1
-
-            # 3. 全周期分析 (包括所有周期)
-            logger.info(f"📊 开始全周期分析: {symbol}")
-            all_intervals_up = True
-            for period in ALL_PERIODS:
-                if period == '1d':
-                    continue
-                    
-                oi_data = get_open_interest(symbol, period)
-                oi_series = oi_data.get('series', [])
+            if daily_status:
+                daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
+                logger.info(f"📊 {symbol} 日线上涨条件满足，涨幅: {daily_change:.2f}%")
                 
-                # 确保正确计算周期数量
-                status = len(oi_series) >= 30 and is_latest_highest(oi_series)
-                symbol_result['period_status'][period] = status
-                
-                if status:
-                    symbol_result['period_count'] += 1
-                else:
-                    all_intervals_up = False
-
-            if all_intervals_up:
-                logger.info(f"📊 {symbol} 全周期上涨条件满足")
-                symbol_result['all_cycle_rising'] = {
+                # 创建临时对象存储日线数据
+                daily_rising_item = {
                     'symbol': symbol,
                     'oi': daily_series[-1],
                     'change': round(daily_change, 2),
-                    'period_count': symbol_result['period_count']
+                    'period_status': symbol_result['period_status'].copy()  # 包含所有周期状态
                 }
-            
-            # 更新日线上涨币种的周期计数
-            daily_rising_item['period_count'] = symbol_result['period_count']
+                symbol_result['daily_rising'] = daily_rising_item
+                symbol_result['period_count'] = 1
+
+                # 3. 全周期分析 (包括所有周期)
+                logger.info(f"📊 开始全周期分析: {symbol}")
+                all_intervals_up = True
+                for period in ALL_PERIODS:
+                    if period == '1d':
+                        continue
+                        
+                    oi_data = get_open_interest(symbol, period)
+                    oi_series = oi_data.get('series', [])
+                    
+                    # 确保正确计算周期状态
+                    status = len(oi_series) >= 30 and is_latest_highest(oi_series)
+                    symbol_result['period_status'][period] = status
+                    
+                    if status:
+                        symbol_result['period_count'] += 1
+                    else:
+                        all_intervals_up = False
+
+                if all_intervals_up:
+                    logger.info(f"📊 {symbol} 全周期上涨条件满足")
+                    symbol_result['all_cycle_rising'] = {
+                        'symbol': symbol,
+                        'oi': daily_series[-1],
+                        'change': round(daily_change, 2),
+                        'period_count': symbol_result['period_count'],
+                        'period_status': symbol_result['period_status'].copy()  # 包含所有周期状态
+                    }
+                
+                # 更新日线上涨币种的周期状态
+                if symbol_result['daily_rising']:
+                    symbol_result['daily_rising']['period_status'] = symbol_result['period_status'].copy()
+                    symbol_result['daily_rising']['period_count'] = symbol_result['period_count']
 
         # 4. 短期活跃度分析 (仅计算活跃比值)
         min5_oi = get_open_interest(symbol, '5m')
