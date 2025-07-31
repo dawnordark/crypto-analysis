@@ -108,21 +108,6 @@
             background: rgba(43, 47, 54, 0.5);
             border: 1px solid var(--dark-card-border);
         }
-        body.dark-theme .status-tag.status-up {
-            color: var(--dark-green);
-            border-color: var(--dark-green);
-        }
-        body.dark-theme .status-tag.status-down {
-            color: var(--dark-red);
-            border-color: var(--dark-red);
-        }
-        body.dark-theme .status-tag.active {
-            background: rgba(3, 166, 109, 0.2);
-        }
-        body.dark-theme .status-tag.chart-open {
-            background: rgba(240, 185, 11, 0.2);
-            border-color: var(--dark-yellow);
-        }
         body.dark-theme .chart-container {
             background: #1a1d24;
             border: 1px solid var(--dark-card-border);
@@ -221,21 +206,6 @@
         body.light-theme .status-tag {
             background: rgba(224, 227, 235, 0.5);
             border: 1px solid var(--light-card-border);
-        }
-        body.light-theme .status-tag.status-up {
-            color: var(--light-green);
-            border-color: var(--light-green);
-        }
-        body.light-theme .status-tag.status-down {
-            color: var(--light-red);
-            border-color: var(--light-red);
-        }
-        body.light-theme .status-tag.active {
-            background: rgba(3, 166, 109, 0.1);
-        }
-        body.light-theme .status-tag.chart-open {
-            background: rgba(240, 185, 11, 0.1);
-            border-color: var(--light-yellow);
         }
         body.light-theme .chart-container {
             background: #f8f9fa;
@@ -569,7 +539,7 @@
             cursor: pointer;
             transition: all 0.2s;
             border: 1px solid;
-            /* 默认颜色 - 确保有基础样式 */
+            /* 默认颜色 */
             color: var(--light-text-secondary);
             border-color: var(--light-card-border);
         }
@@ -840,7 +810,7 @@
                 </div>
                 
                 <div v-if="!collapsedLists.dailyRising">
-                    <div class="list-desc">(不包含全周期上涨的币种)</div>
+                    <div class="list-desc">(仅日线上涨，不包括全周期上涨币种)</div>
                     
                     <div class="coin-list">
                         <div v-if="dataLoading" class="loading">
@@ -1268,13 +1238,27 @@
                         axios.get(url, { timeout: 15000 })
                             .then(response => {
                                 const data = response.data;
+                                console.log("API返回数据:", data); // 调试信息
                                 
                                 this.lastUpdated = data.last_updated || '未知时间';
                                 this.nextAnalysisTime = data.next_analysis_time || '计算中...';
                                 
-                                this.shortTermActive = Array.isArray(data.short_term_active) ? data.short_term_active : [];
-                                this.allCycleRising = Array.isArray(data.all_cycle_rising) ? data.all_cycle_rising : [];
-                                this.dailyRising = Array.isArray(data.daily_rising) ? data.daily_rising : [];
+                                // 确保全周期上涨币种被正确归类
+                                this.allCycleRising = Array.isArray(data.all_cycle_rising) 
+                                    ? data.all_cycle_rising 
+                                    : [];
+                                
+                                // 日线上涨币种（排除全周期上涨币种）
+                                this.dailyRising = Array.isArray(data.daily_rising) 
+                                    ? data.daily_rising.filter(coin => 
+                                        !this.allCycleRising.some(c => c.symbol === coin.symbol)
+                                    )
+                                    : [];
+                                
+                                // 短期活跃币种
+                                this.shortTermActive = Array.isArray(data.short_term_active) 
+                                    ? data.short_term_active 
+                                    : [];
                                 
                                 this.analysisTime = data.analysis_time || 0;
                                 
@@ -1288,6 +1272,9 @@
                                 } else {
                                     this.statusMessage = `已加载数据: ${this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length}个币种`;
                                 }
+                                
+                                console.log("全周期上涨币种:", this.allCycleRising); // 调试信息
+                                console.log("日线上涨币种:", this.dailyRising); // 调试信息
                             })
                             .catch(error => {
                                 console.error('数据加载失败:', error);
