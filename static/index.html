@@ -540,7 +540,7 @@
             border-width: 2px;
         }
         
-        /* 完全独立定义状态标签样式 */
+        /* 趋势标签颜色样式 - 修复关键问题 */
         .status-tag-up-light {
             color: var(--light-green);
             border-color: var(--light-green);
@@ -975,29 +975,27 @@
                         const isActive = this.activeChart.symbol === coin.symbol && 
                                         this.activeChart.period === period;
                         
-                        const status = coin.period_status[period];
+                        // 确保period_status存在
+                        const periodStatus = coin.period_status || {};
+                        const status = periodStatus[period];
                         
-                        // 修复：确保正确显示上涨和下跌状态的颜色
                         const classes = [];
                         
                         // 上涨趋势（绿色）
                         if (status === true) {
-                            classes.push('positive');
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-up-dark' 
                                 : 'status-tag-up-light');
                         } 
                         // 下跌趋势（红色）
                         else if (status === false) {
-                            classes.push('negative');
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-down-dark' 
                                 : 'status-tag-down-light');
                         }
                         
-                        // 图表打开状态
+                        // 图表打开状态（黄色边框）
                         if (isActive) {
-                            classes.push('chart-open');
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-chart-open-dark' 
                                 : 'status-tag-chart-open-light');
