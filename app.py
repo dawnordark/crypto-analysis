@@ -206,14 +206,16 @@ def get_open_interest(symbol, period, use_cache=True):
         return {'series': [], 'timestamps': []}
 
 def is_latest_highest(oi_data):
+    """
+    修复趋势判断逻辑：检查最新值是否是整个30个点中的最高点
+    """
     if not oi_data or len(oi_data) < 30:
         logger.debug("持仓量数据不足30个点")
         return False
-
-    latest_value = oi_data[-1]
-    prev_data = oi_data[-30:-1]
     
-    return latest_value > max(prev_data) if prev_data else False
+    # 检查最新值是否是整个30个点中的最高点
+    latest_value = oi_data[-1]
+    return latest_value == max(oi_data[-30:])
 
 def calculate_resistance_levels(symbol):
     try:
@@ -468,12 +470,16 @@ def analyze_trends():
     for future in as_completed(futures):
         try:
             result = future.result()
-            if result.get('daily_rising'):
-                daily_rising.append(result['daily_rising'])
-            if result.get('short_term_active'):
-                short_term_active.append(result['short_term_active'])
+            
+            # 修复问题2：确保全周期上涨币种不会出现在日线上涨列表
             if result.get('all_cycle_rising'):
                 all_cycle_rising.append(result['all_cycle_rising'])
+            else:
+                if result.get('daily_rising'):
+                    daily_rising.append(result['daily_rising'])
+                    
+                if result.get('short_term_active'):
+                    short_term_active.append(result['short_term_active'])
         except Exception as e:
             logger.error(f"❌ 处理币种时出错: {str(e)}")
 
