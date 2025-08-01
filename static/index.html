@@ -979,16 +979,20 @@
                         const periodStatus = coin.period_status || {};
                         const status = periodStatus[period];
                         
+                        // 修复问题1：严格检查布尔值状态
+                        const isUp = status === true;
+                        const isDown = status === false;
+                        
                         const classes = [];
                         
                         // 上涨趋势（绿色）
-                        if (status === true) {
+                        if (isUp) {
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-up-dark' 
                                 : 'status-tag-up-light');
                         } 
                         // 下跌趋势（红色）
-                        else if (status === false) {
+                        else if (isDown) {
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-down-dark' 
                                 : 'status-tag-down-light');
@@ -1116,14 +1120,27 @@
                             });
                         });
                         
-                        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                        if (document.body.className === 'dark-theme') {
-                            gradient.addColorStop(0, 'rgba(58, 123, 213, 0.8)');
-                            gradient.addColorStop(1, 'rgba(0, 210, 255, 0.3)');
-                        } else {
-                            gradient.addColorStop(0, 'rgba(100, 149, 237, 0.8)');
-                            gradient.addColorStop(1, 'rgba(65, 105, 225, 0.3)');
-                        }
+                        // 创建背景颜色数组，标记最高点和最新点
+                        const backgroundColors = data.map((value, index) => {
+                            // 最新点 - 红色
+                            if (index === data.length - 1) {
+                                return document.body.className === 'dark-theme' 
+                                    ? 'rgba(255, 99, 132, 0.8)' 
+                                    : 'rgba(255, 99, 132, 0.8)';
+                            }
+                            // 最高点 - 黄色
+                            else if (value === maxValue) {
+                                return document.body.className === 'dark-theme' 
+                                    ? 'rgba(255, 206, 86, 0.8)' 
+                                    : 'rgba(255, 159, 64, 0.8)';
+                            }
+                            // 普通点 - 蓝色
+                            else {
+                                return document.body.className === 'dark-theme' 
+                                    ? 'rgba(75, 192, 192, 0.8)' 
+                                    : 'rgba(65, 105, 225, 0.8)';
+                            }
+                        });
                         
                         canvas.chart = new Chart(ctx, {
                             type: 'bar',
@@ -1132,7 +1149,7 @@
                                 datasets: [{
                                     label: '持仓量',
                                     data: data,
-                                    backgroundColor: gradient,
+                                    backgroundColor: backgroundColors,
                                     borderColor: document.body.className === 'dark-theme' ? 'rgba(75, 192, 192, 1)' : 'rgba(65, 105, 225, 1)',
                                     borderWidth: 1,
                                     borderRadius: 2,
