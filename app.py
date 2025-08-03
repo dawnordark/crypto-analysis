@@ -72,6 +72,7 @@ OI_CACHE_EXPIRATION = 5 * 60  # 5分钟缓存过期
 analysis_queue = queue.Queue()
 executor = ThreadPoolExecutor(max_workers=10)
 
+# 只保留有效的9个周期
 PERIOD_MINUTES = {
     '5m': 5,
     '15m': 15,
@@ -84,9 +85,12 @@ PERIOD_MINUTES = {
     '1d': 1440
 }
 
+# 有效周期列表 (9个)
+VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
+
+# 阻力位计算周期保持不变
 RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', 
                         '1d', '3d', '1w', '1M']
-ALL_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '3d', '1w', '1M']
 
 def init_client():
     global client
@@ -150,6 +154,11 @@ def get_open_interest(symbol, period, use_cache=True):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': []}
 
+        # 只处理有效周期
+        if period not in VALID_PERIODS:
+            logger.warning(f"⚠️ 不支持的周期: {period}")
+            return {'series': [], 'timestamps': []}
+        
         current_time = datetime.now(timezone.utc)
         cache_key = f"{symbol}_{period}"
         
@@ -206,16 +215,14 @@ def get_open_interest(symbol, period, use_cache=True):
         return {'series': [], 'timestamps': []}
 
 def is_latest_highest(oi_data):
-    """
-    修复趋势判断逻辑：检查最新值是否是整个30个点中的最高点
-    """
     if not oi_data or len(oi_data) < 30:
         logger.debug("持仓量数据不足30个点")
         return False
-    
-    # 检查最新值是否是整个30个点中的最高点
+
     latest_value = oi_data[-1]
-    return latest_value == max(oi_data[-30:])
+    prev_data = oi_data[-30:-1]
+    
+    return latest_value > max(prev_data) if prev_data else False
 
 def calculate_resistance_levels(symbol):
     try:
@@ -355,7 +362,7 @@ def analyze_symbol(symbol):
             'daily_rising': None,
             'short_term_active': None,
             'all_cycle_rising': None,
-            'period_status': {p: False for p in ALL_PERIODS},
+            'period_status': {p: False for p in VALID_PERIODS},  # 只使用有效周期
             'period_count': 0
         }
 
@@ -383,10 +390,10 @@ def analyze_symbol(symbol):
                 symbol_result['daily_rising'] = daily_rising_item
                 symbol_result['period_count'] = 1
 
-                # 3. 全周期分析 (包括所有周期)
+                # 3. 全周期分析 (只检查有效周期)
                 logger.info(f"📊 开始全周期分析: {symbol}")
                 all_intervals_up = True
-                for period in ALL_PERIODS:
+                for period in VALID_PERIODS:
                     if period == '1d':
                         continue
                         
@@ -445,7 +452,7 @@ def analyze_symbol(symbol):
         logger.error(traceback.format_exc())
         return {
             'symbol': symbol,
-            'period_status': {p: False for p in ALL_PERIODS},
+            'period_status': {p: False for p in VALID_PERIODS},
             'period_count': 0
         }
 
@@ -470,16 +477,12 @@ def analyze_trends():
     for future in as_completed(futures):
         try:
             result = future.result()
-            
-            # 修复问题2：确保全周期上涨币种不会出现在日线上涨列表
+            if result.get('daily_rising'):
+                daily_rising.append(result['daily_rising'])
+            if result.get('short_term_active'):
+                short_term_active.append(result['short_term_active'])
             if result.get('all_cycle_rising'):
                 all_cycle_rising.append(result['all_cycle_rising'])
-            else:
-                if result.get('daily_rising'):
-                    daily_rising.append(result['daily_rising'])
-                    
-                if result.get('short_term_active'):
-                    short_term_active.append(result['short_term_active'])
         except Exception as e:
             logger.error(f"❌ 处理币种时出错: {str(e)}")
 
@@ -736,7 +739,8 @@ def get_oi_chart_data(symbol, period):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
-        if period not in PERIOD_MINUTES:
+        # 只支持有效的9个周期
+        if period not in VALID_PERIODS:
             logger.warning(f"⚠ 不支持的周期: {period}")
             return jsonify({'error': 'Unsupported period'}), 400
 
