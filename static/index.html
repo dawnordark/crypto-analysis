@@ -925,6 +925,7 @@
                     dataLoading: true,
                     error: null,
                     statusMessage: "初始化中...",
+                    // 只保留有效的9个周期
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
                     collapsedSections: {
@@ -979,20 +980,16 @@
                         const periodStatus = coin.period_status || {};
                         const status = periodStatus[period];
                         
-                        // 修复问题1：严格检查布尔值状态
-                        const isUp = status === true;
-                        const isDown = status === false;
-                        
                         const classes = [];
                         
                         // 上涨趋势（绿色）
-                        if (isUp) {
+                        if (status === true) {
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-up-dark' 
                                 : 'status-tag-up-light');
                         } 
                         // 下跌趋势（红色）
-                        else if (isDown) {
+                        else if (status === false) {
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-down-dark' 
                                 : 'status-tag-down-light');
@@ -1120,27 +1117,14 @@
                             });
                         });
                         
-                        // 创建背景颜色数组，标记最高点和最新点
-                        const backgroundColors = data.map((value, index) => {
-                            // 最新点 - 红色
-                            if (index === data.length - 1) {
-                                return document.body.className === 'dark-theme' 
-                                    ? 'rgba(255, 99, 132, 0.8)' 
-                                    : 'rgba(255, 99, 132, 0.8)';
-                            }
-                            // 最高点 - 黄色
-                            else if (value === maxValue) {
-                                return document.body.className === 'dark-theme' 
-                                    ? 'rgba(255, 206, 86, 0.8)' 
-                                    : 'rgba(255, 159, 64, 0.8)';
-                            }
-                            // 普通点 - 蓝色
-                            else {
-                                return document.body.className === 'dark-theme' 
-                                    ? 'rgba(75, 192, 192, 0.8)' 
-                                    : 'rgba(65, 105, 225, 0.8)';
-                            }
-                        });
+                        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                        if (document.body.className === 'dark-theme') {
+                            gradient.addColorStop(0, 'rgba(58, 123, 213, 0.8)');
+                            gradient.addColorStop(1, 'rgba(0, 210, 255, 0.3)');
+                        } else {
+                            gradient.addColorStop(0, 'rgba(100, 149, 237, 0.8)');
+                            gradient.addColorStop(1, 'rgba(65, 105, 225, 0.3)');
+                        }
                         
                         canvas.chart = new Chart(ctx, {
                             type: 'bar',
@@ -1149,7 +1133,7 @@
                                 datasets: [{
                                     label: '持仓量',
                                     data: data,
-                                    backgroundColor: backgroundColors,
+                                    backgroundColor: gradient,
                                     borderColor: document.body.className === 'dark-theme' ? 'rgba(75, 192, 192, 1)' : 'rgba(65, 105, 225, 1)',
                                     borderWidth: 1,
                                     borderRadius: 2,
@@ -1264,64 +1248,74 @@
                             nextAnalysisTime: this.nextAnalysisTime
                         };
                         
-                        const timestamp = new Date().getTime();
-                        const url = `/api/data?t=${timestamp}`;
+        // 关键修复：正确处理全周期上涨币种
+        fetchData() {
+            this.dataLoading = true;
+            this.loading = true;
+            this.error = null;
+            this.statusMessage = "获取数据中...";
+            
+            const lastData = {
+                dailyRising: this.dailyRising,
+                shortTermActive: this.shortTermActive,
+                allCycleRising: this.allCycleRising,
+                lastUpdated: this.lastUpdated,
+                nextAnalysisTime: this.nextAnalysisTime
+            };
+            
+            const timestamp = new Date().getTime();
+            const url = `/api/data?t=${timestamp}`;
 
-                        axios.get(url, { timeout: 15000 })
-                            .then(response => {
-                                const data = response.data;
-                                console.log("API返回数据:", data);
-                                
-                                this.lastUpdated = data.last_updated || '未知时间';
-                                this.nextAnalysisTime = data.next_analysis_time || '计算中...';
-                                
-                                // 确保全周期上涨币种被正确归类
-                                this.allCycleRising = Array.isArray(data.all_cycle_rising) 
-                                    ? data.all_cycle_rising 
-                                    : [];
-                                
-                                // 日线上涨币种（排除全周期上涨币种）
-                                this.dailyRising = Array.isArray(data.daily_rising) 
-                                    ? data.daily_rising.filter(coin => 
-                                        !this.allCycleRising.some(c => c.symbol === coin.symbol)
-                                    )
-                                    : [];
-                                
-                                // 短期活跃币种
-                                this.shortTermActive = Array.isArray(data.short_term_active) 
-                                    ? data.short_term_active 
-                                    : [];
-                                
-                                this.analysisTime = data.analysis_time || 0;
-                                
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                if (this.dailyRising.length === 0 && 
-                                    this.shortTermActive.length === 0 && 
-                                    this.allCycleRising.length === 0) {
-                                    this.statusMessage = "数据为空，等待首次分析完成";
-                                } else {
-                                    this.statusMessage = `已加载数据: ${this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length}个币种`;
-                                }
-                                
-                                console.log("全周期上涨币种:", this.allCycleRising);
-                                console.log("日线上涨币种:", this.dailyRising);
-                            })
-                            .catch(error => {
-                                console.error('数据加载失败:', error);
-                                this.error = '数据加载失败，请稍后再试';
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                // 恢复之前的数据
-                                this.dailyRising = lastData.dailyRising;
-                                this.shortTermActive = lastData.shortTermActive;
-                                this.allCycleRising = lastData.allCycleRising;
-                                this.lastUpdated = lastData.lastUpdated;
-                                this.nextAnalysisTime = lastData.nextAnalysisTime;
-                            });
+            axios.get(url, { timeout: 15000 })
+                .then(response => {
+                    const data = response.data;
+                    
+                    // 1. 确保全周期上涨币种直接显示在专属列表
+                    this.allCycleRising = Array.isArray(data.all_cycle_rising) 
+                        ? data.all_cycle_rising 
+                        : [];
+                    
+                    // 2. 日线上涨币种排除全周期上涨币种
+                    this.dailyRising = Array.isArray(data.daily_rising) 
+                        ? data.daily_rising.filter(coin => 
+                            !this.allCycleRising.some(c => c.symbol === coin.symbol)
+                        )
+                        : [];
+                    
+                    // 3. 短期活跃币种
+                    this.shortTermActive = Array.isArray(data.short_term_active) 
+                        ? data.short_term_active 
+                        : [];
+                    
+                    this.lastUpdated = data.last_updated || '未知时间';
+                    this.nextAnalysisTime = data.next_analysis_time || '计算中...';
+                    this.analysisTime = data.analysis_time || 0;
+                    
+                    this.loading = false;
+                    this.dataLoading = false;
+                    
+                    if (this.dailyRising.length === 0 && 
+                        this.shortTermActive.length === 0 && 
+                        this.allCycleRising.length === 0) {
+                        this.statusMessage = "数据为空，等待首次分析完成";
+                    } else {
+                        this.statusMessage = `已加载数据: ${this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length}个币种`;
                     }
+                })
+                .catch(error => {
+                    console.error('数据加载失败:', error);
+                    this.error = '数据加载失败，请稍后再试';
+                    this.loading = false;
+                    this.dataLoading = false;
+                    
+                    // 恢复之前的数据
+                    this.dailyRising = lastData.dailyRising;
+                    this.shortTermActive = lastData.shortTermActive;
+                    this.allCycleRising = lastData.allCycleRising;
+                    this.lastUpdated = lastData.lastUpdated;
+                    this.nextAnalysisTime = lastData.nextAnalysisTime;
+                });
+        }
                 }
             });
         });
