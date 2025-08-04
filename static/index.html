@@ -133,6 +133,9 @@
         body.dark-theme .support-value {
             color: var(--dark-green);
         }
+        body.dark-theme .no-data {
+            color: var(--dark-text-secondary);
+        }
 
         /* 亮色主题 */
         body.light-theme {
@@ -227,6 +230,9 @@
         }
         body.light-theme .support-value {
             color: var(--light-green);
+        }
+        body.light-theme .no-data {
+            color: var(--light-text-secondary);
         }
 
         /* 通用样式 */
@@ -426,6 +432,7 @@
             border-radius: 6px;
             font-weight: bold;
             margin-top: 10px;
+            margin-bottom: 15px;
         }
         .dark-theme .current-price {
             background: rgba(240, 185, 11, 0.1);
@@ -434,6 +441,11 @@
         .light-theme .current-price {
             background: rgba(240, 185, 11, 0.1);
             color: var(--light-yellow);
+        }
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
         }
 
         /* 列表容器 */
@@ -720,7 +732,7 @@
             <span v-else>{{ statusMessage }}</span>
         </div>
 
-        <!-- 阻力位查询区域 -->
+        <!-- 阻力位查询区域 - 修复版 -->
         <div class="resistance-query">
             <div class="resistance-header" @click="toggleCollapse('resistance')">
                 <div class="resistance-title">阻力位/支撑位查询</div>
@@ -744,13 +756,14 @@
                 </button>
             </div>
 
-            <!-- 优化后的阻力位显示 -->
+            <!-- 修复后的阻力位显示 -->
             <div v-if="queryResult && !collapsedSections.resistance" class="resistance-result">
                 <div v-if="queryResult.current_price" class="current-price">
                     当前价格: {{ queryResult.current_price.toFixed(4) }}
                 </div>
                 
-                <div v-for="(interval, intervalName) in queryResult.levels.resistance" :key="intervalName">
+                <!-- 关键修复：正确遍历阻力位数据 -->
+                <div v-for="(intervalData, intervalName) in queryResult.levels" :key="intervalName">
                     <h3 style="margin: 15px 0 10px;">{{ intervalName.toUpperCase() }} 时间周期</h3>
                     
                     <table class="resistance-table">
@@ -764,7 +777,7 @@
                         </thead>
                         <tbody>
                             <!-- 阻力位 -->
-                            <tr v-for="(resistance, idx) in interval.resistance" :key="'resistance-'+intervalName+'-'+idx">
+                            <tr v-for="(resistance, idx) in (intervalData.resistance || [])" :key="'resistance-'+intervalName+'-'+idx">
                                 <td class="resistance-value">阻力位</td>
                                 <td>{{ resistance.price.toFixed(4) }}</td>
                                 <td>
@@ -777,7 +790,7 @@
                             </tr>
                             
                             <!-- 支撑位 -->
-                            <tr v-for="(support, idx) in interval.support" :key="'support-'+intervalName+'-'+idx">
+                            <tr v-for="(support, idx) in (intervalData.support || [])" :key="'support-'+intervalName+'-'+idx">
                                 <td class="support-value">支撑位</td>
                                 <td>{{ support.price.toFixed(4) }}</td>
                                 <td>
@@ -789,11 +802,18 @@
                                 <td class="distance-negative">{{ support.distance_percent }}%</td>
                             </tr>
                             
-                            <tr v-if="interval.resistance.length === 0 && interval.support.length === 0">
+                            <!-- 无数据提示 -->
+                            <tr v-if="(!intervalData.resistance || intervalData.resistance.length === 0) && 
+                                      (!intervalData.support || intervalData.support.length === 0)">
                                 <td colspan="4" style="text-align: center;">无有效数据</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                
+                <!-- 全局无数据提示 -->
+                <div v-if="Object.keys(queryResult.levels).length === 0" class="no-data">
+                    未找到阻力位/支撑位数据
                 </div>
             </div>
         </div>
@@ -1193,9 +1213,11 @@
                         const maxValue = Math.max(...data);
                         const padding = (maxValue - minValue) * 0.1;
                         
+                        // 使用中国时区 (Asia/Shanghai)
                         const labels = timestamps.map(ts => {
                             const date = new Date(ts);
                             return date.toLocaleTimeString('zh-CN', {
+                                timeZone: 'Asia/Shanghai',
                                 hour: '2-digit',
                                 minute: '2-digit'
                             });
@@ -1291,10 +1313,13 @@
                         
                         axios.get(`/api/resistance_levels/${symbol}`)
                             .then(response => {
+                                console.log('阻力位查询结果:', response.data); // 调试输出
+                                
+                                // 修复数据结构
                                 this.queryResult = {
                                     symbol: symbol,
-                                    levels: response.data.resistance,
-                                    current_price: response.data.current_price
+                                    levels: response.data.resistance || {},
+                                    current_price: response.data.current_price || 0
                                 };
                                 this.queryLoading = false;
                             })
