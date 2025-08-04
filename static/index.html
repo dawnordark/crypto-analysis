@@ -339,42 +339,101 @@
             font-weight: bold;
             transition: background 0.2s;
         }
-
-        /* 阻力位结果单行布局 */
-        .resistance-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 10px;
+        
+        /* 阻力位表格样式 */
+        .resistance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
         }
-        .resistance-block {
-            flex: 1;
-            min-width: 120px;
+        .resistance-table th {
+            background: rgba(240, 185, 11, 0.1);
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+        .resistance-table td {
+            padding: 10px;
+            border-bottom: 1px solid;
+        }
+        .dark-theme .resistance-table th {
+            background: rgba(240, 185, 11, 0.2);
+            border-bottom: 1px solid var(--dark-card-border);
+        }
+        .dark-theme .resistance-table td {
+            border-bottom: 1px solid var(--dark-card-border);
+        }
+        .light-theme .resistance-table th {
+            background: rgba(240, 185, 11, 0.1);
+            border-bottom: 1px solid var(--light-card-border);
+        }
+        .light-theme .resistance-table td {
+            border-bottom: 1px solid var(--light-card-border);
+        }
+        .strength-bar {
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+        .dark-theme .strength-bar {
+            background: #2b2f36;
+        }
+        .light-theme .strength-bar {
+            background: #e0e3eb;
+        }
+        .strength-value {
+            height: 100%;
+            border-radius: 4px;
+        }
+        .resistance-value .strength-value {
+            background: var(--dark-red);
+        }
+        .dark-theme .resistance-value .strength-value {
+            background: var(--dark-red);
+        }
+        .light-theme .resistance-value .strength-value {
+            background: var(--light-red);
+        }
+        .support-value .strength-value {
+            background: var(--dark-green);
+        }
+        .dark-theme .support-value .strength-value {
+            background: var(--dark-green);
+        }
+        .light-theme .support-value .strength-value {
+            background: var(--light-green);
+        }
+        .distance-positive {
+            color: var(--dark-green);
+        }
+        .dark-theme .distance-positive {
+            color: var(--dark-green);
+        }
+        .light-theme .distance-positive {
+            color: var(--light-green);
+        }
+        .distance-negative {
+            color: var(--dark-red);
+        }
+        .dark-theme .distance-negative {
+            color: var(--dark-red);
+        }
+        .light-theme .distance-negative {
+            color: var(--light-red);
+        }
+        .current-price {
+            padding: 10px;
             border-radius: 6px;
-            padding: 8px;
-            text-align: center;
-        }
-        .block-header {
-            font-size: 12px;
-            margin-bottom: 5px;
             font-weight: bold;
-        }
-        .resistance-value {
-            font-weight: bold;
-            font-size: 13px;
-            margin: 3px 0;
-        }
-        .support-value {
-            font-weight: bold;
-            font-size: 13px;
-            margin: 3px 0;
-        }
-        .resistance-display {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
-            padding: 12px;
             margin-top: 10px;
+        }
+        .dark-theme .current-price {
+            background: rgba(240, 185, 11, 0.1);
+            color: var(--dark-yellow);
+        }
+        .light-theme .current-price {
+            background: rgba(240, 185, 11, 0.1);
+            color: var(--light-yellow);
         }
 
         /* 列表容器 */
@@ -626,7 +685,7 @@
         <!-- 标题区域 -->
         <div class="header">
             <div class="title-section">
-                <h1>持仓量分析系统</h1>
+                <h1>持仓量分析</h1>
                 <div class="time-info">
                     <div>最后更新: {{ lastUpdated || '加载中...' }}</div>
                     <div>下次分析: {{ nextAnalysisTime || '计算中...' }}</div>
@@ -687,33 +746,58 @@
 
             <!-- 优化后的阻力位显示 -->
             <div v-if="queryResult && !collapsedSections.resistance" class="resistance-result">
-                <div class="resistance-display">
-                    <div class="resistance-row">
-                        <div class="resistance-block">
-                            <div class="block-header">阻力位</div>
-                            <div v-for="(level, idx) in queryResult.levels.resistance" :key="'resistance'+idx" 
-                                 class="resistance-value">
-                                {{ level.toFixed(4) }}
-                            </div>
-                            <div v-if="queryResult.levels.resistance.length === 0" class="resistance-value">
-                                无数据
-                            </div>
-                        </div>
-                        <div class="resistance-block">
-                            <div class="block-header">支撑位</div>
-                            <div v-for="(level, idx) in queryResult.levels.support" :key="'support'+idx" 
-                                 class="support-value">
-                                {{ level.toFixed(4) }}
-                            </div>
-                            <div v-if="queryResult.levels.support.length === 0" class="support-value">
-                                无数据
-                            </div>
-                        </div>
-                    </div>
+                <div v-if="queryResult.current_price" class="current-price">
+                    当前价格: {{ queryResult.current_price.toFixed(4) }}
+                </div>
+                
+                <div v-for="(interval, intervalName) in queryResult.levels.resistance" :key="intervalName">
+                    <h3 style="margin: 15px 0 10px;">{{ intervalName.toUpperCase() }} 时间周期</h3>
+                    
+                    <table class="resistance-table">
+                        <thead>
+                            <tr>
+                                <th>类型</th>
+                                <th>价格</th>
+                                <th>强度</th>
+                                <th>距离</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 阻力位 -->
+                            <tr v-for="(resistance, idx) in interval.resistance" :key="'resistance-'+intervalName+'-'+idx">
+                                <td class="resistance-value">阻力位</td>
+                                <td>{{ resistance.price.toFixed(4) }}</td>
+                                <td>
+                                    <div>{{ resistance.strength }}</div>
+                                    <div class="strength-bar">
+                                        <div class="strength-value" :style="{ width: resistance.strength * 100 + '%' }"></div>
+                                    </div>
+                                </td>
+                                <td class="distance-positive">+{{ resistance.distance_percent }}%</td>
+                            </tr>
+                            
+                            <!-- 支撑位 -->
+                            <tr v-for="(support, idx) in interval.support" :key="'support-'+intervalName+'-'+idx">
+                                <td class="support-value">支撑位</td>
+                                <td>{{ support.price.toFixed(4) }}</td>
+                                <td>
+                                    <div>{{ support.strength }}</div>
+                                    <div class="strength-bar">
+                                        <div class="strength-value" :style="{ width: support.strength * 100 + '%' }"></div>
+                                    </div>
+                                </td>
+                                <td class="distance-negative">{{ support.distance_percent }}%</td>
+                            </tr>
+                            
+                            <tr v-if="interval.resistance.length === 0 && interval.support.length === 0">
+                                <td colspan="4" style="text-align: center;">无有效数据</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-
+        
         <!-- 列表区域 -->
         <div class="list-container">
             <!-- 全部周期上涨 -->
@@ -876,7 +960,7 @@
                         <div v-else-if="shortTermActive.length === 0" class="loading">
                             暂无短期活跃币种
                         </div>
-                        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
+        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
                             <div class="coin-item short-term-active">
                                 <div class="coin-header">
                                     <div class="coin-name-container">
@@ -1209,7 +1293,8 @@
                             .then(response => {
                                 this.queryResult = {
                                     symbol: symbol,
-                                    levels: response.data
+                                    levels: response.data.resistance,
+                                    current_price: response.data.current_price
                                 };
                                 this.queryLoading = false;
                             })
@@ -1217,7 +1302,8 @@
                                 console.error('阻力位查询失败:', error);
                                 this.queryResult = {
                                     symbol: symbol,
-                                    levels: { resistance: [], support: [] }
+                                    levels: {},
+                                    current_price: 0
                                 };
                                 this.queryLoading = false;
                             });
