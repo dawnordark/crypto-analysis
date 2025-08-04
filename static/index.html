@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* 精简后的CSS样式 */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -19,7 +20,6 @@
 
         /* 主题变量 */
         :root {
-            /* 暗色主题 */
             --dark-bg: #0a0e17;
             --dark-card-bg: #1e2026;
             --dark-card-border: #2b2f36;
@@ -29,7 +29,6 @@
             --dark-green: #03a66d;
             --dark-red: #cf304a;
             
-            /* 亮色主题 */
             --light-bg: #f8f9fa;
             --light-card-bg: #ffffff;
             --light-card-border: #e0e3eb;
@@ -51,9 +50,7 @@
             background: var(--dark-card-bg);
             border: 1px solid var(--dark-card-border);
         }
-        body.dark-theme .title-section h1 { 
-            color: var(--dark-yellow);
-        }
+        body.dark-theme .title-section h1 { color: var(--dark-yellow); }
         body.dark-theme .time-info,
         body.dark-theme .list-desc {
             color: var(--dark-text-secondary);
@@ -149,9 +146,7 @@
             border: 1px solid var(--light-card-border);
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        body.light-theme .title-section h1 { 
-            color: var(--light-yellow);
-        }
+        body.light-theme .title-section h1 { color: var(--light-yellow); }
         body.light-theme .time-info,
         body.light-theme .list-desc {
             color: var(--light-text-secondary);
@@ -308,7 +303,7 @@
             animation: pulse 1.5s infinite;
         }
         
-        /* 阻力位查询区域 */
+        /* 阻力位查询区域 - 紧凑布局 */
         .resistance-query {
             border-radius: 12px;
             padding: 15px;
@@ -346,50 +341,60 @@
             transition: background 0.2s;
         }
         
-        /* 阻力位表格样式 */
-        .resistance-table {
+        /* 紧凑型阻力位表格样式 */
+        .compact-resistance-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
+            font-size: 13px;
         }
-        .resistance-table th {
-            background: rgba(240, 185, 11, 0.1);
-            padding: 10px;
+        .compact-resistance-table th {
+            padding: 8px;
             text-align: left;
-            font-size: 14px;
+            font-weight: 600;
         }
-        .resistance-table td {
-            padding: 10px;
-            border-bottom: 1px solid;
+        .compact-resistance-table td {
+            padding: 8px;
+            vertical-align: top;
         }
-        .dark-theme .resistance-table th {
+        .dark-theme .compact-resistance-table th {
             background: rgba(240, 185, 11, 0.2);
             border-bottom: 1px solid var(--dark-card-border);
         }
-        .dark-theme .resistance-table td {
+        .dark-theme .compact-resistance-table td {
             border-bottom: 1px solid var(--dark-card-border);
         }
-        .light-theme .resistance-table th {
+        .light-theme .compact-resistance-table th {
             background: rgba(240, 185, 11, 0.1);
             border-bottom: 1px solid var(--light-card-border);
         }
-        .light-theme .resistance-table td {
+        .light-theme .compact-resistance-table td {
             border-bottom: 1px solid var(--light-card-border);
         }
+        
+        .level-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        .level-item:last-child {
+            margin-bottom: 0;
+        }
+        .level-price {
+            min-width: 70px;
+            font-weight: 500;
+        }
         .strength-bar {
-            height: 8px;
-            border-radius: 4px;
-            margin-top: 5px;
-        }
-        .dark-theme .strength-bar {
-            background: #2b2f36;
-        }
-        .light-theme .strength-bar {
-            background: #e0e3eb;
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            margin: 0 8px;
+            background: rgba(128, 128, 128, 0.2);
         }
         .strength-value {
             height: 100%;
-            border-radius: 4px;
+            border-radius: 3px;
         }
         .resistance-value .strength-value {
             background: var(--dark-red);
@@ -408,6 +413,11 @@
         }
         .light-theme .support-value .strength-value {
             background: var(--light-green);
+        }
+        .distance-value {
+            min-width: 60px;
+            text-align: right;
+            font-weight: 500;
         }
         .distance-positive {
             color: var(--dark-green);
@@ -428,11 +438,11 @@
             color: var(--light-red);
         }
         .current-price {
-            padding: 10px;
+            padding: 8px 12px;
             border-radius: 6px;
             font-weight: bold;
-            margin-top: 10px;
-            margin-bottom: 15px;
+            margin: 10px 0;
+            font-size: 14px;
         }
         .dark-theme .current-price {
             background: rgba(240, 185, 11, 0.1);
@@ -444,8 +454,30 @@
         }
         .no-data {
             text-align: center;
-            padding: 20px;
+            padding: 10px;
             font-style: italic;
+            font-size: 13px;
+        }
+        .show-more-btn {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-top: 10px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--light-yellow);
+        }
+        .dark-theme .show-more-btn {
+            color: var(--dark-yellow);
+        }
+        .light-theme .show-more-btn {
+            color: var(--light-yellow);
+        }
+        .show-more-btn:hover {
+            text-decoration: underline;
         }
 
         /* 列表容器 */
@@ -586,7 +618,7 @@
             color: var(--light-yellow);
         }
 
-        /* 状态标签 - 完全重构样式实现 */
+        /* 状态标签 */
         .period-status {
             display: flex;
             flex-wrap: wrap;
@@ -611,7 +643,7 @@
             border-width: 2px;
         }
         
-        /* 趋势标签颜色样式 - 修复关键问题 */
+        /* 趋势标签颜色样式 */
         .status-tag-up-light {
             color: var(--light-green);
             border-color: var(--light-green);
@@ -689,6 +721,15 @@
                 flex-direction: column;
                 gap: 4px;
             }
+            .compact-resistance-table {
+                font-size: 12px;
+            }
+            .level-item {
+                font-size: 11px;
+            }
+            .level-price {
+                min-width: 60px;
+            }
         }
     </style>
 </head>
@@ -732,7 +773,7 @@
             <span v-else>{{ statusMessage }}</span>
         </div>
 
-        <!-- 阻力位查询区域 - 修复版 -->
+        <!-- 阻力位查询区域 - 紧凑版 -->
         <div class="resistance-query">
             <div class="resistance-header" @click="toggleCollapse('resistance')">
                 <div class="resistance-title">阻力位/支撑位查询</div>
@@ -756,60 +797,56 @@
                 </button>
             </div>
 
-            <!-- 修复后的阻力位显示 -->
+            <!-- 紧凑型阻力位显示 -->
             <div v-if="queryResult && !collapsedSections.resistance" class="resistance-result">
                 <div v-if="queryResult.current_price" class="current-price">
                     当前价格: {{ queryResult.current_price.toFixed(4) }}
                 </div>
                 
-                <!-- 关键修复：正确遍历阻力位数据 -->
-                <div v-for="(intervalData, intervalName) in queryResult.levels" :key="intervalName">
-                    <h3 style="margin: 15px 0 10px;">{{ intervalName.toUpperCase() }} 时间周期</h3>
-                    
-                    <table class="resistance-table">
-                        <thead>
-                            <tr>
-                                <th>类型</th>
-                                <th>价格</th>
-                                <th>强度</th>
-                                <th>距离</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- 阻力位 -->
-                            <tr v-for="(resistance, idx) in (intervalData.resistance || [])" :key="'resistance-'+intervalName+'-'+idx">
-                                <td class="resistance-value">阻力位</td>
-                                <td>{{ resistance.price.toFixed(4) }}</td>
-                                <td>
-                                    <div>{{ resistance.strength }}</div>
-                                    <div class="strength-bar">
-                                        <div class="strength-value" :style="{ width: resistance.strength * 100 + '%' }"></div>
+                <!-- 紧凑型表格 -->
+                <table class="compact-resistance-table">
+                    <thead>
+                        <tr>
+                            <th>周期</th>
+                            <th>阻力位</th>
+                            <th>支撑位</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(intervalData, intervalName) in visibleResistanceLevels" :key="intervalName">
+                            <td>{{ intervalName.toUpperCase() }}</td>
+                            <td>
+                                <div v-if="intervalData.resistance && intervalData.resistance.length > 0">
+                                    <div v-for="(resistance, idx) in intervalData.resistance" :key="'resistance-'+intervalName+'-'+idx" class="level-item resistance-value">
+                                        <div class="level-price">{{ resistance.price.toFixed(4) }}</div>
+                                        <div class="strength-bar">
+                                            <div class="strength-value" :style="{ width: resistance.strength * 100 + '%' }"></div>
+                                        </div>
+                                        <div class="distance-value distance-positive">+{{ resistance.distance_percent.toFixed(1) }}%</div>
                                     </div>
-                                </td>
-                                <td class="distance-positive">+{{ resistance.distance_percent }}%</td>
-                            </tr>
-                            
-                            <!-- 支撑位 -->
-                            <tr v-for="(support, idx) in (intervalData.support || [])" :key="'support-'+intervalName+'-'+idx">
-                                <td class="support-value">支撑位</td>
-                                <td>{{ support.price.toFixed(4) }}</td>
-                                <td>
-                                    <div>{{ support.strength }}</div>
-                                    <div class="strength-bar">
-                                        <div class="strength-value" :style="{ width: support.strength * 100 + '%' }"></div>
+                                </div>
+                                <div v-else class="no-level">无数据</div>
+                            </td>
+                            <td>
+                                <div v-if="intervalData.support && intervalData.support.length > 0">
+                                    <div v-for="(support, idx) in intervalData.support" :key="'support-'+intervalName+'-'+idx" class="level-item support-value">
+                                        <div class="level-price">{{ support.price.toFixed(4) }}</div>
+                                        <div class="strength-bar">
+                                            <div class="strength-value" :style="{ width: support.strength * 100 + '%' }"></div>
+                                        </div>
+                                        <div class="distance-value distance-negative">{{ support.distance_percent.toFixed(1) }}%</div>
                                     </div>
-                                </td>
-                                <td class="distance-negative">{{ support.distance_percent }}%</td>
-                            </tr>
-                            
-                            <!-- 无数据提示 -->
-                            <tr v-if="(!intervalData.resistance || intervalData.resistance.length === 0) && 
-                                      (!intervalData.support || intervalData.support.length === 0)">
-                                <td colspan="4" style="text-align: center;">无有效数据</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                                <div v-else class="no-level">无数据</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- 显示更多按钮 -->
+                <button v-if="hasMoreLevels" class="show-more-btn" @click="showAllLevels = !showAllLevels">
+                    {{ showAllLevels ? '显示更少' : '显示更多周期...' }}
+                </button>
                 
                 <!-- 全局无数据提示 -->
                 <div v-if="Object.keys(queryResult.levels).length === 0" class="no-data">
@@ -1029,7 +1066,6 @@
                     dataLoading: true,
                     error: null,
                     statusMessage: "初始化中...",
-                    // 只保留有效的9个周期
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
                     collapsedSections: {
@@ -1040,7 +1076,9 @@
                         dailyRising: false,
                         shortTermActive: false
                     },
-                    theme: 'dark-theme'
+                    theme: 'dark-theme',
+                    showAllLevels: false, // 控制是否显示所有周期
+                    importantPeriods: ['1d', '4h', '1h', '15m'] // 重要周期列表
                 },
                 computed: {
                     sortedDailyRising() {
@@ -1061,45 +1099,50 @@
                             }
                             return b.oi - a.oi;
                         });
+                    },
+                    // 计算可见的阻力位数据
+                    visibleResistanceLevels() {
+                        if (!this.queryResult || !this.queryResult.levels) return {};
+                        
+                        // 如果显示所有周期，直接返回全部数据
+                        if (this.showAllLevels) return this.queryResult.levels;
+                        
+                        // 否则只返回重要周期
+                        const visible = {};
+                        for (const period of this.importantPeriods) {
+                            if (this.queryResult.levels[period]) {
+                                visible[period] = this.queryResult.levels[period];
+                            }
+                        }
+                        return visible;
+                    },
+                    // 检查是否有更多周期可以显示
+                    hasMoreLevels() {
+                        if (!this.queryResult || !this.queryResult.levels) return false;
+                        return Object.keys(this.queryResult.levels).length > this.importantPeriods.length;
                     }
-                },
-                mounted() {
-                    const savedTheme = localStorage.getItem('themePreference');
-                    if (savedTheme) {
-                        this.theme = savedTheme;
-                    } else {
-                        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                        this.theme = prefersDark ? 'dark-theme' : 'light-theme';
-                    }
-                    
-                    document.body.className = this.theme;
-                    this.fetchData();
                 },
                 methods: {
                     getStatusTagClasses(coin, period) {
                         const isActive = this.activeChart.symbol === coin.symbol && 
                                         this.activeChart.period === period;
                         
-                        // 确保period_status存在
                         const periodStatus = coin.period_status || {};
                         const status = periodStatus[period];
                         
                         const classes = [];
                         
-                        // 上涨趋势（绿色）
                         if (status === true) {
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-up-dark' 
                                 : 'status-tag-up-light');
                         } 
-                        // 下跌趋势（红色）
                         else if (status === false) {
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-down-dark' 
                                 : 'status-tag-down-light');
                         }
                         
-                        // 图表打开状态（黄色边框）
                         if (isActive) {
                             classes.push(this.theme === 'dark-theme' 
                                 ? 'status-tag-chart-open-dark' 
@@ -1196,7 +1239,6 @@
                         const canvas = document.getElementById(canvasId);
                         if (!canvas) return;
                         
-                        // 销毁现有图表
                         if (canvas.chart) {
                             canvas.chart.destroy();
                         }
@@ -1213,7 +1255,6 @@
                         const maxValue = Math.max(...data);
                         const padding = (maxValue - minValue) * 0.1;
                         
-                        // 使用中国时区 (Asia/Shanghai)
                         const labels = timestamps.map(ts => {
                             const date = new Date(ts);
                             return date.toLocaleTimeString('zh-CN', {
@@ -1310,12 +1351,10 @@
                         
                         const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
                         this.queryLoading = true;
+                        this.showAllLevels = false; // 重置显示更多状态
                         
                         axios.get(`/api/resistance_levels/${symbol}`)
                             .then(response => {
-                                console.log('阻力位查询结果:', response.data); // 调试输出
-                                
-                                // 修复数据结构
                                 this.queryResult = {
                                     symbol: symbol,
                                     levels: response.data.resistance || {},
@@ -1366,20 +1405,16 @@
                             .then(response => {
                                 const data = response.data;
                                 
-                                // 关键修复：正确处理全周期上涨币种
-                                // 1. 确保全周期上涨币种直接显示在专属列表
                                 this.allCycleRising = Array.isArray(data.all_cycle_rising) 
                                     ? data.all_cycle_rising 
                                     : [];
                                 
-                                // 2. 日线上涨币种排除全周期上涨币种
                                 this.dailyRising = Array.isArray(data.daily_rising) 
                                     ? data.daily_rising.filter(coin => 
                                         !this.allCycleRising.some(c => c.symbol === coin.symbol)
                                     )
                                     : [];
                                 
-                                // 3. 短期活跃币种
                                 this.shortTermActive = Array.isArray(data.short_term_active) 
                                     ? data.short_term_active 
                                     : [];
@@ -1405,7 +1440,6 @@
                                 this.loading = false;
                                 this.dataLoading = false;
                                 
-                                // 恢复之前的数据
                                 this.dailyRising = lastData.dailyRising;
                                 this.shortTermActive = lastData.shortTermActive;
                                 this.allCycleRising = lastData.allCycleRising;
