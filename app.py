@@ -88,9 +88,8 @@ PERIOD_MINUTES = {
 # 有效周期列表 (9个)
 VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
-# 阻力位计算周期保持不变
-RESISTANCE_INTERVALS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', 
-                        '1d', '3d', '1w', '1M']
+# 阻力位计算周期
+RESISTANCE_INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
 def init_client():
     global client
@@ -230,8 +229,9 @@ def calculate_resistance_levels(symbol):
         now = time.time()
         
         # 检查缓存
-        if symbol in resistance_cache:
-            cache_data = resistance_cache[symbol]
+        cache_key = f"{symbol}_resistance"
+        if cache_key in resistance_cache:
+            cache_data = resistance_cache[cache_key]
             if cache_data['expiration'] > now:
                 logger.debug(f"📊 使用缓存的阻力位数据: {symbol}")
                 return cache_data['levels']
@@ -239,7 +239,7 @@ def calculate_resistance_levels(symbol):
         # 确保客户端已初始化
         if client is None and not init_client():
             logger.error("❌ 无法初始化Binance客户端，无法计算阻力位")
-            return {'resistance': [], 'support': []}
+            return {'resistance': {}, 'support': {}, 'current_price': 0}
         
         # 获取当前价格
         try:
@@ -250,101 +250,106 @@ def calculate_resistance_levels(symbol):
             logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
             current_price = None
         
-        global_resistances = []
-        global_supports = []
+        # 存储各时间段阻力/支撑位
+        interval_levels = {}
         
         for interval in RESISTANCE_INTERVALS:
             try:
                 logger.info(f"📊 获取K线数据: {symbol} {interval}")
                 klines = client.futures_klines(symbol=symbol, interval=interval, limit=100)
                 
-                if not klines or len(klines) < 10:
+                if not klines or len(klines) < 50:
                     logger.warning(f"⚠️ {symbol}在{interval}的K线数据不足")
                     continue
 
+                # 提取价格数据
                 high_prices = [float(k[2]) for k in klines]
                 low_prices = [float(k[3]) for k in klines]
                 close_prices = [float(k[4]) for k in klines]
+                open_prices = [float(k[1]) for k in klines]
                 
-                # 计算近期高点和低点
+                # 计算关键价格水平
+                resistance = []
+                support = []
+                
+                # 1. 近期高点和低点
                 lookback = min(30, len(high_prices))
                 recent_high = max(high_prices[-lookback:])
                 recent_low = min(low_prices[-lookback:])
                 
-                if recent_high <= recent_low:
-                    logger.warning(f"⚠️ {symbol}在{interval}的最近高点和低点无效")
-                    continue
-                
-                # 计算斐波那契回撤位
+                # 2. 斐波那契回撤位
                 fib_levels = {
                     '0.236': recent_high - (recent_high - recent_low) * 0.236,
                     '0.382': recent_high - (recent_high - recent_low) * 0.382,
                     '0.5': (recent_high + recent_low) / 2,
                     '0.618': recent_high - (recent_high - recent_low) * 0.618,
-                    '0.786': recent_high - (recent_high - recent_low) * 0.786,
-                    '1.0': recent_high,
-                    '1.272': recent_high + (recent_high - recent_low) * 0.272,
-                    '1.618': recent_high + (recent_high - recent_low) * 0.618
+                    '0.786': recent_high - (recent_high - recent_low) * 0.786
                 }
                 
-                # 只保留当前价格附近的水平
-                if current_price:
-                    # 阻力位：高于当前价格，取最接近的3个
-                    resistances = [p for p in fib_levels.values() if p > current_price]
-                    resistances.sort(key=lambda p: abs(p - current_price))
-                    
-                    # 支撑位：低于当前价格，取最接近的3个
-                    supports = [p for p in fib_levels.values() if p < current_price]
-                    supports.sort(key=lambda p: abs(p - current_price))
-                    
-                    # 添加整数位
-                    base = 10 ** (math.floor(math.log10(current_price)) - 1)
+                # 3. 心理整数位
+                if current_price > 0:
+                    base = 10 ** max(0, math.floor(math.log10(current_price)) - 1)
                     integer_level = round(current_price / base) * base
-                    
-                    # 添加整数位阻力/支撑
-                    if integer_level > current_price:
-                        resistances.append(integer_level)
-                    else:
-                        supports.append(integer_level)
-                    
-                    # 添加近期高点和低点
-                    resistances.append(recent_high)
-                    supports.append(recent_low)
-                    
-                    # 去重并排序
-                    resistances = sorted(set(resistances))
-                    supports = sorted(set(supports))
-                    
-                    # 取每个周期最有效的3个阻力和支撑
-                    best_resistances = resistances[:3] if resistances else []
-                    best_supports = supports[:3] if supports else []
-                    
-                    # 添加到全局列表
-                    global_resistances.extend(best_resistances)
-                    global_supports.extend(best_supports)
-                    
-                    logger.info(f"📊 {symbol}在{interval}的有效阻力位: {best_resistances}, 支撑位: {best_supports}")
+                else:
+                    integer_level = round(current_price, 2) if current_price else 0
+                
+                # 4. 成交量加权价格水平
+                volume_weighted = {}
+                for i in range(len(close_prices)):
+                    price_level = round(close_prices[i], 4)
+                    volume = float(klines[i][5])
+                    if price_level not in volume_weighted:
+                        volume_weighted[price_level] = 0
+                    volume_weighted[price_level] += volume
+                
+                # 选取高成交量区域作为关键水平
+                sorted_levels = sorted(volume_weighted.items(), key=lambda x: x[1], reverse=True)
+                volume_levels = [level[0] for level in sorted_levels[:5]]
+                
+                # 合并所有水平
+                all_levels = list(fib_levels.values()) + [recent_high, recent_low, integer_level] + volume_levels
+                
+                # 分类阻力和支撑
+                if current_price:
+                    for level in all_levels:
+                        if level > current_price:
+                            # 计算强度：距离当前价格越近强度越高
+                            strength = max(0, 1 - abs(level - current_price) / current_price)
+                            resistance.append({
+                                'price': level,
+                                'strength': round(strength, 2),
+                                'distance_percent': round((level - current_price) / current_price * 100, 2)
+                            })
+                        elif level < current_price:
+                            strength = max(0, 1 - abs(level - current_price) / current_price)
+                            support.append({
+                                'price': level,
+                                'strength': round(strength, 2),
+                                'distance_percent': round((level - current_price) / current_price * 100, 2)
+                            })
+                
+                # 排序并选取最有效的3个
+                resistance.sort(key=lambda x: x['strength'], reverse=True)
+                support.sort(key=lambda x: x['strength'], reverse=True)
+                
+                interval_levels[interval] = {
+                    'resistance': resistance[:3],
+                    'support': support[:3]
+                }
+                
+                logger.info(f"📊 {symbol}在{interval}的有效阻力位: {resistance[:3]}, 支撑位: {support[:3]}")
+                
             except Exception as e:
                 logger.error(f"计算{symbol}在{interval}的阻力位失败: {str(e)}")
                 logger.error(traceback.format_exc())
 
-        # 全局排序：按有效性（距离当前价格）排序
-        if current_price:
-            global_resistances = sorted(set(global_resistances), key=lambda p: abs(p - current_price))
-            global_supports = sorted(set(global_supports), key=lambda p: abs(p - current_price))
-        
-        # 取全局最优的3个阻力和支撑
-        top_resistances = global_resistances[:3] if global_resistances else []
-        top_supports = global_supports[:3] if global_supports else []
-        
-        logger.info(f"📊 {symbol}全局最优阻力位: {top_resistances}, 支撑位: {top_supports}")
-        
         levels = {
-            'resistance': top_resistances,
-            'support': top_supports
+            'resistance': interval_levels,
+            'support': interval_levels,
+            'current_price': current_price or 0
         }
         
-        resistance_cache[symbol] = {
+        resistance_cache[cache_key] = {
             'levels': levels,
             'expiration': now + RESISTANCE_CACHE_EXPIRATION
         }
@@ -352,7 +357,7 @@ def calculate_resistance_levels(symbol):
     except Exception as e:
         logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
         logger.error(traceback.format_exc())
-        return {'resistance': [], 'support': []}
+        return {'resistance': {}, 'support': {}, 'current_price': 0}
 
 def analyze_symbol(symbol):
     try:
