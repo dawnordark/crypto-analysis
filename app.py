@@ -122,7 +122,9 @@ def init_client():
     return False
 
 def get_next_update_time(period):
-    now = datetime.now(timezone.utc)
+    # 使用中国时区 (UTC+8)
+    tz_shanghai = timezone(timedelta(hours=8))
+    now = datetime.now(tz_shanghai)
     minutes = PERIOD_MINUTES.get(period, 5)
     
     if period.endswith('m'):
@@ -500,11 +502,15 @@ def analyze_trends():
     logger.info(f"📊 分析结果: 日线上涨 {len(daily_rising)}个, 短期活跃 {len(short_term_active)}个, 全部周期上涨 {len(all_cycle_rising)}个")
     logger.info(f"✅ 分析完成: 用时{analysis_time:.2f}秒")
 
+    # 使用中国时区 (UTC+8)
+    tz_shanghai = timezone(timedelta(hours=8))
     return {
         'daily_rising': daily_rising,
         'short_term_active': short_term_active,
         'all_cycle_rising': all_cycle_rising,
-        'analysis_time': analysis_time
+        'analysis_time': analysis_time,
+        'last_updated': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
+        'next_analysis_time': get_next_update_time('5m').strftime("%Y-%m-%d %H:%M:%S")
     }
 
 def get_high_volume_symbols():
@@ -558,15 +564,14 @@ def analysis_worker():
 
             try:
                 result = analyze_trends()
-                next_analysis_time = get_next_update_time('5m')
                 
                 new_data = {
-                    "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                    "last_updated": result['last_updated'],
                     "daily_rising": result['daily_rising'],
                     "short_term_active": result['short_term_active'],
                     "all_cycle_rising": result['all_cycle_rising'],
                     "analysis_time": result['analysis_time'],
-                    "next_analysis_time": next_analysis_time.strftime("%Y-%m-%d %H:%M:%S")
+                    "next_analysis_time": result['next_analysis_time']
                 }
                 
                 logger.info(f"📊 分析结果已生成")
@@ -714,13 +719,15 @@ def get_data():
     
     except Exception as e:
         logger.error(f"❌ 获取数据失败: {str(e)}")
+        # 使用中国时区 (UTC+8)
+        tz_shanghai = timezone(timedelta(hours=8))
         return jsonify({
-            'last_updated': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            'last_updated': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
             'daily_rising': [],
             'short_term_active': [],
             'all_cycle_rising': [],
             'analysis_time': 0,
-            'next_analysis_time': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            'next_analysis_time': get_next_update_time('5m').strftime("%Y-%m-%d %H:%M:%S")
         })
 
 @app.route('/api/resistance_levels/<symbol>', methods=['GET'])
@@ -732,10 +739,29 @@ def get_resistance_levels(symbol):
 
         logger.info(f"📊 获取阻力位数据: {symbol}")
         levels = calculate_resistance_levels(symbol)
+        
+        # 确保数据结构正确
+        if not isinstance(levels, dict):
+            logger.error(f"❌ 阻力位数据结构错误: {type(levels)}")
+            return jsonify({'error': 'Invalid resistance data structure'}), 500
+        
+        # 确保包含必要的键
+        if 'resistance' not in levels:
+            levels['resistance'] = {}
+        if 'support' not in levels:
+            levels['support'] = {}
+        if 'current_price' not in levels:
+            levels['current_price'] = 0
+        
         return jsonify(levels)
     except Exception as e:
         logger.error(f"❌ 获取阻力位数据失败: {symbol}, {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'resistance': {},
+            'support': {},
+            'current_price': 0,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/oi_chart/<symbol>/<period>', methods=['GET'])
 def get_oi_chart_data(symbol, period):
@@ -771,11 +797,14 @@ def health_check():
         else:
             binance_status = 'not initialized'
         
+        # 使用中国时区 (UTC+8)
+        tz_shanghai = timezone(timedelta(hours=8))
         return jsonify({
             'status': 'healthy',
             'binance': binance_status,
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
             'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
+            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S")
         })
     except Exception as e:
         return jsonify({
@@ -799,13 +828,15 @@ def start_background_threads():
     
     global current_data_cache
     if not current_data_cache or not current_data_cache.get('last_updated') or current_data_cache.get('last_updated') == "从未更新":
+        # 使用中国时区 (UTC+8)
+        tz_shanghai = timezone(timedelta(hours=8))
         current_data_cache = {
             "last_updated": "等待首次分析",
             "daily_rising": [],
             "short_term_active": [],
             "all_cycle_rising": [],
             "analysis_time": 0,
-            "next_analysis_time": "计算中..."
+            "next_analysis_time": get_next_update_time('5m').strftime("%Y-%m-%d %H:%M:%S")
         }
         logger.info("🆕 创建初始内存数据记录")
     
