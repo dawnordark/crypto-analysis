@@ -770,7 +770,10 @@
                 <span class="loading-spinner"></span> {{ statusMessage }}
             </span>
             <span v-else-if="error">{{ error }}</span>
-            <span v-else>{{ statusMessage }}</span>
+            <span v-else>
+                {{ statusMessage }}
+                <span v-if="!userThemeSet"> | 使用系统主题: {{ systemTheme === 'dark-theme' ? '深色' : '浅色' }}</span>
+            </span>
         </div>
 
         <!-- 阻力位查询区域 - 紧凑版 -->
@@ -1044,6 +1047,17 @@
         </div>
     </div>
     <script>
+        // 在Vue实例化之前检测系统主题
+        const detectSystemTheme = () => {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches 
+                ? 'dark-theme' : 'light-theme';
+        };
+
+        // 保存主题到body
+        const savedTheme = localStorage.getItem('themePreference');
+        const initialTheme = savedTheme || detectSystemTheme();
+        document.body.className = initialTheme;
+
         document.addEventListener('DOMContentLoaded', function() {
             new Vue({
                 el: '#app',
@@ -1076,9 +1090,11 @@
                         dailyRising: false,
                         shortTermActive: false
                     },
-                    theme: 'dark-theme',
-                    showAllLevels: false, // 控制是否显示所有周期
-                    importantPeriods: ['1d', '4h', '1h', '15m'] // 重要周期列表
+                    theme: initialTheme,
+                    userThemeSet: !!savedTheme,
+                    systemTheme: detectSystemTheme(),
+                    showAllLevels: false,
+                    importantPeriods: ['1d', '4h', '1h', '15m']
                 },
                 computed: {
                     sortedDailyRising() {
@@ -1100,14 +1116,11 @@
                             return b.oi - a.oi;
                         });
                     },
-                    // 计算可见的阻力位数据
                     visibleResistanceLevels() {
                         if (!this.queryResult || !this.queryResult.levels) return {};
                         
-                        // 如果显示所有周期，直接返回全部数据
                         if (this.showAllLevels) return this.queryResult.levels;
                         
-                        // 否则只返回重要周期
                         const visible = {};
                         for (const period of this.importantPeriods) {
                             if (this.queryResult.levels[period]) {
@@ -1116,11 +1129,38 @@
                         }
                         return visible;
                     },
-                    // 检查是否有更多周期可以显示
                     hasMoreLevels() {
                         if (!this.queryResult || !this.queryResult.levels) return false;
                         return Object.keys(this.queryResult.levels).length > this.importantPeriods.length;
                     }
+                },
+                mounted() {
+                    // 添加系统主题变化监听
+                    this.systemThemeWatcher = window.matchMedia('(prefers-color-scheme: dark)');
+                    this.systemThemeWatcher.addListener(e => {
+                        this.systemTheme = e.matches ? 'dark-theme' : 'light-theme';
+                        if (!this.userThemeSet) {
+                            this.theme = this.systemTheme;
+                            document.body.className = this.theme;
+                            
+                            // 重新渲染图表
+                            if (this.activeChart.symbol && this.activeChart.period) {
+                                const cacheKey = `${this.activeChart.symbol}-${this.activeChart.period}`;
+                                if (this.chartDataCache[cacheKey]) {
+                                    this.$nextTick(() => {
+                                        this.renderChart(
+                                            this.activeChart.symbol, 
+                                            this.activeChart.period, 
+                                            this.chartDataCache[cacheKey]
+                                        );
+                                    });
+                                }
+                            }
+                        }
+                    });
+                    
+                    // 初始数据加载
+                    this.fetchData();
                 },
                 methods: {
                     getStatusTagClasses(coin, period) {
@@ -1154,6 +1194,7 @@
                     toggleTheme() {
                         const newTheme = this.theme === 'dark-theme' ? 'light-theme' : 'dark-theme';
                         this.theme = newTheme;
+                        this.userThemeSet = true;
                         localStorage.setItem('themePreference', newTheme);
                         document.body.className = newTheme;
                         
@@ -1351,7 +1392,7 @@
                         
                         const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
                         this.queryLoading = true;
-                        this.showAllLevels = false; // 重置显示更多状态
+                        this.showAllLevels = false;
                         
                         axios.get(`/api/resistance_levels/${symbol}`)
                             .then(response => {
@@ -1410,9 +1451,7 @@
                                     : [];
                                 
                                 this.dailyRising = Array.isArray(data.daily_rising) 
-                                    ? data.daily_rising.filter(coin => 
-                                        !this.allCycleRising.some(c => c.symbol === coin.symbol)
-                                    )
+                                    ? data.daily_rising 
                                     : [];
                                 
                                 this.shortTermActive = Array.isArray(data.short_term_active) 
