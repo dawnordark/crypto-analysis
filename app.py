@@ -714,7 +714,7 @@ def get_data():
             'next_analysis_time': current_data_cache.get('next_analysis_time', "")
         }
         
-        logger.info(f"📦 返回数据: 日线上涨 {len(data['daily_rising'])}个, 全周期上涨 {len(data['all_cycle_rising'])}个")
+        logger.info(f"📦 返回数据: 日线上涨 {len(filtered_daily_rising)}个, 全周期上涨 {len(all_cycle_rising)}个")
         return jsonify(data)
     
     except Exception as e:
