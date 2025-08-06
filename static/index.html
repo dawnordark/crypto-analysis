@@ -64,6 +64,10 @@
             background: #474d57; 
             color: #9aa1ab;
         }
+        body.dark-theme .theme-toggle {
+            background: rgba(240, 185, 11, 0.1);
+            color: var(--dark-yellow);
+        }
         body.dark-theme .status-loading {
             background: rgba(240, 185, 11, 0.2);
             color: var(--dark-yellow);
@@ -159,6 +163,10 @@
         body.light-theme .refresh-btn:disabled { 
             background: #e0e3eb; 
             color: #a6b0c3;
+        }
+        body.light-theme .theme-toggle {
+            background: rgba(240, 185, 11, 0.1);
+            color: var(--light-yellow);
         }
         body.light-theme .status-loading {
             background: rgba(240, 185, 11, 0.2);
@@ -271,13 +279,6 @@
             align-items: center;
             justify-content: center;
             transition: background 0.2s;
-            background: rgba(240, 185, 11, 0.1);
-        }
-        .dark-theme .theme-toggle {
-            color: var(--dark-yellow);
-        }
-        .light-theme .theme-toggle {
-            color: var(--light-yellow);
         }
         .theme-toggle:hover {
             background: rgba(240, 185, 11, 0.2);
@@ -1639,7 +1640,7 @@
                         };
                         
                         const timestamp = new Date().getTime();
-                        const url = `/api/data?t=${timestamp}`;
+        const url = `/api/data?t=${timestamp}`;
 
                         axios.get(url, { timeout: 15000 })
                             .then(response => {
