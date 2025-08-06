@@ -17,31 +17,16 @@
         }
         
         :root {
-            /* 暗色主题 */
-            --bg-primary: #181a20;
-            --bg-secondary: #1e2026;
-            --bg-card: #1e2329;
-            --text-primary: #eaecef;
-            --text-secondary: #848e9c;
-            --accent: #f0b90b;
-            --positive: #0ecb81;  /* 币安绿色 */
-            --negative: #f6465d;  /* 币安红色 */
-            --border: #2b2f36;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-            --transition: all 0.3s ease;
-        }
-        
-        .light-theme {
-            /* 币安亮色主题配色 */
             --bg-primary: #ffffff;
             --bg-secondary: #f8f9fa;
-            --bg-card: #f0f2f5;
+            --bg-card: #ffffff;
             --text-primary: #1e2026;
             --text-secondary: #707a8a;
             --accent: #f0b90b;
-            --positive: #0ecb81;
-            --negative: #f6465d;
-            --border: #eaecef;
+            --positive: #03a66d;
+            --negative: #cf304a;
+            --border: #e6e8ea;
+            --card-shadow: none;
         }
         
         body {
@@ -50,7 +35,6 @@
             line-height: 1.6;
             padding: 20px;
             min-height: 100vh;
-            transition: var(--transition);
         }
         
         .container {
@@ -68,8 +52,6 @@
             justify-content: space-between;
             align-items: center;
             border: 1px solid var(--border);
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
         }
         
         .title-section h1 {
@@ -114,7 +96,7 @@
             font-weight: 600;
             font-size: 14px;
             cursor: pointer;
-            transition: var(--transition);
+            transition: all 0.3s ease;
             border: none;
             outline: none;
         }
@@ -160,7 +142,6 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            transition: var(--transition);
         }
         
         /* 阻力位查询区域 */
@@ -170,8 +151,6 @@
             margin-bottom: 25px;
             border: 1px solid var(--border);
             overflow: hidden;
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
         }
         
         .resistance-header {
@@ -180,12 +159,12 @@
             align-items: center;
             padding: 18px 22px;
             cursor: pointer;
-            background-color: rgba(43, 47, 54, 0.5);
-            transition: var(--transition);
+            background-color: rgba(43, 47, 54, 0.05);
+            transition: all 0.3s ease;
         }
         
         .resistance-header:hover {
-            background-color: rgba(59, 64, 72, 0.5);
+            background-color: rgba(59, 64, 72, 0.05);
         }
         
         .resistance-title {
@@ -215,7 +194,7 @@
             background-color: var(--bg-secondary);
             border: 1px solid var(--border);
             color: var(--text-primary);
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
         
         .query-input:focus {
@@ -231,310 +210,18 @@
             color: #1e2026;
             border: none;
             cursor: pointer;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
         
         .query-btn:hover {
             background-color: #e6ac00;
         }
         
-        .current-price {
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            margin: 20px 0;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            background-color: rgba(240, 185, 11, 0.1);
-            color: var(--accent);
-            border: 1px solid rgba(240, 185, 11, 0.2);
-        }
-        
-        /* 列表区域 */
-        .list-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-            gap: 20px;
-        }
-        
-        .list {
-            background-color: var(--bg-card);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid var(--border);
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
-        }
-        
-        .list-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 18px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .list-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--accent);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .count-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
-            background-color: var(--accent);
-            color: #1e2026;
-        }
-        
-        .list-desc {
-            font-size: 13px;
-            margin-bottom: 20px;
-            color: var(--text-secondary);
-            line-height: 1.7;
-        }
-        
-        .coin-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        .coin-item {
-            background-color: var(--bg-secondary);
-            border-radius: 10px;
-            padding: 18px;
-            border: 1px solid var(--border);
-            transition: var(--transition);
-        }
-        
-        .coin-item:hover {
-            border-color: var(--accent);
-        }
-        
-        .coin-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .coin-name-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .coin-name {
-            font-size: 17px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        
-        .coin-info {
-            display: flex;
-            gap: 15px;
-        }
-        
-        .info-item {
-            display: flex;
-            align-items: center;
-            padding: 6px 12px;
-            background-color: rgba(43, 47, 54, 0.5);
-            border-radius: 8px;
-            font-size: 14px;
-            transition: var(--transition);
-        }
-        
-        .stat-label {
-            margin-right: 6px;
-            color: var(--text-secondary);
-        }
-        
-        .stat-value {
-            font-weight: 600;
-        }
-        
-        .positive {
-            color: var(--positive);
-        }
-        
-        .negative {
-            color: var(--negative);
-        }
-        
-        .period-status {
+        .resistance-level-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 15px;
             margin-top: 15px;
-        }
-        
-        .status-tag {
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            min-width: 45px;
-            text-align: center;
-            cursor: pointer;
-            transition: var(--transition);
-            border: 1px solid;
-            font-weight: 500;
-        }
-        
-        .status-tag:hover {
-            transform: translateY(-2px);
-        }
-        
-        .status-tag-up {
-            color: var(--positive);
-            border-color: var(--positive);
-            background-color: rgba(14, 203, 129, 0.1);
-        }
-        
-        .status-tag-down {
-            color: var(--negative);
-            border-color: var(--negative);
-            background-color: rgba(246, 70, 93, 0.1);
-        }
-        
-        .status-tag-neutral {
-            color: var(--text-secondary);
-            border-color: var(--text-secondary);
-            background-color: rgba(154, 161, 171, 0.1);
-        }
-        
-        .status-tag-active {
-            background-color: rgba(240, 185, 11, 0.2);
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-        
-        .chart-container {
-            margin-top: 20px;
-            border-radius: 10px;
-            padding: 15px;
-            height: 220px;
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border);
-            position: relative;
-        }
-        
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .chart-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--accent);
-        }
-        
-        .close-chart {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 18px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .close-chart:hover {
-            color: var(--accent);
-        }
-        
-        .chart-placeholder {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-            gap: 15px;
-        }
-        
-        .chart-placeholder i {
-            font-size: 40px;
-            opacity: 0.5;
-        }
-        
-        .chart-error {
-            text-align: center;
-            padding: 20px;
-            color: var(--negative);
-            font-weight: 600;
-        }
-        
-        footer {
-            text-align: center;
-            padding: 30px 0 20px;
-            color: var(--text-secondary);
-            font-size: 14px;
-            margin-top: 30px;
-            border-top: 1px solid var(--border);
-        }
-        
-        /* 动画效果 */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.4s ease-out;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-        
-        .loading-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: var(--accent);
-            margin: 0 2px;
-            animation: pulse 1.5s infinite;
-        }
-        
-        /* 修复阻力位表格显示问题 */
-        .no-data {
-            color: var(--text-secondary);
-            font-style: italic;
-            padding: 10px;
-            text-align: center;
-        }
-        
-        /* 旋转箭头 */
-        .rotate-180 {
-            transform: rotate(180deg);
-            transition: transform 0.3s ease;
-        }
-        
-        .fa-chevron-down {
-            transition: transform 0.3s ease;
-        }
-        
-        /* ============ 优化部分 ============ */
-        /* 阻力位支撑位优化样式 */
-        .resistance-levels-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
         }
         
         .interval-card {
@@ -578,8 +265,8 @@
         .level-box {
             padding: 10px;
             border-radius: 6px;
-            background-color: rgba(43, 47, 54, 0.7);
-            transition: var(--transition);
+            background-color: rgba(255, 255, 255, 0.7);
+            transition: all 0.3s ease;
         }
         
         .resistance-box {
@@ -591,7 +278,7 @@
         }
         
         .level-box:hover {
-            background-color: rgba(59, 64, 72, 0.7);
+            background-color: rgba(245, 245, 245, 0.9);
         }
         
         .level-header {
@@ -648,7 +335,7 @@
             flex: 1;
             height: 6px;
             border-radius: 3px;
-            background-color: rgba(128, 128, 128, 0.2);
+            background-color: rgba(128, 128, 128, 0.1);
             overflow: hidden;
         }
         
@@ -695,6 +382,219 @@
             font-weight: 600;
         }
         
+        .current-price {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 20px 0;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            background-color: rgba(240, 185, 11, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(240, 185, 11, 0.2);
+        }
+        
+        /* 列表区域 */
+        .list-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+        }
+        
+        .list {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+        }
+        
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .list-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .count-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            background-color: var(--accent);
+            color: #1e2026;
+        }
+        
+        .list-desc {
+            font-size: 13px;
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        
+        .coin-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* 币种列表优化 */
+        .coin-item-compact {
+            padding: 15px;
+            background-color: var(--bg-secondary);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+        
+        .coin-header-compact {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .coin-name-compact {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .coin-stats-compact {
+            display: flex;
+            gap: 10px;
+            font-size: 14px;
+        }
+        
+        .stat-item-compact {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stat-label-compact {
+            color: var(--text-secondary);
+        }
+        
+        .stat-value-compact {
+            font-weight: 600;
+        }
+        
+        .period-status-compact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            font-size: 12px;
+        }
+        
+        .status-tag {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            min-width: 45px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid;
+            font-weight: 500;
+        }
+        
+        .status-tag:hover {
+            transform: translateY(-2px);
+        }
+        
+        .status-tag-up {
+            color: var(--positive);
+            border-color: var(--positive);
+            background-color: rgba(3, 166, 109, 0.1);
+        }
+        
+        .status-tag-down {
+            color: var(--negative);
+            border-color: var(--negative);
+            background-color: rgba(207, 48, 74, 0.1);
+        }
+        
+        .status-tag-neutral {
+            color: var(--text-secondary);
+            border-color: var(--text-secondary);
+            background-color: rgba(154, 161, 171, 0.1);
+        }
+        
+        .status-tag-active {
+            background-color: rgba(240, 185, 11, 0.2);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .chart-container {
+            margin-top: 20px;
+            border-radius: 10px;
+            padding: 15px;
+            height: 220px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            position: relative;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .chart-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .close-chart {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .close-chart:hover {
+            color: var(--accent);
+        }
+        
+        .chart-placeholder {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            gap: 15px;
+        }
+        
+        .chart-placeholder i {
+            font-size: 40px;
+            opacity: 0.5;
+        }
+        
+        .chart-error {
+            text-align: center;
+            padding: 20px;
+            color: var(--negative);
+            font-weight: 600;
+        }
+        
         /* 短期活跃优化 */
         .short-term-item {
             display: flex;
@@ -705,7 +605,7 @@
             border-radius: 8px;
             border: 1px solid var(--border);
             margin-bottom: 10px;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
         
         .short-term-item:hover {
@@ -750,6 +650,58 @@
             color: var(--text-secondary);
         }
         
+        footer {
+            text-align: center;
+            padding: 30px 0 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 30px;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        .loading-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--accent);
+            margin: 0 2px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .no-data {
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        /* 旋转箭头 */
+        .rotate-180 {
+            transform: rotate(180deg);
+            transition: transform 0.3s ease;
+        }
+        
+        .fa-chevron-down {
+            transition: transform 0.3s ease;
+        }
+        
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -772,10 +724,6 @@
             
             .query-container {
                 flex-direction: column;
-            }
-            
-            .coin-info {
-                flex-wrap: wrap;
             }
             
             .level-grid {
@@ -856,7 +804,7 @@
                     </div>
                     
                     <!-- 优化后的阻力位支撑位显示 -->
-                    <div class="resistance-levels-container">
+                    <div class="resistance-level-container">
                         <div v-for="(intervalData, intervalName) in visibleResistanceLevels" :key="intervalName" class="interval-card">
                             <div class="interval-title">
                                 <i class="fas fa-chart-area"></i> {{ intervalName.toUpperCase() }} 周期
@@ -976,24 +924,25 @@
                             <span>暂无全周期上涨币种</span>
                         </div>
                         <div v-else v-for="coin in sortedAllCycleRising" :key="coin.symbol + 'allcycle'">
-                            <div class="coin-item">
-                                <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-name">
-                                            {{ coin.symbol }}
-                                        </div>
+                            <!-- 优化后的币种显示 -->
+                            <div class="coin-item-compact">
+                                <div class="coin-header-compact">
+                                    <div class="coin-name-compact">
+                                        {{ coin.symbol }}
                                     </div>
-                                    <div class="coin-info">
-                                        <div class="info-item">
-                                            <span class="stat-label">持仓:</span>
-                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                    <div class="coin-stats-compact">
+                                        <div class="stat-item-compact">
+                                            <span class="stat-label-compact">持仓量:</span>
+                                            <span class="stat-value-compact">{{ formatNumber(coin.oi) }}</span>
                                         </div>
-                                        <div class="info-item positive">
-                                            <span class="stat-value">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                        <div class="stat-item-compact positive">
+                                            <span class="stat-label-compact">涨幅:</span>
+                                            <span class="stat-value-compact">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="period-status">
+                                
+                                <div class="period-status-compact">
                                     <span 
                                         v-for="period in periods" 
                                         :key="period" 
@@ -1004,18 +953,16 @@
                                         {{ period }}
                                     </span>
                                 </div>
-
-                                <!-- 持仓量图表 -->
+                                
+                                <!-- 图表容器 -->
                                 <div v-if="activeChart.symbol === coin.symbol && activeChart.period" class="chart-container">
                                     <div class="chart-header">
-                                        <div class="chart-title">
-                                            {{ coin.symbol }} - {{ activeChart.period.toUpperCase() }} 持仓量
-                                        </div>
-                                        <button class="close-chart" @click="closeChart">
+                                        <div class="chart-title">{{ coin.symbol }} - {{ activeChart.period }} 持仓量</div>
+                                        <button class="close-chart" @click.stop="closeChart">
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </div>
-                                    <canvas :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
+                                    <canvas :id="'chart-' + coin.symbol + '-' + activeChart.period"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -1045,24 +992,25 @@
                             <span>暂无日线上涨币种</span>
                         </div>
                         <div v-else v-for="coin in sortedDailyRising" :key="coin.symbol + 'daily'">
-                            <div class="coin-item">
-                                <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-name">
-                                            {{ coin.symbol }}
-                                        </div>
+                            <!-- 优化后的币种显示 -->
+                            <div class="coin-item-compact">
+                                <div class="coin-header-compact">
+                                    <div class="coin-name-compact">
+                                        {{ coin.symbol }}
                                     </div>
-                                    <div class="coin-info">
-                                        <div class="info-item">
-                                            <span class="stat-label">持仓:</span>
-                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                    <div class="coin-stats-compact">
+                                        <div class="stat-item-compact">
+                                            <span class="stat-label-compact">持仓量:</span>
+                                            <span class="stat-value-compact">{{ formatNumber(coin.oi) }}</span>
                                         </div>
-                                        <div class="info-item positive">
-                                            <span class="stat-value">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                        <div class="stat-item-compact positive">
+                                            <span class="stat-label-compact">涨幅:</span>
+                                            <span class="stat-value-compact">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="period-status">
+                                
+                                <div class="period-status-compact">
                                     <span 
                                         v-for="period in periods" 
                                         :key="period" 
@@ -1073,18 +1021,16 @@
                                         {{ period }}
                                     </span>
                                 </div>
-
-                                <!-- 持仓量图表 -->
+                                
+                                <!-- 图表容器 -->
                                 <div v-if="activeChart.symbol === coin.symbol && activeChart.period" class="chart-container">
                                     <div class="chart-header">
-                                        <div class="chart-title">
-                                            {{ coin.symbol }} - {{ activeChart.period.toUpperCase() }} 持仓量
-                                        </div>
-                                        <button class="close-chart" @click="closeChart">
+                                        <div class="chart-title">{{ coin.symbol }} - {{ activeChart.period }} 持仓量</div>
+                                        <button class="close-chart" @click.stop="closeChart">
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </div>
-                                    <canvas :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
+                                    <canvas :id="'chart-' + coin.symbol + '-' + activeChart.period"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -1126,7 +1072,7 @@
                                     </div>
                                     <div class="short-term-stat">
                                         <div class="short-term-label">活跃度</div>
-                                        <div class="short-term-value ratio-high">
+                                        <div class="short-term-value" :class="getRatioClass(coin.ratio)">
                                             {{ coin.ratio.toFixed(1) }}x
                                         </div>
                                     </div>
@@ -1148,69 +1094,23 @@
             new Vue({
                 el: '#app',
                 data: {
-                    lastUpdated: "2023-10-15 14:30:25",
-                    nextAnalysisTime: "2023-10-15 14:45:00",
-                    dailyRising: [
-                        {symbol: "BTCUSDT", oi: 24563210, change: 3.2, period_count: 8, period_status: {'5m': true, '15m': true, '30m': true, '1h': true, '2h': true, '4h': true, '6h': true, '12h': true, '1d': true}},
-                        {symbol: "ETHUSDT", oi: 18456789, change: 2.8, period_count: 7, period_status: {'5m': true, '15m': true, '30m': true, '1h': true, '2h': true, '4h': true, '6h': true, '12h': true, '1d': true}},
-                        {symbol: "SOLUSDT", oi: 8765432, change: 5.6, period_count: 6, period_status: {'5m': true, '15m': true, '30m': true, '1h': true, '2h': true, '4h': true, '6h': true, '12h': false, '1d': true}}
-                    ],
-                    shortTermActive: [
-                        {symbol: "DOGEUSDT", oi: 6543210, ratio: 2.5},
-                        {symbol: "XRPUSDT", oi: 5432109, ratio: 2.2},
-                        {symbol: "ADAUSDT", oi: 4321098, ratio: 1.9}
-                    ],
-                    allCycleRising: [
-                        {symbol: "BNBUSDT", oi: 12345678, change: 4.1, period_count: 9, period_status: {'5m': true, '15m': true, '30m': true, '1h': true, '2h': true, '4h': true, '6h': true, '12h': true, '1d': true}},
-                        {symbol: "DOTUSDT", oi: 9876543, change: 3.7, period_count: 8, period_status: {'5m': true, '15m': true, '30m': true, '1h': true, '2h': true, '4h': true, '6h': true, '12h': true, '1d': true}},
-                        {symbol: "AVAXUSDT", oi: 8765432, change: 6.2, period_count: 7, period_status: {'5m': true, '15m': true, '30m': true, '1h': true, '2h': true, '4h': true, '6h': true, '12h': true, '1d': true}}
-                    ],
+                    lastUpdated: null,
+                    nextAnalysisTime: null,
+                    dailyRising: [],
+                    shortTermActive: [],
+                    allCycleRising: [],
                     activeChart: {
                         symbol: null,
                         period: null
                     },
                     resistanceQuery: 'BTC',
-                    queryResult: {
-                        current_price: 26850.32,
-                        levels: {
-                            '1h': {
-                                resistance: [
-                                    {price: 26980.5, strength: 0.85, distance_percent: 0.48, source_types: ['fib_0.618', 'ema_200']},
-                                    {price: 27120.3, strength: 0.65, distance_percent: 1.00, source_types: ['integer', 'volume_profile']}
-                                ],
-                                support: [
-                                    {price: 26720.1, strength: 0.75, distance_percent: -0.48, source_types: ['bb_lower', 'orderbook']},
-                                    {price: 26580.4, strength: 0.90, distance_percent: -1.00, source_types: ['fib_other', 'ema_100']}
-                                ]
-                            },
-                            '4h': {
-                                resistance: [
-                                    {price: 27050.2, strength: 0.92, distance_percent: 0.74, source_types: ['orderbook', 'volume_profile']},
-                                    {price: 27280.6, strength: 0.78, distance_percent: 1.60, source_types: ['integer', 'ema_200']}
-                                ],
-                                support: [
-                                    {price: 26650.8, strength: 0.82, distance_percent: -0.74, source_types: ['fib_0.618', 'bb_lower']},
-                                    {price: 26420.3, strength: 0.95, distance_percent: -1.60, source_types: ['ema_100', 'volume_profile']}
-                                ]
-                            },
-                            '1d': {
-                                resistance: [
-                                    {price: 27500.0, strength: 0.95, distance_percent: 2.42, source_types: ['integer', 'fib_0.618']},
-                                    {price: 28000.0, strength: 0.88, distance_percent: 4.28, source_types: ['orderbook', 'ema_200']}
-                                ],
-                                support: [
-                                    {price: 26300.0, strength: 0.85, distance_percent: -1.98, source_types: ['bb_lower', 'volume_profile']},
-                                    {price: 25800.0, strength: 0.92, distance_percent: -3.90, source_types: ['fib_other', 'ema_100']}
-                                ]
-                            }
-                        }
-                    },
+                    queryResult: null,
                     queryLoading: false,
                     chartDataCache: {},
                     loading: false,
-                    dataLoading: false,
+                    dataLoading: true,
                     error: null,
-                    statusMessage: "数据已加载，共 9 个币种",
+                    statusMessage: "正在加载数据...",
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
                     isResistanceCollapsed: false,
@@ -1252,7 +1152,13 @@
                         return 'confidence-low';
                     },
                     
-                    // 获取阻力位来源提示
+                    // 获取活跃度分类
+                    getRatioClass(ratio) {
+                        if (ratio > 2.0) return 'ratio-high';
+                        if (ratio > 1.5) return 'ratio-medium';
+                        return 'ratio-low';
+                    },
+                    
                     getSourceTypesTooltip(sourceTypes) {
                         if (!sourceTypes || sourceTypes.length === 0) return "未知来源";
                         
@@ -1278,20 +1184,27 @@
                         localStorage.setItem('darkMode', this.darkMode);
                         this.applyTheme();
                     },
-                    
                     applyTheme() {
                         if (this.darkMode) {
-                            document.documentElement.classList.remove('light-theme');
+                            document.documentElement.style.setProperty('--bg-primary', '#181a20');
+                            document.documentElement.style.setProperty('--bg-secondary', '#1e2026');
+                            document.documentElement.style.setProperty('--bg-card', '#1e2329');
+                            document.documentElement.style.setProperty('--text-primary', '#eaecef');
+                            document.documentElement.style.setProperty('--text-secondary', '#848e9c');
+                            document.documentElement.style.setProperty('--border', '#2b2f36');
                         } else {
-                            document.documentElement.classList.add('light-theme');
+                            document.documentElement.style.setProperty('--bg-primary', '#ffffff');
+                            document.documentElement.style.setProperty('--bg-secondary', '#f8f9fa');
+                            document.documentElement.style.setProperty('--bg-card', '#ffffff');
+                            document.documentElement.style.setProperty('--text-primary', '#1e2026');
+                            document.documentElement.style.setProperty('--text-secondary', '#707a8a');
+                            document.documentElement.style.setProperty('--border', '#e6e8ea');
                         }
                     },
-                    
                     closeChart() {
                         this.activeChart.symbol = null;
                         this.activeChart.period = null;
                     },
-                    
                     getStatusTagClasses(coin, period) {
                         const isActive = this.activeChart.symbol === coin.symbol && 
                                         this.activeChart.period === period;
@@ -1317,9 +1230,7 @@
                         
                         return classes;
                     },
-                    
                     togglePeriodChart(symbol, period) {
-                        // 如果点击的是当前已激活的标签，则关闭图表
                         if (this.activeChart.symbol === symbol && this.activeChart.period === period) {
                             this.activeChart.symbol = null;
                             this.activeChart.period = null;
@@ -1329,66 +1240,46 @@
                         this.activeChart.symbol = symbol;
                         this.activeChart.period = period;
                         
-                        // 渲染图表
                         this.$nextTick(() => {
-                            // 添加延迟确保DOM更新完成
-                            setTimeout(() => this.renderChart(symbol, period), 100);
+                            setTimeout(() => this.renderChart(symbol, period), 300);
                         });
                     },
-                    
                     async renderChart(symbol, period) {
                         const canvasId = `chart-${symbol}-${period}`;
                         const canvas = document.getElementById(canvasId);
-                        if (!canvas) {
-                            console.error(`Canvas element not found: ${canvasId}`);
-                            return;
-                        }
+                        if (!canvas) return;
                         
-                        // 清除之前的图表
+                        const ctx = canvas.getContext('2d');
+                        
                         if (canvas.chart) {
                             canvas.chart.destroy();
                         }
                         
-                        // 清除错误信息
-                        const errorElements = canvas.parentNode.getElementsByClassName('chart-error');
-                        if (errorElements.length > 0) {
-                            errorElements[0].remove();
-                        }
-                        
                         try {
-                            // 模拟API调用
-                            await new Promise(resolve => setTimeout(resolve, 500));
+                            const response = await axios.get(`/api/oi_chart/${symbol}/${period}`);
+                            const chartData = response.data;
                             
-                            // 生成模拟数据
-                            const timestamps = [];
-                            const data = [];
-                            const now = Date.now();
-                            
-                            for (let i = 0; i < 20; i++) {
-                                timestamps.push(now - (20 - i) * 300000); // 5分钟间隔
-                                data.push(Math.floor(1000000 + Math.random() * 500000));
+                            if (!chartData.data || chartData.data.length === 0) {
+                                throw new Error('没有可用数据');
                             }
                             
-                            // 转换时间戳为可读格式
-                            const labels = timestamps.map(timestamp => {
+                            const labels = chartData.timestamps.map(timestamp => {
                                 const date = new Date(timestamp);
                                 return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
                             });
                             
-                            // 计算数据范围用于自适应y轴
-                            const minVal = Math.min(...data);
-                            const maxVal = Math.max(...data);
+                            const dataValues = chartData.data;
+                            const minVal = Math.min(...dataValues);
+                            const maxVal = Math.max(...dataValues);
                             const range = maxVal - minVal;
                             
-                            // 创建柱状图
-                            const ctx = canvas.getContext('2d');
                             canvas.chart = new Chart(ctx, {
                                 type: 'bar',
                                 data: {
                                     labels: labels,
                                     datasets: [{
                                         label: '持仓量',
-                                        data: data,
+                                        data: dataValues,
                                         backgroundColor: 'rgba(240, 185, 11, 0.7)',
                                         borderColor: 'rgba(240, 185, 11, 1)',
                                         borderWidth: 1
@@ -1420,7 +1311,7 @@
                                     scales: {
                                         x: {
                                             grid: {
-                                                color: 'rgba(43, 47, 54, 0.5)',
+                                                color: 'rgba(43, 47, 54, 0.1)',
                                                 drawBorder: false
                                             },
                                             ticks: {
@@ -1434,7 +1325,7 @@
                                             min: minVal - range * 0.1,
                                             max: maxVal + range * 0.1,
                                             grid: {
-                                                color: 'rgba(43, 47, 54, 0.5)',
+                                                color: 'rgba(43, 47, 54, 0.1)',
                                                 drawBorder: false
                                             },
                                             ticks: {
@@ -1458,62 +1349,25 @@
                             });
                         } catch (error) {
                             console.error('图表渲染失败:', error);
-                            // 显示错误信息
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'chart-error';
-                            errorDiv.textContent = '图表加载失败: ' + error.message;
-                            canvas.parentNode.appendChild(errorDiv);
+                            this.chartErrors[`${symbol}-${period}`] = `图表加载失败: ${error.message}`;
                         }
                     },
-                    
                     async queryResistanceLevels() {
                         if (!this.resistanceQuery) return;
                         
                         this.queryLoading = true;
                         this.queryResult = null;
+                        const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
                         
                         try {
-                            // 模拟API请求延迟
-                            await new Promise(resolve => setTimeout(resolve, 800));
+                            const response = await axios.get(`/api/resistance_levels/${symbol}`);
+                            this.queryResult = response.data;
                             
-                            // 使用模拟数据
-                            this.queryResult = {
-                                current_price: 26850.32,
-                                levels: {
-                                    '1h': {
-                                        resistance: [
-                                            {price: 26980.5, strength: 0.85, distance_percent: 0.48, source_types: ['fib_0.618', 'ema_200']},
-                                            {price: 27120.3, strength: 0.65, distance_percent: 1.00, source_types: ['integer', 'volume_profile']}
-                                        ],
-                                        support: [
-                                            {price: 26720.1, strength: 0.75, distance_percent: -0.48, source_types: ['bb_lower', 'orderbook']},
-                                            {price: 26580.4, strength: 0.90, distance_percent: -1.00, source_types: ['fib_other', 'ema_100']}
-                                        ]
-                                    },
-                                    '4h': {
-                                        resistance: [
-                                            {price: 27050.2, strength: 0.92, distance_percent: 0.74, source_types: ['orderbook', 'volume_profile']},
-                                            {price: 27280.6, strength: 0.78, distance_percent: 1.60, source_types: ['integer', 'ema_200']}
-                                        ],
-                                        support: [
-                                            {price: 26650.8, strength: 0.82, distance_percent: -0.74, source_types: ['fib_0.618', 'bb_lower']},
-                                            {price: 26420.3, strength: 0.95, distance_percent: -1.60, source_types: ['ema_100', 'volume_profile']}
-                                        ]
-                                    },
-                                    '1d': {
-                                        resistance: [
-                                            {price: 27500.0, strength: 0.95, distance_percent: 2.42, source_types: ['integer', 'fib_0.618']},
-                                            {price: 28000.0, strength: 0.88, distance_percent: 4.28, source_types: ['orderbook', 'ema_200']}
-                                        ],
-                                        support: [
-                                            {price: 26300.0, strength: 0.85, distance_percent: -1.98, source_types: ['bb_lower', 'volume_profile']},
-                                            {price: 25800.0, strength: 0.92, distance_percent: -3.90, source_types: ['fib_other', 'ema_100']}
-                                        ]
-                                    }
-                                }
-                            };
+                            if (!this.queryResult || !this.queryResult.levels) {
+                                throw new Error('未获取到阻力位数据');
+                            }
                             
-                            this.statusMessage = `${this.resistanceQuery.toUpperCase()}USDT 阻力位数据已加载`;
+                            this.statusMessage = `${symbol}阻力位数据已加载`;
                         } catch (error) {
                             console.error('阻力位查询失败:', error);
                             this.statusMessage = `查询失败: ${error.message}`;
@@ -1521,20 +1375,16 @@
                             this.queryLoading = false;
                         }
                     },
-                    
                     formatSymbolInput() {
                         this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
                     },
-                    
                     formatNumber(num) {
                         if (!num) return "0";
                         if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
                         if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
                         return num.toFixed(2);
                     },
-                    
                     fetchData() {
-                        // 重置计时器
                         this.loadingSeconds = 0;
                         clearInterval(this.loadingTimer);
                         this.loadingTimer = setInterval(() => {
@@ -1545,33 +1395,52 @@
                         this.dataLoading = true;
                         this.statusMessage = "正在刷新数据...";
                         
-                        // 模拟数据加载
-                        setTimeout(() => {
-                            this.lastUpdated = new Date().toLocaleString();
-                            this.nextAnalysisTime = new Date(Date.now() + 15 * 60000).toLocaleTimeString();
-                            this.statusMessage = "数据已刷新，共 9 个币种";
-                            this.loading = false;
-                            this.dataLoading = false;
-                            clearInterval(this.loadingTimer);
-                        }, 1500);
+                        axios.get('/api/data')
+                            .then(response => {
+                                this.processData(response.data);
+                            })
+                            .catch(error => {
+                                this.handleDataError(error);
+                            });
                     },
-                    
+                    processData(data) {
+                        this.lastUpdated = data.last_updated;
+                        this.nextAnalysisTime = data.next_analysis_time;
+                        this.dailyRising = data.daily_rising || [];
+                        this.shortTermActive = data.short_term_active || [];
+                        this.allCycleRising = data.all_cycle_rising || [];
+                        
+                        const total = this.dailyRising.length + 
+                                      this.shortTermActive.length + 
+                                      this.allCycleRising.length;
+                        this.statusMessage = `数据已刷新，共 ${total} 个币种`;
+                        this.error = null;
+                        this.loading = false;
+                        this.dataLoading = false;
+                        clearInterval(this.loadingTimer);
+                    },
+                    handleDataError(error) {
+                        console.error('数据加载失败:', error);
+                        this.error = `数据加载失败: ${error.message}`;
+                        this.statusMessage = this.error;
+                        this.loading = false;
+                        this.dataLoading = false;
+                        clearInterval(this.loadingTimer);
+                    },
                     initAutoRefresh() {
-                        // 每5分钟刷新一次
                         this.refreshInterval = setInterval(() => {
                             this.fetchData();
                         }, 5 * 60 * 1000);
                     }
                 },
                 created() {
-                    // 加载主题偏好
                     const savedTheme = localStorage.getItem('darkMode');
                     if (savedTheme !== null) {
                         this.darkMode = JSON.parse(savedTheme);
                     }
                     this.applyTheme();
                     
-                    // 初始加载数据
+                    this.fetchData();
                     this.initAutoRefresh();
                 },
                 beforeDestroy() {
