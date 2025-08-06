@@ -6,12 +6,13 @@ import sys
 import subprocess
 import traceback
 
-# 简化后的 TA-Lib 导入逻辑
+# 优化后的 TA-Lib 导入逻辑 - 使用纯 Python 替代方案
 try:
+    # 尝试导入二进制版本的 TA-Lib
     import talib
-    print("✅ TA-Lib 已安装")
+    print("✅ TA-Lib (binary) 已安装")
 except ImportError:
-    print("❌ TA-Lib 未安装，使用替代函数")
+    print("❌ TA-Lib (binary) 未安装，使用替代函数")
     talib = None
 
 import time

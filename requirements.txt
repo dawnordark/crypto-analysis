@@ -3,4 +3,4 @@ flask-cors
 python-binance
 requests
 numpy
-TA-Lib==0.4.24
+ta-lib-binary==0.4.28
