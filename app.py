@@ -3,6 +3,36 @@
 
 import os
 import sys
+import subprocess
+import traceback
+
+# 尝试安装 TA-Lib
+try:
+    import talib
+    print("✅ TA-Lib 已安装")
+except ImportError:
+    print("TA-Lib 未安装，尝试安装...")
+    try:
+        # 安装依赖
+        subprocess.run(["sudo", "apt-get", "update"], check=True)
+        subprocess.run(["sudo", "apt-get", "install", "-y", "build-essential"], check=True)
+        subprocess.run(["wget", "http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz"], check=True)
+        subprocess.run(["tar", "-xvf", "ta-lib-0.4.0-src.tar.gz"], check=True)
+        os.chdir("ta-lib")
+        subprocess.run(["./configure", "--prefix=/usr"], check=True)
+        subprocess.run(["make"], check=True)
+        subprocess.run(["sudo", "make", "install"], check=True)
+        os.chdir("..")
+        subprocess.run(["pip", "install", "TA-Lib"], check=True)
+        import talib
+        print("✅ TA-Lib 安装成功")
+    except Exception as e:
+        print(f"❌ TA-Lib 安装失败: {str(e)}")
+        print(traceback.format_exc())
+        # 如果安装失败，使用替代方案
+        print("⚠️ 使用替代技术指标计算方案")
+        talib = None
+
 import time
 import re
 import json
@@ -11,15 +41,12 @@ import requests
 import threading
 import queue
 import logging
-import traceback
 import urllib3
 import numpy as np
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
-import talib  # 新增技术指标库
-import itertools
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -308,6 +335,33 @@ def get_orderbook_liquidity(symbol):
         logger.error(f"订单簿分析失败: {str(e)}")
         return []
 
+def calculate_ema(data, period):
+    """替代的EMA计算函数"""
+    if len(data) < period:
+        return np.nan
+    
+    # 使用NumPy计算EMA
+    alpha = 2 / (period + 1)
+    weights = np.array([(1 - alpha) ** i for i in range(period)][::-1])
+    weights /= weights.sum()
+    
+    # 计算最近的period个数据的EMA
+    return np.dot(data[-period:], weights)
+
+def calculate_bollinger(data, period=20, num_std=2):
+    """替代的布林带计算函数"""
+    if len(data) < period:
+        return np.nan, np.nan
+    
+    # 计算移动平均
+    ma = np.mean(data[-period:])
+    # 计算标准差
+    std = np.std(data[-period:])
+    
+    upper = ma + (std * num_std)
+    lower = ma - (std * num_std)
+    return upper, lower
+
 def calculate_resistance_levels(symbol):
     try:
         logger.info(f"📊 计算阻力位: {symbol}")
@@ -362,16 +416,25 @@ def calculate_resistance_levels(symbol):
                 
                 # 1. 计算技术指标
                 # 移动平均线
-                ema50 = talib.EMA(closes, timeperiod=50)[-1]
-                ema100 = talib.EMA(closes, timeperiod=100)[-1]
-                ema200 = talib.EMA(closes, timeperiod=200)[-1]
-                
-                # 布林带
-                upper_band, middle_band, lower_band = talib.BBANDS(
-                    closes, timeperiod=20, nbdevup=2, nbdevdn=2
-                )
-                bb_upper = upper_band[-1]
-                bb_lower = lower_band[-1]
+                if talib:
+                    # 使用TA-Lib
+                    ema50 = talib.EMA(closes, timeperiod=50)[-1]
+                    ema100 = talib.EMA(closes, timeperiod=100)[-1]
+                    ema200 = talib.EMA(closes, timeperiod=200)[-1]
+                    
+                    # 布林带
+                    upper_band, middle_band, lower_band = talib.BBANDS(
+                        closes, timeperiod=20, nbdevup=2, nbdevdn=2
+                    )
+                    bb_upper = upper_band[-1]
+                    bb_lower = lower_band[-1]
+                else:
+                    # 使用替代函数
+                    logger.info("📊 使用替代函数计算技术指标")
+                    ema50 = calculate_ema(closes, 50)
+                    ema100 = calculate_ema(closes, 100)
+                    ema200 = calculate_ema(closes, 200)
+                    bb_upper, bb_lower = calculate_bollinger(closes, 20, 2)
                 
                 # 斐波那契水平（基于最近100根K线的最高最低）
                 recent_high = max(high_prices)

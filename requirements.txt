@@ -1,5 +1,5 @@
-Flask==3.0.3
-python-binance==1.0.19
-requests==2.31.0
-numpy==1.24.3
-gunicorn==21.2.0
+numpy
+pandas
+flask
+requests
+python-binance
