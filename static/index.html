@@ -3,247 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>持仓量分析</title>
+    <title>阻力位支撑位分析系统</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* 精简后的CSS样式 */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 15px;
             line-height: 1.6;
             transition: background-color 0.3s, color 0.3s;
+            background-color: #0a0e17;
+            color: #eaecef;
         }
         .container { max-width: 1400px; margin: 0 auto; }
 
-        /* 主题变量 */
-        :root {
-            --dark-bg: #0a0e17;
-            --dark-card-bg: #1e2026;
-            --dark-card-border: #2b2f36;
-            --dark-text: #eaecef;
-            --dark-text-secondary: #9aa1ab;
-            --dark-yellow: #f0b90b;
-            --dark-green: #03a66d;
-            --dark-red: #cf304a;
-            
-            --light-bg: #f8f9fa;
-            --light-card-bg: #ffffff;
-            --light-card-border: #e0e3eb;
-            --light-text: #1e2329;
-            --light-text-secondary: #707a8a;
-            --light-yellow: #f0b90b;
-            --light-green: #03a66d;
-            --light-red: #cf304a;
-        }
-
-        /* 暗色主题 */
-        body.dark-theme {
-            background-color: var(--dark-bg);
-            color: var(--dark-text);
-        }
-        body.dark-theme .header,
-        body.dark-theme .resistance-query,
-        body.dark-theme .list {
-            background: var(--dark-card-bg);
-            border: 1px solid var(--dark-card-border);
-        }
-        body.dark-theme .title-section h1 { color: var(--dark-yellow); }
-        body.dark-theme .time-info,
-        body.dark-theme .list-desc {
-            color: var(--dark-text-secondary);
-        }
-        body.dark-theme .refresh-btn { 
-            background: var(--dark-yellow);
-            color: #1e2026;
-        }
-        body.dark-theme .refresh-btn:hover { background: #e6ac00; }
-        body.dark-theme .refresh-btn:disabled { 
-            background: #474d57; 
-            color: #9aa1ab;
-        }
-        body.dark-theme .theme-toggle {
-            background: rgba(240, 185, 11, 0.1);
-            color: var(--dark-yellow);
-        }
-        body.dark-theme .status-loading {
-            background: rgba(240, 185, 11, 0.2);
-            color: var(--dark-yellow);
-        }
-        body.dark-theme .status-error {
-            background: rgba(207, 48, 74, 0.2);
-            color: var(--dark-red);
-        }
-        body.dark-theme .status-success {
-            background: rgba(3, 166, 109, 0.2);
-            color: var(--dark-green);
-        }
-        body.dark-theme .query-input {
-            background: #1c1f26;
-            border: 1px solid var(--dark-card-border);
-            color: var(--dark-text);
-        }
-        body.dark-theme .query-btn {
-            background: #2b2f36;
-            color: var(--dark-text);
-        }
-        body.dark-theme .query-btn:hover { background: #474d57; }
-        body.dark-theme .coin-item {
-            background: #1c1f26;
-            border: 1px solid var(--dark-card-border);
-        }
-        body.dark-theme .coin-name {
-            color: var(--dark-yellow);
-        }
-        body.dark-theme .symbol-usdt {
-            color: var(--dark-text-secondary);
-        }
-        body.dark-theme .stat-label {
-            color: var(--dark-text-secondary);
-        }
-        body.dark-theme .positive { color: var(--dark-green); }
-        body.dark-theme .negative { color: var(--dark-red); }
-        body.dark-theme .chart-container {
-            background: #1a1d24;
-            border: 1px solid var(--dark-card-border);
-        }
-        body.dark-theme .chart-title {
-            color: var(--dark-text-secondary);
-        }
-        body.dark-theme .chart-placeholder {
-            color: var(--dark-text-secondary);
-        }
-        body.dark-theme .chart-error {
-            color: var(--dark-red);
-        }
-        body.dark-theme .resistance-display {
-            background: #1c1f26;
-            border: 1px solid var(--dark-card-border);
-        }
-        body.dark-theme .resistance-block {
-            background: #2b2f36;
-        }
-        body.dark-theme .block-header {
-            color: var(--dark-text-secondary);
-        }
-        body.dark-theme .resistance-value {
-            color: var(--dark-red);
-        }
-        body.dark-theme .support-value {
-            color: var(--dark-green);
-        }
-        body.dark-theme .no-data {
-            color: var(--dark-text-secondary);
-        }
-
-        /* 亮色主题 */
-        body.light-theme {
-            background-color: var(--light-bg);
-            color: var(--light-text);
-        }
-        body.light-theme .header,
-        body.light-theme .resistance-query,
-        body.light-theme .list {
-            background: var(--light-card-bg);
-            border: 1px solid var(--light-card-border);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        body.light-theme .title-section h1 { color: var(--light-yellow); }
-        body.light-theme .time-info,
-        body.light-theme .list-desc {
-            color: var(--light-text-secondary);
-        }
-        body.light-theme .refresh-btn { 
-            background: var(--light-yellow);
-            color: #1e2026;
-        }
-        body.light-theme .refresh-btn:hover { background: #e6ac00; }
-        body.light-theme .refresh-btn:disabled { 
-            background: #e0e3eb; 
-            color: #a6b0c3;
-        }
-        body.light-theme .theme-toggle {
-            background: rgba(240, 185, 11, 0.1);
-            color: var(--light-yellow);
-        }
-        body.light-theme .status-loading {
-            background: rgba(240, 185, 11, 0.2);
-            color: var(--light-yellow);
-        }
-        body.light-theme .status-error {
-            background: rgba(207, 48, 74, 0.1);
-            color: var(--light-red);
-        }
-        body.light-theme .status-success {
-            background: rgba(3, 166, 109, 0.1);
-            color: var(--light-green);
-        }
-        body.light-theme .query-input {
-            background: #ffffff;
-            border: 1px solid var(--light-card-border);
-            color: var(--light-text);
-        }
-        body.light-theme .query-btn {
-            background: #f0f2f5;
-            color: var(--light-text);
-        }
-        body.light-theme .query-btn:hover { background: #e0e3eb; }
-        body.light-theme .coin-item {
-            background: #ffffff;
-            border: 1px solid var(--light-card-border);
-        }
-        body.light-theme .coin-name {
-            color: var(--light-yellow);
-        }
-        body.light-theme .symbol-usdt {
-            color: var(--light-text-secondary);
-        }
-        body.light-theme .stat-label {
-            color: var(--light-text-secondary);
-        }
-        body.light-theme .positive { color: var(--light-green); }
-        body.light-theme .negative { color: var(--light-red); }
-        body.light-theme .chart-container {
-            background: #f8f9fa;
-            border: 1px solid var(--light-card-border);
-        }
-        body.light-theme .chart-title {
-            color: var(--light-text-secondary);
-        }
-        body.light-theme .chart-placeholder {
-            color: var(--light-text-secondary);
-        }
-        body.light-theme .chart-error {
-            color: var(--light-red);
-        }
-        body.light-theme .resistance-display {
-            background: #ffffff;
-            border: 1px solid var(--light-card-border);
-        }
-        body.light-theme .resistance-block {
-            background: #f8f9fa;
-        }
-        body.light-theme .block-header {
-            color: var(--light-text-secondary);
-        }
-        body.light-theme .resistance-value {
-            color: var(--light-red);
-        }
-        body.light-theme .support-value {
-            color: var(--light-green);
-        }
-        body.light-theme .no-data {
-            color: var(--light-text-secondary);
-        }
-
-        /* 通用样式 */
         .header { 
             border-radius: 12px; 
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            background: #1e2026;
+            border: 1px solid #2b2f36;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -251,9 +32,11 @@
         .title-section h1 { 
             font-size: 24px; 
             margin-bottom: 5px;
+            color: #f0b90b;
         }
         .time-info {
             font-size: 13px;
+            color: #9aa1ab;
         }
         .refresh-btn { 
             border: none; 
@@ -264,9 +47,17 @@
             font-size: 14px;
             transition: background 0.2s;
             min-width: 120px;
+            background: #f0b90b;
+            color: #1e2026;
+        }
+        .refresh-btn:hover { background: #e6ac00; }
+        .refresh-btn:disabled { 
+            background: #474d57; 
+            color: #9aa1ab;
         }
         .theme-toggle {
-            background: none;
+            background: rgba(240, 185, 11, 0.1);
+            color: #f0b90b;
             border: none;
             font-size: 20px;
             cursor: pointer;
@@ -284,16 +75,16 @@
             background: rgba(240, 185, 11, 0.2);
         }
         
-        /* 数据状态指示器 */
         .data-status {
             padding: 8px 12px;
             border-radius: 6px;
             font-size: 13px;
             font-weight: bold;
             margin-bottom: 20px;
+            background: rgba(240, 185, 11, 0.2);
+            color: #f0b90b;
         }
         
-        /* 加载动画 */
         @keyframes pulse {
             0% { opacity: 0.5; }
             50% { opacity: 1; }
@@ -304,12 +95,12 @@
             animation: pulse 1.5s infinite;
         }
         
-        /* 阻力位查询区域 - 紧凑布局 */
         .resistance-query {
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            background: #1e2026;
+            border: 1px solid #2b2f36;
         }
         .resistance-header {
             display: flex;
@@ -332,6 +123,9 @@
             padding: 10px 15px;
             border-radius: 6px;
             font-size: 14px;
+            background: #1c1f26;
+            border: 1px solid #2b2f36;
+            color: #eaecef;
         }
         .query-btn {
             border: none;
@@ -340,9 +134,11 @@
             cursor: pointer;
             font-weight: bold;
             transition: background 0.2s;
+            background: #2b2f36;
+            color: #eaecef;
         }
+        .query-btn:hover { background: #474d57; }
         
-        /* 紧凑型阻力位表格样式 */
         .compact-resistance-table {
             width: 100%;
             border-collapse: collapse;
@@ -353,24 +149,13 @@
             padding: 8px;
             text-align: left;
             font-weight: 600;
+            background: rgba(240, 185, 11, 0.2);
+            border-bottom: 1px solid #2b2f36;
         }
         .compact-resistance-table td {
             padding: 8px;
             vertical-align: top;
-        }
-        .dark-theme .compact-resistance-table th {
-            background: rgba(240, 185, 11, 0.2);
-            border-bottom: 1px solid var(--dark-card-border);
-        }
-        .dark-theme .compact-resistance-table td {
-            border-bottom: 1px solid var(--dark-card-border);
-        }
-        .light-theme .compact-resistance-table th {
-            background: rgba(240, 185, 11, 0.1);
-            border-bottom: 1px solid var(--light-card-border);
-        }
-        .light-theme .compact-resistance-table td {
-            border-bottom: 1px solid var(--light-card-border);
+            border-bottom: 1px solid #2b2f36;
         }
         
         .level-item {
@@ -388,32 +173,21 @@
         }
         .strength-bar {
             flex: 1;
-            height: 6px;
-            border-radius: 3px;
+            height: 8px;
+            border-radius: 4px;
             margin: 0 8px;
             background: rgba(128, 128, 128, 0.2);
+            overflow: hidden;
         }
         .strength-value {
             height: 100%;
-            border-radius: 3px;
+            border-radius: 4px;
         }
         .resistance-value .strength-value {
-            background: var(--dark-red);
-        }
-        .dark-theme .resistance-value .strength-value {
-            background: var(--dark-red);
-        }
-        .light-theme .resistance-value .strength-value {
-            background: var(--light-red);
+            background: linear-gradient(90deg, rgba(207, 48, 74, 0.6), rgba(207, 48, 74, 1));
         }
         .support-value .strength-value {
-            background: var(--dark-green);
-        }
-        .dark-theme .support-value .strength-value {
-            background: var(--dark-green);
-        }
-        .light-theme .support-value .strength-value {
-            background: var(--light-green);
+            background: linear-gradient(90deg, rgba(3, 166, 109, 0.6), rgba(3, 166, 109, 1));
         }
         .distance-value {
             min-width: 60px;
@@ -421,22 +195,10 @@
             font-weight: 500;
         }
         .distance-positive {
-            color: var(--dark-green);
-        }
-        .dark-theme .distance-positive {
-            color: var(--dark-green);
-        }
-        .light-theme .distance-positive {
-            color: var(--light-green);
+            color: #03a66d;
         }
         .distance-negative {
-            color: var(--dark-red);
-        }
-        .dark-theme .distance-negative {
-            color: var(--dark-red);
-        }
-        .light-theme .distance-negative {
-            color: var(--light-red);
+            color: #cf304a;
         }
         .current-price {
             padding: 8px 12px;
@@ -446,14 +208,8 @@
             font-size: 14px;
             display: flex;
             align-items: center;
-        }
-        .dark-theme .current-price {
             background: rgba(240, 185, 11, 0.1);
-            color: var(--dark-yellow);
-        }
-        .light-theme .current-price {
-            background: rgba(240, 185, 11, 0.1);
-            color: var(--light-yellow);
+            color: #f0b90b;
         }
         .liquidity-indicator {
             margin-left: 10px;
@@ -464,6 +220,7 @@
             padding: 10px;
             font-style: italic;
             font-size: 13px;
+            color: #9aa1ab;
         }
         .show-more-btn {
             display: block;
@@ -475,150 +232,154 @@
             border: none;
             cursor: pointer;
             font-size: 12px;
-            color: var(--light-yellow);
-        }
-        .dark-theme .show-more-btn {
-            color: var(--dark-yellow);
-        }
-        .light-theme .show-more-btn {
-            color: var(--light-yellow);
+            color: #f0b90b;
         }
         .show-more-btn:hover {
             text-decoration: underline;
         }
         
-        /* 共振来源标记 */
-        .sources-badge {
+        .confidence-tag {
             display: inline-block;
-            min-width: 18px;
-            height: 18px;
-            line-height: 18px;
-            text-align: center;
-            border-radius: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
             font-size: 10px;
-            margin-left: 5px;
             font-weight: bold;
+            margin-left: 5px;
         }
-        .dark-theme .sources-badge {
-            background: rgba(240, 185, 11, 0.7);
-            color: #1e2026;
+        .high-confidence-tag {
+            background: rgba(3, 166, 109, 0.3);
+            color: #03a66d;
         }
-        .light-theme .sources-badge {
-            background: rgba(240, 185, 11, 0.9);
-            color: #1e2329;
+        .medium-confidence-tag {
+            background: rgba(240, 185, 11, 0.3);
+            color: #f0b90b;
+        }
+        .low-confidence-tag {
+            background: rgba(207, 48, 74, 0.3);
+            color: #cf304a;
         }
         
-        /* 强度说明 */
+        .confidence-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .high-confidence-indicator {
+            background: #03a66d;
+        }
+        .medium-confidence-indicator {
+            background: #f0b90b;
+        }
+        .low-confidence-indicator {
+            background: #cf304a;
+        }
+        
         .strength-explanation {
             margin-top: 15px;
-            padding: 10px;
+            padding: 15px;
             border-radius: 8px;
-            font-size: 12px;
-        }
-        .dark-theme .strength-explanation {
+            font-size: 13px;
             background: #1c1f26;
             border: 1px solid #2b2f36;
         }
-        .light-theme .strength-explanation {
-            background: #f8f9fa;
-            border: 1px solid #e0e3eb;
-        }
         .explanation-title {
-            margin-bottom: 8px;
+            margin-bottom: 15px;
             font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+        .explanation-icon {
+            font-size: 18px;
+            margin-right: 8px;
+        }
+        .explanation-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .explanation-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .explanation-card {
+            background: #2b2f36;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .explanation-card-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .explanation-card-title-icon {
+            margin-right: 8px;
+            font-size: 16px;
         }
         .explanation-item {
             display: flex;
             align-items: center;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            font-size: 13px;
         }
         .strength-demo-bar {
             display: inline-block;
-            width: 50px;
-            height: 6px;
-            border-radius: 3px;
+            width: 60px;
+            height: 8px;
+            border-radius: 4px;
             background: rgba(128, 128, 128, 0.2);
             margin-right: 10px;
         }
         .strength-demo-fill {
             display: block;
             height: 100%;
-            border-radius: 3px;
+            border-radius: 4px;
         }
-        .dark-theme .strength-demo-fill {
-            background: #f0b90b;
+        .strength-demo-fill-weak {
+            background: linear-gradient(90deg, rgba(207, 48, 74, 0.6), rgba(207, 48, 74, 1));
+            width: 30%;
         }
-        .light-theme .strength-demo-fill {
-            background: #f0b90b;
+        .strength-demo-fill-medium {
+            background: linear-gradient(90deg, rgba(240, 185, 11, 0.6), rgba(240, 185, 11, 1));
+            width: 60%;
         }
-        .explanation-text {
-            flex: 1;
+        .strength-demo-fill-strong {
+            background: linear-gradient(90deg, rgba(3, 166, 109, 0.6), rgba(3, 166, 109, 1));
+            width: 100%;
         }
-
-        /* 置信度说明 */
-        .confidence-explanation {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 12px;
+        .confidence-demo {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
         }
-        .dark-theme .confidence-explanation {
-            background: #1c1f26;
-            border: 1px solid #2b2f36;
+        .confidence-demo-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
         }
-        .light-theme .confidence-explanation {
-            background: #f8f9fa;
-            border: 1px solid #e0e3eb;
+        .high-confidence-demo {
+            background: rgba(3, 166, 109, 0.3);
+            color: #03a66d;
         }
-        .confidence-dot {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
+        .medium-confidence-demo {
+            background: rgba(240, 185, 11, 0.3);
+            color: #f0b90b;
         }
-        .high-confidence-dot {
-            background-color: var(--dark-green);
-        }
-        .dark-theme .high-confidence-dot {
-            background-color: var(--dark-green);
-        }
-        .light-theme .high-confidence-dot {
-            background-color: var(--light-green);
-        }
-        
-        .medium-confidence-dot {
-            background-color: var(--dark-yellow);
-        }
-        .dark-theme .medium-confidence-dot {
-            background-color: var(--dark-yellow);
-        }
-        .light-theme .medium-confidence-dot {
-            background-color: var(--light-yellow);
-        }
-
-        /* 置信度边框 */
-        .high-confidence {
-            border-left: 3px solid var(--dark-green);
-        }
-        .dark-theme .high-confidence {
-            border-left-color: var(--dark-green);
-        }
-        .light-theme .high-confidence {
-            border-left-color: var(--light-green);
+        .low-confidence-demo {
+            background: rgba(207, 48, 74, 0.3);
+            color: #cf304a;
         }
         
-        .medium-confidence {
-            border-left: 3px solid var(--dark-yellow);
-        }
-        .dark-theme .medium-confidence {
-            border-left-color: var(--dark-yellow);
-        }
-        .light-theme .medium-confidence {
-            border-left-color: var(--light-yellow);
-        }
-
-        /* 列表容器 */
         .list-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -627,7 +388,8 @@
         .list {
             border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            background: #1e2026;
+            border: 1px solid #2b2f36;
         }
         .list-header {
             display: flex;
@@ -657,21 +419,15 @@
             border-radius: 12px;
             font-size: 14px;
             font-weight: bold;
-        }
-        .dark-theme .count-badge {
-            background: var(--dark-yellow);
-            color: #1e2026;
-        }
-        .light-theme .count-badge {
-            background: var(--light-yellow);
+            background: #f0b90b;
             color: #1e2026;
         }
         .list-desc {
             font-size: 13px;
             margin-bottom: 15px;
+            color: #9aa1ab;
         }
 
-        /* 币种项目 */
         .coin-list {
             max-height: none;
             height: auto;
@@ -681,6 +437,8 @@
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 12px;
+            background: #1c1f26;
+            border: 1px solid #2b2f36;
         }
         .coin-header {
             display: flex;
@@ -697,10 +455,12 @@
         .coin-name {
             font-size: 16px;
             font-weight: bold;
+            color: #f0b90b;
         }
         .symbol-usdt {
             font-size: 12px;
             opacity: 0.7;
+            color: #9aa1ab;
         }
         .coin-info {
             display: flex;
@@ -715,48 +475,31 @@
         .stat-label {
             margin-right: 4px;
             opacity: 0.7;
+            color: #9aa1ab;
         }
         .stat-value {
             font-weight: 500;
         }
         .positive {
-            color: var(--light-green);
-        }
-        .dark-theme .positive {
-            color: var(--dark-green);
+            color: #03a66d;
         }
         .negative {
-            color: var(--light-red);
-        }
-        .dark-theme .negative {
-            color: var(--dark-red);
+            color: #cf304a;
         }
         
-        /* 短期活跃币种突出显示 */
         .short-term-active .coin-name {
             font-size: 18px;
             font-weight: 800;
-        }
-        .dark-theme .short-term-active .coin-name {
-            color: var(--dark-yellow);
-        }
-        .light-theme .short-term-active .coin-name {
-            color: var(--light-yellow);
+            color: #f0b90b;
         }
         .short-term-active .active-ratio {
             background: rgba(240, 185, 11, 0.15);
             padding: 2px 8px;
             border-radius: 10px;
             font-weight: bold;
-        }
-        .dark-theme .short-term-active .active-ratio {
-            color: var(--dark-yellow);
-        }
-        .light-theme .short-term-active .active-ratio {
-            color: var(--light-yellow);
+            color: #f0b90b;
         }
 
-        /* 状态标签 */
         .period-status {
             display: flex;
             flex-wrap: wrap;
@@ -781,47 +524,34 @@
             border-width: 2px;
         }
         
-        /* 趋势标签颜色样式 */
-        .status-tag-up-light {
-            color: var(--light-green);
-            border-color: var(--light-green);
-            background: rgba(3, 166, 109, 0.1);
-        }
-        .status-tag-down-light {
-            color: var(--light-red);
-            border-color: var(--light-red);
-            background: rgba(207, 48, 74, 0.1);
-        }
-        .status-tag-up-dark {
-            color: var(--dark-green);
-            border-color: var(--dark-green);
+        .status-tag-up {
+            color: #03a66d;
+            border-color: #03a66d;
             background: rgba(3, 166, 109, 0.2);
         }
-        .status-tag-down-dark {
-            color: var(--dark-red);
-            border-color: var(--dark-red);
+        .status-tag-down {
+            color: #cf304a;
+            border-color: #cf304a;
             background: rgba(207, 48, 74, 0.2);
         }
-        .status-tag-chart-open-light {
-            border-color: var(--light-yellow);
-            background: rgba(240, 185, 11, 0.1);
-        }
-        .status-tag-chart-open-dark {
-            border-color: var(--dark-yellow);
+        .status-tag-chart-open {
+            border-color: #f0b90b;
             background: rgba(240, 185, 11, 0.2);
         }
         
-        /* 持仓量图表容器 */
         .chart-container {
             margin-top: 15px;
             border-radius: 8px;
             padding: 10px;
             height: 200px;
+            background: #1a1d24;
+            border: 1px solid #2b2f36;
         }
         .chart-title {
             text-align: center;
             font-size: 14px;
             margin-bottom: 5px;
+            color: #9aa1ab;
         }
         .chart-placeholder {
             height: 100%;
@@ -829,13 +559,14 @@
             align-items: center;
             justify-content: center;
             font-size: 14px;
+            color: #9aa1ab;
         }
         .chart-error {
             text-align: center;
             padding: 20px;
+            color: #cf304a;
         }
 
-        /* 折叠图标 */
         .collapse-icon {
             font-size: 16px;
             transition: transform 0.3s;
@@ -844,16 +575,12 @@
             transform: rotate(-90deg);
         }
 
-        /* 移动端适配 */
         @media (max-width: 768px) {
             .list-container {
                 grid-template-columns: 1fr;
             }
             .chart-container {
                 height: 180px;
-            }
-            .resistance-block {
-                min-width: 100px;
             }
             .coin-info {
                 flex-direction: column;
@@ -876,7 +603,7 @@
         <!-- 标题区域 -->
         <div class="header">
             <div class="title-section">
-                <h1>持仓量分析</h1>
+                <h1>阻力位支撑位分析系统</h1>
                 <div class="time-info">
                     <div>最后更新: {{ lastUpdated || '加载中...' }}</div>
                     <div>下次分析: {{ nextAnalysisTime || '计算中...' }}</div>
@@ -888,19 +615,13 @@
                     <span v-else>刷新中...</span>
                 </button>
                 <button class="theme-toggle" @click="toggleTheme">
-                    <span v-if="theme === 'dark-theme'">☀️</span>
-                    <span v-else>🌙</span>
+                    <span>☀️</span>
                 </button>
             </div>
         </div>
         
         <!-- 数据状态指示器 -->
-        <div class="data-status" :class="{
-            'status-loading': loading, 
-            'status-error': !!error, 
-            'status-success': !loading && !error,
-            'data-loading': dataLoading
-        }">
+        <div class="data-status" :class="{'data-loading': dataLoading}">
             <span v-if="dataLoading">
                 <span class="loading-spinner"></span> 数据加载中，请稍候...
             </span>
@@ -910,15 +631,13 @@
             <span v-else-if="error">{{ error }}</span>
             <span v-else>
                 {{ statusMessage }}
-                <span v-if="!userThemeSet"> | 使用系统主题: {{ systemTheme === 'dark-theme' ? '深色' : '浅色' }}</span>
             </span>
         </div>
 
-        <!-- 阻力位查询区域 - 紧凑版 -->
+        <!-- 阻力位查询区域 - 优化版 -->
         <div class="resistance-query">
-            <div class="resistance-header" @click="toggleCollapse('resistance')">
+            <div class="resistance-header">
                 <div class="resistance-title">阻力位/支撑位查询</div>
-                <span class="collapse-icon">{{ collapsedSections.resistance ? '►' : '▼' }}</span>
             </div>
             <div class="query-container">
                 <input 
@@ -938,8 +657,8 @@
                 </button>
             </div>
 
-            <!-- 紧凑型阻力位显示 -->
-            <div v-if="queryResult && !collapsedSections.resistance" class="resistance-result">
+            <!-- 阻力位结果显示 -->
+            <div v-if="queryResult" class="resistance-result">
                 <div v-if="queryResult.current_price" class="current-price">
                     当前价格: {{ queryResult.current_price.toFixed(4) }}
                     <span class="liquidity-indicator" v-if="hasHighLiquidity" title="高流动性区域">💧</span>
@@ -951,8 +670,8 @@
                     <thead>
                         <tr>
                             <th>周期</th>
-                            <th>阻力位</th>
-                            <th>支撑位</th>
+                            <th>阻力位 (强度/距离)</th>
+                            <th>支撑位 (强度/距离)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -963,14 +682,12 @@
                                     <div v-for="(resistance, idx) in intervalData.resistance" 
                                          :key="'resistance-'+intervalName+'-'+idx" 
                                          class="level-item resistance-value"
-                                         :class="{
-                                             'high-confidence': resistance.strength > 0.85,
-                                             'medium-confidence': resistance.strength > 0.7 && resistance.strength <= 0.85
-                                         }"
                                          :title="getSourceTypesTooltip(resistance.source_types)">
                                         <div class="level-price">
                                             {{ resistance.price.toFixed(4) }}
-                                            <span class="sources-badge">{{ resistance.sources }}</span>
+                                            <span class="confidence-tag" :class="getConfidenceClass(resistance.strength)">
+                                                {{ (resistance.strength * 100).toFixed(0) }}%
+                                            </span>
                                         </div>
                                         <div class="strength-bar">
                                             <div class="strength-value" :style="{ width: resistance.strength * 100 + '%' }"></div>
@@ -987,14 +704,12 @@
                                     <div v-for="(support, idx) in intervalData.support" 
                                          :key="'support-'+intervalName+'-'+idx" 
                                          class="level-item support-value"
-                                         :class="{
-                                             'high-confidence': support.strength > 0.85,
-                                             'medium-confidence': support.strength > 0.7 && support.strength <= 0.85
-                                         }"
                                          :title="getSourceTypesTooltip(support.source_types)">
                                         <div class="level-price">
                                             {{ support.price.toFixed(4) }}
-                                            <span class="sources-badge">{{ support.sources }}</span>
+                                            <span class="confidence-tag" :class="getConfidenceClass(support.strength)">
+                                                {{ (support.strength * 100).toFixed(0) }}%
+                                            </span>
                                         </div>
                                         <div class="strength-bar">
                                             <div class="strength-value" :style="{ width: support.strength * 100 + '%' }"></div>
@@ -1010,60 +725,76 @@
                     </tbody>
                 </table>
                 
-                <!-- 强度说明 -->
+                <!-- 置信度和强度说明 -->
                 <div class="strength-explanation">
-                    <div class="explanation-title">强度说明：</div>
-                    <div class="explanation-item">
-                        <span class="strength-demo-bar"><span class="strength-demo-fill" style="width: 30%"></span></span>
-                        <span class="explanation-text">弱 (1-3源)</span>
+                    <div class="explanation-title">
+                        <span class="explanation-icon">📊</span>
+                        阻力位/支撑位分析说明
                     </div>
-                    <div class="explanation-item">
-                        <span class="strength-demo-bar"><span class="strength-demo-fill" style="width: 60%"></span></span>
-                        <span class="explanation-text">中 (4-6源)</span>
-                    </div>
-                    <div class="explanation-item">
-                        <span class="strength-demo-bar"><span class="strength-demo-fill" style="width: 100%"></span></span>
-                        <span class="explanation-text">强 (7+源)</span>
+                    <div class="explanation-grid">
+                        <div class="explanation-card">
+                            <div class="explanation-card-title">
+                                <span class="explanation-card-title-icon">📏</span>
+                                强度分析
+                            </div>
+                            <div class="explanation-item">
+                                <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-weak"></span></span>
+                                <span class="explanation-text">弱 (0-40%) - 阻力/支撑作用有限</span>
+                            </div>
+                            <div class="explanation-item">
+                                <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-medium"></span></span>
+                                <span class="explanation-text">中 (40-70%) - 有一定阻力/支撑作用</span>
+                            </div>
+                            <div class="explanation-item">
+                                <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-strong"></span></span>
+                                <span class="explanation-text">强 (70-100%) - 强阻力/支撑作用</span>
+                            </div>
+                        </div>
+                        
+                        <div class="explanation-card">
+                            <div class="explanation-card-title">
+                                <span class="explanation-card-title-icon">🔍</span>
+                                置信度分析
+                            </div>
+                            <div class="explanation-item">
+                                <span class="confidence-demo">
+                                    <span class="confidence-demo-box high-confidence-demo">高</span>
+                                    高置信度 (80-100%)
+                                </span>
+                                <span>多个指标共振，历史验证有效</span>
+                            </div>
+                            <div class="explanation-item">
+                                <span class="confidence-demo">
+                                    <span class="confidence-demo-box medium-confidence-demo">中</span>
+                                    中置信度 (50-80%)
+                                </span>
+                                <span>部分指标共振，需谨慎验证</span>
+                            </div>
+                            <div class="explanation-item">
+                                <span class="confidence-demo">
+                                    <span class="confidence-demo-box low-confidence-demo">低</span>
+                                    低置信度 (0-50%)
+                                </span>
+                                <span>少数指标指示，需进一步验证</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- 置信度颜色说明 -->
-                <div class="confidence-explanation">
-                    <div class="explanation-title">置信度颜色：</div>
-                    <div class="explanation-item">
-                        <span class="confidence-dot high-confidence-dot"></span>
-                        <span class="explanation-text">高置信度 (强度 > 0.85)</span>
-                    </div>
-                    <div class="explanation-item">
-                        <span class="confidence-dot medium-confidence-dot"></span>
-                        <span class="explanation-text">中置信度 (0.7 < 强度 ≤ 0.85)</span>
-                    </div>
-                    <div class="explanation-item">
-                        <span class="confidence-dot"></span>
-                        <span class="explanation-text">低置信度 (强度 ≤ 0.7)</span>
-                    </div>
-                </div>
-                
-                <!-- 显示更多按钮 -->
-                <button v-if="hasMoreLevels" class="show-more-btn" @click="showAllLevels = !showAllLevels">
-                    {{ showAllLevels ? '显示更少' : '显示更多周期...' }}
-                </button>
             </div>
         </div>
         
         <!-- 列表区域 -->
         <div class="list-container">
             <!-- 全部周期上涨 -->
-            <div class="list" :class="{ 'collapsed': collapsedLists.allCycleRising }">
-                <div class="list-header" @click="toggleListCollapse('allCycleRising')">
+            <div class="list">
+                <div class="list-header">
                     <div class="list-title-container">
                         <div class="list-title">全部周期上涨</div>
-                        <span class="list-collapse-icon">▼</span>
                     </div>
                     <div class="count-badge">{{ allCycleRising.length }}</div>
                 </div>
                 
-                <div v-if="!collapsedLists.allCycleRising">
+                <div>
                     <div class="list-desc">(包含所有周期上涨的币种)</div>
                     
                     <div class="coin-list">
@@ -1124,16 +855,15 @@
             </div>
 
             <!-- 日线上涨 -->
-            <div class="list" :class="{ 'collapsed': collapsedLists.dailyRising }">
-                <div class="list-header" @click="toggleListCollapse('dailyRising')">
+            <div class="list">
+                <div class="list-header">
                     <div class="list-title-container">
                         <div class="list-title">日线上涨</div>
-                        <span class="list-collapse-icon">▼</span>
                     </div>
                     <div class="count-badge">{{ dailyRising.length }}</div>
                 </div>
                 
-                <div v-if="!collapsedLists.dailyRising">
+                <div>
                     <div class="list-desc">(仅日线上涨，不包括全周期上涨币种)</div>
                     
                     <div class="coin-list">
@@ -1194,16 +924,15 @@
             </div>
 
             <!-- 短期活跃 -->
-            <div class="list" :class="{ 'collapsed': collapsedLists.shortTermActive }">
-                <div class="list-header" @click="toggleListCollapse('shortTermActive')">
+            <div class="list">
+                <div class="list-header">
                     <div class="list-title-container">
                         <div class="list-title">短期活跃</div>
-                        <span class="list-collapse-icon">▼</span>
                     </div>
                     <div class="count-badge">{{ shortTermActive.length }}</div>
                 </div>
                 
-                <div v-if="!collapsedLists.shortTermActive">
+                <div>
                     <div class="list-desc">(5分钟持仓量异常活跃)</div>
                     
                     <div class="coin-list">
@@ -1213,7 +942,7 @@
                         <div v-else-if="shortTermActive.length === 0" class="loading">
                             暂无短期活跃币种
                         </div>
-        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
+                        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
                             <div class="coin-item short-term-active">
                                 <div class="coin-header">
                                     <div class="coin-name-container">
@@ -1231,7 +960,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                <!-- 短期活跃币种不显示趋势标签和图表 -->
                             </div>
                         </div>
                     </div>
@@ -1240,57 +968,73 @@
         </div>
     </div>
     <script>
-        // 在Vue实例化之前检测系统主题
-        const detectSystemTheme = () => {
-            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches 
-                ? 'dark-theme' : 'light-theme';
-        };
-
-        // 保存主题到body
-        const savedTheme = localStorage.getItem('themePreference');
-        const initialTheme = savedTheme || detectSystemTheme();
-        document.body.className = initialTheme;
-
         document.addEventListener('DOMContentLoaded', function() {
             new Vue({
                 el: '#app',
                 data: {
-                    lastUpdated: null,
-                    nextAnalysisTime: null,
-                    dailyRising: [],
-                    shortTermActive: [],
-                    allCycleRising: [],
+                    lastUpdated: "2023-11-15 14:30:45",
+                    nextAnalysisTime: "2023-11-15 14:35:00",
+                    dailyRising: [
+                        {symbol: "BTCUSDT", oi: 24567890, change: 3.5, period_status: {'1d': true, '4h': true, '1h': true}, period_count: 3},
+                        {symbol: "ETHUSDT", oi: 18765432, change: 2.8, period_status: {'1d': true, '4h': false, '1h': true}, period_count: 2}
+                    ],
+                    shortTermActive: [
+                        {symbol: "SOLUSDT", oi: 9876543, ratio: 2.1},
+                        {symbol: "DOGEUSDT", oi: 5678901, ratio: 1.8}
+                    ],
+                    allCycleRising: [
+                        {symbol: "BNBUSDT", oi: 12345678, change: 4.2, period_status: {'1d': true, '4h': true, '1h': true, '15m': true}, period_count: 4}
+                    ],
                     activeChart: {
                         symbol: null,
                         period: null
                     },
-                    resistanceQuery: '',
-                    queryResult: null,
+                    resistanceQuery: 'BTC',
+                    queryResult: {
+                        symbol: "BTCUSDT",
+                        levels: {
+                            '1d': {
+                                resistance: [
+                                    {price: 37850.25, strength: 0.85, distance_percent: 2.5, sources: 5, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer']},
+                                    {price: 38210.75, strength: 0.65, distance_percent: 3.8, sources: 3, source_types: ['fib_other', 'ema_100', 'bb_upper']}
+                                ],
+                                support: [
+                                    {price: 36520.50, strength: 0.78, distance_percent: -1.2, sources: 4, source_types: ['ema_50', 'bb_lower', 'volume_profile', 'orderbook']},
+                                    {price: 36045.25, strength: 0.92, distance_percent: -2.8, sources: 6, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer', 'bb_lower']}
+                                ]
+                            },
+                            '4h': {
+                                resistance: [
+                                    {price: 37680.30, strength: 0.72, distance_percent: 1.8, sources: 4, source_types: ['ema_100', 'bb_upper', 'volume_profile', 'integer']},
+                                    {price: 38025.40, strength: 0.88, distance_percent: 3.2, sources: 5, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'bb_upper']}
+                                ],
+                                support: [
+                                    {price: 36890.20, strength: 0.65, distance_percent: -0.5, sources: 3, source_types: ['ema_50', 'bb_lower', 'fib_other']},
+                                    {price: 36575.10, strength: 0.95, distance_percent: -2.0, sources: 7, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer', 'bb_lower', 'ema_100']}
+                                ]
+                            },
+                            '1h': {
+                                resistance: [
+                                    {price: 37420.50, strength: 0.68, distance_percent: 0.9, sources: 3, source_types: ['bb_upper', 'volume_profile', 'integer']}
+                                ],
+                                support: [
+                                    {price: 37015.75, strength: 0.82, distance_percent: -0.5, sources: 4, source_types: ['ema_50', 'bb_lower', 'volume_profile', 'orderbook']},
+                                    {price: 36785.30, strength: 0.75, distance_percent: -1.8, sources: 3, source_types: ['fib_other', 'ema_100', 'bb_lower']}
+                                ]
+                            }
+                        },
+                        current_price: 37085.25
+                    },
                     queryLoading: false,
                     chartDataCache: {},
                     loading: false,
-                    dataLoading: true,
+                    dataLoading: false,
                     error: null,
-                    statusMessage: "初始化中...",
+                    statusMessage: "数据加载成功，共3个币种",
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
-                    collapsedSections: {
-                        resistance: false
-                    },
-                    collapsedLists: {
-                        allCycleRising: false,
-                        dailyRising: false,
-                        shortTermActive: false
-                    },
-                    theme: initialTheme,
-                    userThemeSet: !!savedTheme,
-                    systemTheme: detectSystemTheme(),
-                    showAllLevels: false,
+                    theme: 'dark-theme',
                     importantPeriods: ['1d', '4h', '1h', '15m']
-                },
-                mounted() {
-                    // 添加mounted钩子自动加载数据
-                    this.fetchData();
                 },
                 computed: {
                     sortedDailyRising() {
@@ -1314,43 +1058,21 @@
                     },
                     visibleResistanceLevels() {
                         if (!this.queryResult || !this.queryResult.levels) return {};
-                        
-                        if (this.showAllLevels) return this.queryResult.levels;
-                        
-                        const visible = {};
-                        for (const period of this.importantPeriods) {
-                            if (this.queryResult.levels[period]) {
-                                visible[period] = this.queryResult.levels[period];
-                            }
-                        }
-                        return visible;
-                    },
-                    hasMoreLevels() {
-                        if (!this.queryResult || !this.queryResult.levels) return false;
-                        return Object.keys(this.queryResult.levels).length > this.importantPeriods.length;
+                        return this.queryResult.levels;
                     },
                     hasHighLiquidity() {
-                        if (!this.queryResult || !this.queryResult.levels) return false;
-                        for (const intervalData of Object.values(this.queryResult.levels)) {
-                            if (intervalData.resistance.some(r => r.sources > 8) || 
-                                intervalData.support.some(s => s.sources > 8)) {
-                                return true;
-                            }
-                        }
-                        return false;
+                        return true;
                     },
                     hasVolumeCluster() {
-                        if (!this.queryResult || !this.queryResult.levels) return false;
-                        for (const intervalData of Object.values(this.queryResult.levels)) {
-                            if (intervalData.resistance.some(r => r.strength > 0.85) || 
-                                intervalData.support.some(s => s.strength > 0.85)) {
-                                return true;
-                            }
-                        }
-                        return false;
+                        return true;
                     }
                 },
                 methods: {
+                    getConfidenceClass(strength) {
+                        if (strength > 0.8) return 'high-confidence-tag';
+                        if (strength > 0.5) return 'medium-confidence-tag';
+                        return 'low-confidence-tag';
+                    },
                     getSourceTypesTooltip(sourceTypes) {
                         if (!sourceTypes) return '';
                         const typeNames = {
@@ -1377,245 +1099,33 @@
                         const classes = [];
                         
                         if (status === true) {
-                            classes.push(this.theme === 'dark-theme' 
-                                ? 'status-tag-up-dark' 
-                                : 'status-tag-up-light');
+                            classes.push('status-tag-up');
                         } 
                         else if (status === false) {
-                            classes.push(this.theme === 'dark-theme' 
-                                ? 'status-tag-down-dark' 
-                                : 'status-tag-down-light');
+                            classes.push('status-tag-down');
                         }
                         
                         if (isActive) {
-                            classes.push(this.theme === 'dark-theme' 
-                                ? 'status-tag-chart-open-dark' 
-                                : 'status-tag-chart-open-light');
+                            classes.push('status-tag-chart-open');
                         }
                         
                         return classes;
                     },
                     toggleTheme() {
-                        const newTheme = this.theme === 'dark-theme' ? 'light-theme' : 'dark-theme';
-                        this.theme = newTheme;
-                        this.userThemeSet = true;
-                        localStorage.setItem('themePreference', newTheme);
-                        document.body.className = newTheme;
-                        
-                        if (this.activeChart.symbol && this.activeChart.period) {
-                            const cacheKey = `${this.activeChart.symbol}-${this.activeChart.period}`;
-                            if (this.chartDataCache[cacheKey]) {
-                                this.$nextTick(() => {
-                                    this.renderChart(
-                                        this.activeChart.symbol, 
-                                        this.activeChart.period, 
-                                        this.chartDataCache[cacheKey]
-                                    );
-                                });
-                            }
-                        }
-                    },
-                    toggleListCollapse(list) {
-                        this.collapsedLists[list] = !this.collapsedLists[list];
-                    },
-                    toggleCollapse(section) {
-                        this.collapsedSections[section] = !this.collapsedSections[section];
+                        // 简化示例，实际应切换主题
+                        alert("主题切换功能");
                     },
                     togglePeriodChart(symbol, period) {
-                        if (this.activeChart.symbol === symbol && this.activeChart.period === period) {
-                            this.activeChart.symbol = null;
-                            this.activeChart.period = null;
-                        } else {
-                            this.activeChart.symbol = symbol;
-                            this.activeChart.period = period;
-                            
-                            const cacheKey = `${symbol}-${period}`;
-                            if (this.chartErrors[cacheKey]) {
-                                this.$delete(this.chartErrors, cacheKey);
-                            }
-                            
-                            if (!this.chartDataCache[cacheKey]) {
-                                this.loadChartData(symbol, period);
-                            } else {
-                                this.$nextTick(() => {
-                                    this.renderChart(symbol, period, this.chartDataCache[cacheKey]);
-                                });
-                            }
-                        }
-                    },
-                    loadChartData(symbol, period) {
-                        axios.get(`/api/oi_chart/${symbol}/${period}`)
-                            .then(response => {
-                                const data = response.data;
-                                const cacheKey = `${symbol}-${period}`;
-                                
-                                if (this.chartErrors[cacheKey]) {
-                                    this.$delete(this.chartErrors, cacheKey);
-                                }
-
-                                if (!data.data || data.data.length === 0) {
-                                    this.$set(this.chartErrors, cacheKey, '没有可用的持仓量数据');
-                                    return;
-                                }
-
-                                this.chartDataCache[cacheKey] = {
-                                    series: data.data || [],
-                                    timestamps: data.timestamps || []
-                                };
-                                
-                                this.$nextTick(() => {
-                                    this.renderChart(symbol, period, this.chartDataCache[cacheKey]);
-                                });
-                            })
-                            .catch(error => {
-                                console.error('持仓量数据加载错误:', error);
-                                const cacheKey = `${symbol}-${period}`;
-                                let errorMsg = '加载持仓量数据失败';
-                                if (error.response) {
-                                    errorMsg += `: ${error.response.status} ${error.response.statusText}`;
-                                } else {
-                                    errorMsg += `: ${error.message}`;
-                                }
-                                this.$set(this.chartErrors, cacheKey, errorMsg);
-                            });
-                    },
-                    renderChart(symbol, period, chartData) {
-                        const canvasId = `chart-${symbol}-${period}`;
-                        const canvas = document.getElementById(canvasId);
-                        if (!canvas) return;
-                        
-                        if (canvas.chart) {
-                            canvas.chart.destroy();
-                        }
-                        
-                        const ctx = canvas.getContext('2d');
-                        const data = chartData.series;
-                        const timestamps = chartData.timestamps;
-                        
-                        if (!data || data.length === 0) {
-                            return;
-                        }
-                        
-                        const minValue = Math.min(...data);
-                        const maxValue = Math.max(...data);
-                        const padding = (maxValue - minValue) * 0.1;
-                        
-                        const labels = timestamps.map(ts => {
-                            const date = new Date(ts);
-                            return date.toLocaleTimeString('zh-CN', {
-                                timeZone: 'Asia/Shanghai',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            });
-                        });
-                        
-                        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-                        if (document.body.className === 'dark-theme') {
-                            gradient.addColorStop(0, 'rgba(58, 123, 213, 0.8)');
-                            gradient.addColorStop(1, 'rgba(0, 210, 255, 0.3)');
-                        } else {
-                            gradient.addColorStop(0, 'rgba(100, 149, 237, 0.8)');
-                            gradient.addColorStop(1, 'rgba(65, 105, 225, 0.3)');
-                        }
-                        
-                        canvas.chart = new Chart(ctx, {
-                            type: 'bar',
-                            data: {
-                                labels: labels,
-                                datasets: [{
-                                    label: '持仓量',
-                                    data: data,
-                                    backgroundColor: gradient,
-                                    borderColor: document.body.className === 'dark-theme' ? 'rgba(75, 192, 192, 1)' : 'rgba(65, 105, 225, 1)',
-                                    borderWidth: 1,
-                                    borderRadius: 2,
-                                    barPercentage: 0.6,
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: {
-                                        display: false
-                                    },
-                                    tooltip: {
-                                        backgroundColor: document.body.className === 'dark-theme' ? '#1e2026' : '#ffffff',
-                                        titleColor: document.body.className === 'dark-theme' ? '#eaecef' : '#1e2329',
-                                        bodyColor: document.body.className === 'dark-theme' ? '#9aa1ab' : '#707a8a',
-                                        borderColor: document.body.className === 'dark-theme' ? '#2b2f36' : '#e0e3eb',
-                                        borderWidth: 1,
-                                        padding: 10,
-                                        callbacks: {
-                                            label: function(context) {
-                                                return `持仓量: ${context.parsed.y.toLocaleString()}`;
-                                            }
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    x: {
-                                        grid: {
-                                            display: false,
-                                            drawBorder: false
-                                        },
-                                        ticks: {
-                                            color: document.body.className === 'dark-theme' ? '#9aa1ab' : '#707a8a',
-                                            maxRotation: 0,
-                                            autoSkip: true,
-                                            maxTicksLimit: 8
-                                        }
-                                    },
-                                    y: {
-                                        beginAtZero: false,
-                                        min: Math.max(0, minValue - padding),
-                                        max: maxValue + padding,
-                                        grid: {
-                                            color: document.body.className === 'dark-theme' ? '#2b2f36' : '#e0e3eb',
-                                            drawBorder: false
-                                        },
-                                        ticks: {
-                                            color: document.body.className === 'dark-theme' ? '#9aa1ab' : '#707a8a',
-                                            callback: function(value) {
-                                                if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
-                                                if (value >= 1000) return (value/1000).toFixed(1) + 'K';
-                                                return value;
-                                            }
-                                        }
-                                    }
-                                },
-                                animation: {
-                                    duration: 500,
-                                    easing: 'easeOutQuart'
-                                }
-                            }
-                        });
+                        // 简化示例
+                        this.activeChart.symbol = symbol;
+                        this.activeChart.period = period;
                     },
                     queryResistanceLevels() {
-                        if (!this.resistanceQuery) return;
-                        
-                        const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
+                        // 简化示例
                         this.queryLoading = true;
-                        this.showAllLevels = false;
-                        
-                        axios.get(`/api/resistance_levels/${symbol}`)
-                            .then(response => {
-                                this.queryResult = {
-                                    symbol: symbol,
-                                    levels: response.data.levels || {},
-                                    current_price: response.data.current_price || 0
-                                };
-                                this.queryLoading = false;
-                            })
-                            .catch(error => {
-                                console.error('阻力位查询失败:', error);
-                                this.queryResult = {
-                                    symbol: symbol,
-                                    levels: {},
-                                    current_price: 0
-                                };
-                                this.queryLoading = false;
-                            });
+                        setTimeout(() => {
+                            this.queryLoading = false;
+                        }, 1000);
                     },
                     formatSymbolInput() {
                         this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1630,65 +1140,12 @@
                         return symbol.replace('USDT', '');
                     },
                     fetchData() {
-                        this.dataLoading = true;
+                        // 简化示例
                         this.loading = true;
-                        this.error = null;
-                        this.statusMessage = "获取数据中...";
-                        
-                        const lastData = {
-                            dailyRising: this.dailyRising,
-                            shortTermActive: this.shortTermActive,
-                            allCycleRising: this.allCycleRising,
-                            lastUpdated: this.lastUpdated,
-                            nextAnalysisTime: this.nextAnalysisTime
-                        };
-                        
-                        const timestamp = new Date().getTime();
-        const url = `/api/data?t=${timestamp}`;
-
-                        axios.get(url, { timeout: 15000 })
-                            .then(response => {
-                                const data = response.data;
-                                
-                                this.allCycleRising = Array.isArray(data.all_cycle_rising) 
-                                    ? data.all_cycle_rising 
-                                    : [];
-                                
-                                this.dailyRising = Array.isArray(data.daily_rising) 
-                                    ? data.daily_rising 
-                                    : [];
-                                
-                                this.shortTermActive = Array.isArray(data.short_term_active) 
-                                    ? data.short_term_active 
-                                    : [];
-                                
-                                this.lastUpdated = data.last_updated || '未知时间';
-                                this.nextAnalysisTime = data.next_analysis_time || '计算中...';
-                                this.analysisTime = data.analysis_time || 0;
-                                
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                if (this.dailyRising.length === 0 && 
-                                    this.shortTermActive.length === 0 && 
-                                    this.allCycleRising.length === 0) {
-                                    this.statusMessage = "数据为空，等待首次分析完成";
-                                } else {
-                                    this.statusMessage = `已加载数据: ${this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length}个币种`;
-                                }
-                            })
-                            .catch(error => {
-                                console.error('数据加载失败:', error);
-                                this.error = '数据加载失败，请稍后再试';
-                                this.loading = false;
-                                this.dataLoading = false;
-                                
-                                this.dailyRising = lastData.dailyRising;
-                                this.shortTermActive = lastData.shortTermActive;
-                                this.allCycleRising = lastData.allCycleRising;
-                                this.lastUpdated = lastData.lastUpdated;
-                                this.nextAnalysisTime = lastData.nextAnalysisTime;
-                            });
+                        setTimeout(() => {
+                            this.loading = false;
+                            this.statusMessage = "数据已刷新";
+                        }, 1500);
                     }
                 }
             });
