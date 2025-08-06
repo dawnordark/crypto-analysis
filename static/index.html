@@ -1288,6 +1288,10 @@
                     showAllLevels: false,
                     importantPeriods: ['1d', '4h', '1h', '15m']
                 },
+                mounted() {
+                    // 添加mounted钩子自动加载数据
+                    this.fetchData();
+                },
                 computed: {
                     sortedDailyRising() {
                         return [...this.dailyRising].sort((a, b) => {
