@@ -13,10 +13,12 @@ import queue
 import logging
 import traceback
 import urllib3
+import numpy as np
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
+import talib  # 新增技术指标库
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -270,65 +272,99 @@ def calculate_resistance_levels(symbol):
                 close_prices = [float(k[4]) for k in klines]
                 open_prices = [float(k[1]) for k in klines]
                 
-                # 计算关键价格水平
+                # ===== 多维度共振计算 =====
+                closes = np.array(close_prices)
+                
+                # 1. 计算技术指标
+                # 移动平均线
+                ema50 = talib.EMA(closes, timeperiod=50)[-1]
+                ema100 = talib.EMA(closes, timeperiod=100)[-1]
+                ema200 = talib.EMA(closes, timeperiod=200)[-1]
+                
+                # 布林带
+                upper_band, middle_band, lower_band = talib.BBANDS(
+                    closes, timeperiod=20, nbdevup=2, nbdevdn=2
+                )
+                bb_upper = upper_band[-1]
+                bb_lower = lower_band[-1]
+                
+                # 2. 收集多维度水平
+                levels = []
+                
+                # 斐波那契水平
+                fib_levels = [recent_high - (recent_high - recent_low) * ratio 
+                              for ratio in [0.236, 0.382, 0.5, 0.618, 0.786]]
+                levels.extend(fib_levels)
+                
+                # 移动平均线
+                levels.extend([ema50, ema100, ema200])
+                
+                # 布林带边界
+                levels.extend([bb_upper, bb_lower])
+                
+                # 心理整数位
+                if current_price and current_price > 0:
+                    base = 10 ** max(0, math.floor(math.log10(current_price)) - 1)
+                    integer_level = round(current_price / base) * base
+                    levels.append(integer_level)
+                
+                # 3. 计算共振强度
+                level_scores = {}
+                tolerance = current_price * 0.005  # 0.5%价格容差
+                
+                for level in levels:
+                    level = round(level, 4)  # 保留4位小数
+                    level_scores[level] = 0
+                    
+                    # 检查与其他水平的接近程度
+                    for other in levels:
+                        if abs(level - other) <= tolerance:
+                            level_scores[level] += 1
+                
+                # 4. 合并相近水平
+                merged_levels = []
+                sorted_levels = sorted(level_scores.keys())
+                i = 0
+                while i < len(sorted_levels):
+                    current = sorted_levels[i]
+                    group = [current]
+                    j = i + 1
+                    while j < len(sorted_levels) and sorted_levels[j] - current <= tolerance:
+                        group.append(sorted_levels[j])
+                        j += 1
+                    
+                    # 取组内最高分作为代表
+                    best_level = max(group, key=lambda x: level_scores[x])
+                    merged_levels.append({
+                        'price': best_level,
+                        'strength': min(1.0, level_scores[best_level] / 10.0),  # 归一化到0~1
+                        'sources': level_scores[best_level]  # 共振来源数量
+                    })
+                    i = j
+                
+                # 按强度排序
+                merged_levels.sort(key=lambda x: x['strength'], reverse=True)
+                
+                # ===== 原有分类逻辑 =====
                 resistance = []
                 support = []
                 
-                # 1. 近期高点和低点
-                lookback = min(30, len(high_prices))
-                recent_high = max(high_prices[-lookback:])
-                recent_low = min(low_prices[-lookback:])
-                
-                # 2. 斐波那契回撤位
-                fib_levels = {
-                    '0.236': recent_high - (recent_high - recent_low) * 0.236,
-                    '0.382': recent_high - (recent_high - recent_low) * 0.382,
-                    '0.5': (recent_high + recent_low) / 2,
-                    '0.618': recent_high - (recent_high - recent_low) * 0.618,
-                    '0.786': recent_high - (recent_high - recent_low) * 0.786
-                }
-                
-                # 3. 心理整数位
-                if current_price > 0:
-                    base = 10 ** max(0, math.floor(math.log10(current_price)) - 1)
-                    integer_level = round(current_price / base) * base
-                else:
-                    integer_level = round(current_price, 2) if current_price else 0
-                
-                # 4. 成交量加权价格水平
-                volume_weighted = {}
-                for i in range(len(close_prices)):
-                    price_level = round(close_prices[i], 4)
-                    volume = float(klines[i][5])
-                    if price_level not in volume_weighted:
-                        volume_weighted[price_level] = 0
-                    volume_weighted[price_level] += volume
-                
-                # 选取高成交量区域作为关键水平
-                sorted_levels = sorted(volume_weighted.items(), key=lambda x: x[1], reverse=True)
-                volume_levels = [level[0] for level in sorted_levels[:5]]
-                
-                # 合并所有水平
-                all_levels = list(fib_levels.values()) + [recent_high, recent_low, integer_level] + volume_levels
-                
-                # 分类阻力和支撑
-                if current_price:
-                    for level in all_levels:
-                        if level > current_price:
-                            # 计算强度：距离当前价格越近强度越高
-                            strength = max(0, 1 - abs(level - current_price) / current_price)
-                            resistance.append({
-                                'price': level,
-                                'strength': round(strength, 2),
-                                'distance_percent': round((level - current_price) / current_price * 100, 2)
-                            })
-                        elif level < current_price:
-                            strength = max(0, 1 - abs(level - current_price) / current_price)
-                            support.append({
-                                'price': level,
-                                'strength': round(strength, 2),
-                                'distance_percent': round((level - current_price) / current_price * 100, 2)
-                            })
+                for level in merged_levels[:5]:  # 取前5个最强水平
+                    price = level['price']
+                    if price > current_price:
+                        resistance.append({
+                            'price': price,
+                            'strength': round(level['strength'], 2),
+                            'distance_percent': round((price - current_price) / current_price * 100, 2),
+                            'sources': level['sources']  # 共振来源数量
+                        })
+                    elif price < current_price:
+                        support.append({
+                            'price': price,
+                            'strength': round(level['strength'], 2),
+                            'distance_percent': round((price - current_price) / current_price * 100, 2),
+                            'sources': level['sources']  # 共振来源数量
+                        })
                 
                 # 排序并选取最有效的3个
                 resistance.sort(key=lambda x: x['strength'], reverse=True)
