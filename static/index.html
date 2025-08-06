@@ -443,6 +443,8 @@
             font-weight: bold;
             margin: 10px 0;
             font-size: 14px;
+            display: flex;
+            align-items: center;
         }
         .dark-theme .current-price {
             background: rgba(240, 185, 11, 0.1);
@@ -451,6 +453,10 @@
         .light-theme .current-price {
             background: rgba(240, 185, 11, 0.1);
             color: var(--light-yellow);
+        }
+        .liquidity-indicator {
+            margin-left: 10px;
+            font-size: 18px;
         }
         .no-data {
             text-align: center;
@@ -546,6 +552,69 @@
         }
         .explanation-text {
             flex: 1;
+        }
+
+        /* 置信度说明 */
+        .confidence-explanation {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+        .dark-theme .confidence-explanation {
+            background: #1c1f26;
+            border: 1px solid #2b2f36;
+        }
+        .light-theme .confidence-explanation {
+            background: #f8f9fa;
+            border: 1px solid #e0e3eb;
+        }
+        .confidence-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .high-confidence-dot {
+            background-color: var(--dark-green);
+        }
+        .dark-theme .high-confidence-dot {
+            background-color: var(--dark-green);
+        }
+        .light-theme .high-confidence-dot {
+            background-color: var(--light-green);
+        }
+        
+        .medium-confidence-dot {
+            background-color: var(--dark-yellow);
+        }
+        .dark-theme .medium-confidence-dot {
+            background-color: var(--dark-yellow);
+        }
+        .light-theme .medium-confidence-dot {
+            background-color: var(--light-yellow);
+        }
+
+        /* 置信度边框 */
+        .high-confidence {
+            border-left: 3px solid var(--dark-green);
+        }
+        .dark-theme .high-confidence {
+            border-left-color: var(--dark-green);
+        }
+        .light-theme .high-confidence {
+            border-left-color: var(--light-green);
+        }
+        
+        .medium-confidence {
+            border-left: 3px solid var(--dark-yellow);
+        }
+        .dark-theme .medium-confidence {
+            border-left-color: var(--dark-yellow);
+        }
+        .light-theme .medium-confidence {
+            border-left-color: var(--light-yellow);
         }
 
         /* 列表容器 */
@@ -872,6 +941,8 @@
             <div v-if="queryResult && !collapsedSections.resistance" class="resistance-result">
                 <div v-if="queryResult.current_price" class="current-price">
                     当前价格: {{ queryResult.current_price.toFixed(4) }}
+                    <span class="liquidity-indicator" v-if="hasHighLiquidity" title="高流动性区域">💧</span>
+                    <span class="liquidity-indicator" v-if="hasVolumeCluster" title="成交量密集区">📊</span>
                 </div>
                 
                 <!-- 紧凑型表格 -->
@@ -888,7 +959,14 @@
                             <td>{{ intervalName.toUpperCase() }}</td>
                             <td>
                                 <div v-if="intervalData.resistance && intervalData.resistance.length > 0">
-                                    <div v-for="(resistance, idx) in intervalData.resistance" :key="'resistance-'+intervalName+'-'+idx" class="level-item resistance-value">
+                                    <div v-for="(resistance, idx) in intervalData.resistance" 
+                                         :key="'resistance-'+intervalName+'-'+idx" 
+                                         class="level-item resistance-value"
+                                         :class="{
+                                             'high-confidence': resistance.strength > 0.85,
+                                             'medium-confidence': resistance.strength > 0.7 && resistance.strength <= 0.85
+                                         }"
+                                         :title="getSourceTypesTooltip(resistance.source_types)">
                                         <div class="level-price">
                                             {{ resistance.price.toFixed(4) }}
                                             <span class="sources-badge">{{ resistance.sources }}</span>
@@ -901,11 +979,18 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div v-else class="no-level">无数据</div>
+                                <div v-else class="no-data">无数据</div>
                             </td>
                             <td>
                                 <div v-if="intervalData.support && intervalData.support.length > 0">
-                                    <div v-for="(support, idx) in intervalData.support" :key="'support-'+intervalName+'-'+idx" class="level-item support-value">
+                                    <div v-for="(support, idx) in intervalData.support" 
+                                         :key="'support-'+intervalName+'-'+idx" 
+                                         class="level-item support-value"
+                                         :class="{
+                                             'high-confidence': support.strength > 0.85,
+                                             'medium-confidence': support.strength > 0.7 && support.strength <= 0.85
+                                         }"
+                                         :title="getSourceTypesTooltip(support.source_types)">
                                         <div class="level-price">
                                             {{ support.price.toFixed(4) }}
                                             <span class="sources-badge">{{ support.sources }}</span>
@@ -918,7 +1003,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div v-else class="no-level">无数据</div>
+                                <div v-else class="no-data">无数据</div>
                             </td>
                         </tr>
                     </tbody>
@@ -941,15 +1026,27 @@
                     </div>
                 </div>
                 
+                <!-- 置信度颜色说明 -->
+                <div class="confidence-explanation">
+                    <div class="explanation-title">置信度颜色：</div>
+                    <div class="explanation-item">
+                        <span class="confidence-dot high-confidence-dot"></span>
+                        <span class="explanation-text">高置信度 (强度 > 0.85)</span>
+                    </div>
+                    <div class="explanation-item">
+                        <span class="confidence-dot medium-confidence-dot"></span>
+                        <span class="explanation-text">中置信度 (0.7 < 强度 ≤ 0.85)</span>
+                    </div>
+                    <div class="explanation-item">
+                        <span class="confidence-dot"></span>
+                        <span class="explanation-text">低置信度 (强度 ≤ 0.7)</span>
+                    </div>
+                </div>
+                
                 <!-- 显示更多按钮 -->
                 <button v-if="hasMoreLevels" class="show-more-btn" @click="showAllLevels = !showAllLevels">
                     {{ showAllLevels ? '显示更少' : '显示更多周期...' }}
                 </button>
-                
-                <!-- 全局无数据提示 -->
-                <div v-if="Object.keys(queryResult.levels).length === 0" class="no-data">
-                    未找到阻力位/支撑位数据
-                </div>
             </div>
         </div>
         
@@ -1162,7 +1259,6 @@
                     dailyRising: [],
                     shortTermActive: [],
                     allCycleRising: [],
-                    analysisTime: 0,
                     activeChart: {
                         symbol: null,
                         period: null
@@ -1227,37 +1323,45 @@
                     hasMoreLevels() {
                         if (!this.queryResult || !this.queryResult.levels) return false;
                         return Object.keys(this.queryResult.levels).length > this.importantPeriods.length;
-                    }
-                },
-                mounted() {
-                    // 添加系统主题变化监听
-                    this.systemThemeWatcher = window.matchMedia('(prefers-color-scheme: dark)');
-                    this.systemThemeWatcher.addListener(e => {
-                        this.systemTheme = e.matches ? 'dark-theme' : 'light-theme';
-                        if (!this.userThemeSet) {
-                            this.theme = this.systemTheme;
-                            document.body.className = this.theme;
-                            
-                            // 重新渲染图表
-                            if (this.activeChart.symbol && this.activeChart.period) {
-                                const cacheKey = `${this.activeChart.symbol}-${this.activeChart.period}`;
-                                if (this.chartDataCache[cacheKey]) {
-                                    this.$nextTick(() => {
-                                        this.renderChart(
-                                            this.activeChart.symbol, 
-                                            this.activeChart.period, 
-                                            this.chartDataCache[cacheKey]
-                                        );
-                                    });
-                                }
+                    },
+                    hasHighLiquidity() {
+                        if (!this.queryResult || !this.queryResult.levels) return false;
+                        for (const intervalData of Object.values(this.queryResult.levels)) {
+                            if (intervalData.resistance.some(r => r.sources > 8) || 
+                                intervalData.support.some(s => s.sources > 8)) {
+                                return true;
                             }
                         }
-                    });
-                    
-                    // 初始数据加载
-                    this.fetchData();
+                        return false;
+                    },
+                    hasVolumeCluster() {
+                        if (!this.queryResult || !this.queryResult.levels) return false;
+                        for (const intervalData of Object.values(this.queryResult.levels)) {
+                            if (intervalData.resistance.some(r => r.strength > 0.85) || 
+                                intervalData.support.some(s => s.strength > 0.85)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
                 },
                 methods: {
+                    getSourceTypesTooltip(sourceTypes) {
+                        if (!sourceTypes) return '';
+                        const typeNames = {
+                            'fib_0.618': '斐波那契0.618',
+                            'fib_other': '斐波那契其他',
+                            'ema_50': '50周期均线',
+                            'ema_100': '100周期均线',
+                            'ema_200': '200周期均线',
+                            'bb_upper': '布林带上轨',
+                            'bb_lower': '布林带下轨',
+                            'integer': '心理整数位',
+                            'volume_profile': '成交量剖面',
+                            'orderbook': '订单簿流动性'
+                        };
+                        return sourceTypes.map(type => typeNames[type] || type).join(', ');
+                    },
                     getStatusTagClasses(coin, period) {
                         const isActive = this.activeChart.symbol === coin.symbol && 
                                         this.activeChart.period === period;
@@ -1493,7 +1597,7 @@
                             .then(response => {
                                 this.queryResult = {
                                     symbol: symbol,
-                                    levels: response.data.resistance || {},
+                                    levels: response.data.levels || {},
                                     current_price: response.data.current_price || 0
                                 };
                                 this.queryLoading = false;
