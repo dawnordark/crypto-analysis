@@ -242,31 +242,29 @@
             gap: 8px;
         }
         
-        .level-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-        
-        .level-column {
+        /* 优化后的阻力位支撑位行布局 */
+        .level-row {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
         }
         
-        .level-column-title {
+        .level-row-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
             font-size: 13px;
             color: var(--text-secondary);
-            margin-bottom: 5px;
-            display: flex;
-            align-items: center;
         }
         
         .level-box {
+            flex: 1;
             padding: 10px;
             border-radius: 6px;
             background-color: rgba(255, 255, 255, 0.7);
             transition: all 0.3s ease;
+            min-width: 120px;
         }
         
         .resistance-box {
@@ -726,8 +724,8 @@
                 flex-direction: column;
             }
             
-            .level-grid {
-                grid-template-columns: 1fr;
+            .level-row {
+                flex-direction: column;
             }
             
             .short-term-stats {
@@ -803,84 +801,131 @@
                         <i class="fas fa-dollar-sign"></i> 当前价格: {{ queryResult.current_price.toFixed(4) }}
                     </div>
                     
-                    <!-- 优化后的阻力位支撑位显示 -->
+                    <!-- 优化后的阻力位支撑位显示 - 每个周期一行 -->
                     <div class="resistance-level-container">
                         <div v-for="(intervalData, intervalName) in visibleResistanceLevels" :key="intervalName" class="interval-card">
                             <div class="interval-title">
                                 <i class="fas fa-chart-area"></i> {{ intervalName.toUpperCase() }} 周期
                             </div>
                             
-                            <div class="level-grid">
-                                <!-- 阻力位列 -->
-                                <div class="level-column">
-                                    <div class="level-column-title">
-                                        <i class="fas fa-arrow-up"></i> 阻力位
-                                    </div>
-                                    <div v-if="intervalData.resistance && intervalData.resistance.length > 0">
-                                        <div v-for="(resistance, idx) in intervalData.resistance" 
-                                            :key="'resistance-'+intervalName+'-'+idx" 
-                                            class="level-box resistance-box"
-                                            :title="getSourceTypesTooltip(resistance.source_types)">
-                                            <div class="level-header">
-                                                <div class="level-price-value">
-                                                    {{ resistance.price.toFixed(4) }}
-                                                </div>
-                                                <div class="level-confidence">
-                                                    <span>置信度</span>
-                                                    <div class="confidence-dot" :class="getConfidenceClass(resistance.strength)"></div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="level-strength-container">
-                                                <div class="strength-label">强度: {{ Math.round(resistance.strength * 100) }}%</div>
-                                                <div class="strength-bar-compact">
-                                                    <div class="strength-value-compact resistance-strength" :style="{ width: resistance.strength * 100 + '%' }"></div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="level-distance distance-positive">
-                                                +{{ resistance.distance_percent.toFixed(1) }}% (高于当前价)
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div v-else class="no-data">无阻力位数据</div>
-                                </div>
-                                
-                                <!-- 支撑位列 -->
-                                <div class="level-column">
-                                    <div class="level-column-title">
-                                        <i class="fas fa-arrow-down"></i> 支撑位
-                                    </div>
-                                    <div v-if="intervalData.support && intervalData.support.length > 0">
-                                        <div v-for="(support, idx) in intervalData.support" 
-                                            :key="'support-'+intervalName+'-'+idx" 
-                                            class="level-box support-box"
-                                            :title="getSourceTypesTooltip(support.source_types)">
-                                            <div class="level-header">
-                                                <div class="level-price-value">
-                                                    {{ support.price.toFixed(4) }}
-                                                </div>
-                                                <div class="level-confidence">
-                                                    <span>置信度</span>
-                                                    <div class="confidence-dot" :class="getConfidenceClass(support.strength)"></div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="level-strength-container">
-                                                <div class="strength-label">强度: {{ Math.round(support.strength * 100) }}%</div>
-                                                <div class="strength-bar-compact">
-                                                    <div class="strength-value-compact support-strength" :style="{ width: support.strength * 100 + '%' }"></div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="level-distance distance-negative">
-                                                {{ support.distance_percent.toFixed(1) }}% (低于当前价)
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div v-else class="no-data">无支撑位数据</div>
-                                </div>
+                            <!-- 阻力位支撑位行标题 -->
+                            <div class="level-row-header">
+                                <div><i class="fas fa-arrow-up"></i> 阻力位</div>
+                                <div><i class="fas fa-arrow-down"></i> 支撑位</div>
                             </div>
+                            
+                            <!-- 阻力位支撑位行内容 -->
+                            <div class="level-row">
+                                <!-- 阻力位部分 -->
+                                <div class="level-box resistance-box" v-if="intervalData.resistance && intervalData.resistance.length > 0"
+                                    :title="getLevelTooltip(intervalData.resistance[0], 'resistance')">
+                                    <div class="level-header">
+                                        <div class="level-price-value">
+                                            {{ intervalData.resistance[0].price.toFixed(4) }}
+                                        </div>
+                                        <div class="level-confidence">
+                                            <span>置信度</span>
+                                            <div class="confidence-dot" :class="getConfidenceClass(intervalData.resistance[0].strength)"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="level-strength-container">
+                                        <div class="strength-label">强度: {{ Math.round(intervalData.resistance[0].strength * 100) }}%</div>
+                                        <div class="strength-bar-compact">
+                                            <div class="strength-value-compact resistance-strength" :style="{ width: intervalData.resistance[0].strength * 100 + '%' }"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="level-distance distance-positive">
+                                        +{{ intervalData.resistance[0].distance_percent.toFixed(1) }}%
+                                    </div>
+                                </div>
+                                <div v-else class="no-data">无阻力位</div>
+                                
+                                <!-- 支撑位部分 -->
+                                <div class="level-box support-box" v-if="intervalData.support && intervalData.support.length > 0"
+                                    :title="getLevelTooltip(intervalData.support[0], 'support')">
+                                    <div class="level-header">
+                                        <div class="level-price-value">
+                                            {{ intervalData.support[0].price.toFixed(4) }}
+                                        </div>
+                                        <div class="level-confidence">
+                                            <span>置信度</span>
+                                            <div class="confidence-dot" :class="getConfidenceClass(intervalData.support[0].strength)"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="level-strength-container">
+                                        <div class="strength-label">强度: {{ Math.round(intervalData.support[0].strength * 100) }}%</div>
+                                        <div class="strength-bar-compact">
+                                            <div class="strength-value-compact support-strength" :style="{ width: intervalData.support[0].strength * 100 + '%' }"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="level-distance distance-negative">
+                                        {{ intervalData.support[0].distance_percent.toFixed(1) }}%
+                                    </div>
+                                </div>
+                                <div v-else class="no-data">无支撑位</div>
+                            </div>
+                            
+                            <!-- 第二行（如果有多个阻力位/支撑位） -->
+                            <template v-if="(intervalData.resistance && intervalData.resistance.length > 1) || 
+                                           (intervalData.support && intervalData.support.length > 1)">
+                                <div class="level-row">
+                                    <!-- 阻力位2 -->
+                                    <div class="level-box resistance-box" v-if="intervalData.resistance && intervalData.resistance.length > 1"
+                                        :title="getLevelTooltip(intervalData.resistance[1], 'resistance')">
+                                        <div class="level-header">
+                                            <div class="level-price-value">
+                                                {{ intervalData.resistance[1].price.toFixed(4) }}
+                                            </div>
+                                            <div class="level-confidence">
+                                                <span>置信度</span>
+                                                <div class="confidence-dot" :class="getConfidenceClass(intervalData.resistance[1].strength)"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="level-strength-container">
+                                            <div class="strength-label">强度: {{ Math.round(intervalData.resistance[1].strength * 100) }}%</div>
+                                            <div class="strength-bar-compact">
+                                                <div class="strength-value-compact resistance-strength" :style="{ width: intervalData.resistance[1].strength * 100 + '%' }"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="level-distance distance-positive">
+                                            +{{ intervalData.resistance[1].distance_percent.toFixed(1) }}%
+                                        </div>
+                                    </div>
+                                    <div v-else class="no-data"></div>
+                                    
+                                    <!-- 支撑位2 -->
+                                    <div class="level-box support-box" v-if="intervalData.support && intervalData.support.length > 1"
+                                        :title="getLevelTooltip(intervalData.support[1], 'support')">
+                                        <div class="level-header">
+                                            <div class="level-price-value">
+                                                {{ intervalData.support[1].price.toFixed(4) }}
+                                            </div>
+                                            <div class="level-confidence">
+                                                <span>置信度</span>
+                                                <div class="confidence-dot" :class="getConfidenceClass(intervalData.support[1].strength)"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="level-strength-container">
+                                            <div class="strength-label">强度: {{ Math.round(intervalData.support[1].strength * 100) }}%</div>
+                                            <div class="strength-bar-compact">
+                                                <div class="strength-value-compact support-strength" :style="{ width: intervalData.support[1].strength * 100 + '%' }"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="level-distance distance-negative">
+                                            {{ intervalData.support[1].distance_percent.toFixed(1) }}%
+                                        </div>
+                                    </div>
+                                    <div v-else class="no-data"></div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                     
@@ -888,8 +933,18 @@
                     <div class="level-explanation">
                         <div class="explanation-title"><i class="fas fa-info-circle"></i> 强度与置信度说明</div>
                         <div class="explanation-content">
-                            <p><strong>强度</strong>：表示价格在该位置的阻力/支撑力度，数值越高表示阻力/支撑越强。</p>
-                            <p><strong>置信度</strong>：根据多个技术指标聚合计算得出：<span class="confidence-high">● 高</span> (强度 > 70%)，<span class="confidence-medium">● 中</span> (强度 30%-70%)，<span class="confidence-low">● 低</span> (强度 < 30%)</p>
+                            <p><strong>强度</strong>：表示价格在该位置的阻力/支撑力度，强度越高表示阻力/支撑越强，使用颜色条直观表示：</p>
+                            <p class="strength-example">
+                                <span class="resistance-strength" style="display:inline-block; width:20px; height:6px; vertical-align:middle;"></span> 阻力位强度 &nbsp;
+                                <span class="support-strength" style="display:inline-block; width:20px; height:6px; vertical-align:middle;"></span> 支撑位强度
+                            </p>
+                            <p><strong>置信度</strong>：根据多个技术指标聚合计算得出：</p>
+                            <p>
+                                <span class="confidence-high">● 高置信度</span> (强度 > 70%) &nbsp;
+                                <span class="confidence-medium">● 中置信度</span> (强度 30%-70%) &nbsp;
+                                <span class="confidence-low">● 低置信度</span> (强度 < 30%)
+                            </p>
+                            <p><i class="fas fa-lightbulb"></i> 提示：鼠标悬停在价格上可查看详细来源信息</p>
                         </div>
                     </div>
                 </div>
@@ -1177,6 +1232,24 @@
                         };
                         
                         return sourceTypes.map(type => sourceMap[type] || type).join(', ');
+                    },
+                    
+                    // 获取阻力位/支撑位详细信息
+                    getLevelTooltip(level, type) {
+                        const typeName = type === 'resistance' ? '阻力位' : '支撑位';
+                        let tooltip = `价格: ${level.price.toFixed(4)}\n`;
+                        tooltip += `强度: ${Math.round(level.strength * 100)}%\n`;
+                        tooltip += `置信度: ${this.getConfidenceText(level.strength)}\n`;
+                        tooltip += `距离: ${Math.abs(level.distance_percent).toFixed(1)}% (${level.distance_percent > 0 ? '高于' : '低于'}当前价)\n`;
+                        tooltip += `来源: ${this.getSourceTypesTooltip(level.source_types)}`;
+                        return tooltip;
+                    },
+                    
+                    // 获取置信度文本描述
+                    getConfidenceText(strength) {
+                        if (strength > 0.7) return '高';
+                        if (strength > 0.3) return '中';
+                        return '低';
                     },
                     
                     toggleTheme() {
