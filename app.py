@@ -6,14 +6,9 @@ import sys
 import subprocess
 import traceback
 
-# 优化后的 TA-Lib 导入逻辑 - 使用纯 Python 替代方案
-try:
-    # 尝试导入二进制版本的 TA-Lib
-    import talib
-    print("✅ TA-Lib (binary) 已安装")
-except ImportError:
-    print("❌ TA-Lib (binary) 未安装，使用替代函数")
-    talib = None
+# 完全移除 TA-Lib 依赖
+talib = None
+print("ℹ️ 使用内置技术指标计算函数，无需外部依赖")
 
 import time
 import re
@@ -29,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
-from flask_cors import CORS  # 添加CORS支持
+from flask_cors import CORS
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -59,7 +54,7 @@ logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
-CORS(app)  # 启用CORS支持
+CORS(app)
 
 # Binance API 配置
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
@@ -80,7 +75,7 @@ current_data_cache = data_cache.copy()
 oi_data_cache = {}
 resistance_cache = {}
 RESISTANCE_CACHE_EXPIRATION = 24 * 3600
-OI_CACHE_EXPIRATION = 5 * 60  # 5分钟缓存过期
+OI_CACHE_EXPIRATION = 5 * 60
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
@@ -99,24 +94,21 @@ PERIOD_MINUTES = {
     '1d': 1440
 }
 
-# 有效周期列表 (9个)
 VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
-
-# 阻力位计算周期
 RESISTANCE_INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
 # 指标权重配置
 INDICATOR_WEIGHTS = {
-    'fib_0.618': 1.5,    # 黄金分割位
-    'ema_200': 1.4,      # 长期均线
+    'fib_0.618': 1.5,
+    'ema_200': 1.4,
     'ema_100': 1.2,
-    'bb_upper': 1.1,     # 布林带边界
+    'bb_upper': 1.1,
     'bb_lower': 1.1,
-    'fib_other': 1.0,    # 其他斐波那契位
+    'fib_other': 1.0,
     'ema_50': 0.9,
-    'integer': 0.8,      # 心理整数位
-    'volume_profile': 1.8, # 成交量剖面
-    'orderbook': 2.0      # 订单簿流动性
+    'integer': 0.8,
+    'volume_profile': 1.8,
+    'orderbook': 2.0
 }
 
 def init_client():
@@ -137,7 +129,6 @@ def init_client():
                 requests_params={'timeout': 30}
             )
             
-            # 测试连接
             server_time = client.get_server_time()
             logger.info(f"✅ Binance客户端初始化成功，服务器时间: {datetime.fromtimestamp(server_time['serverTime']/1000)}")
             return True
@@ -150,7 +141,6 @@ def init_client():
     return False
 
 def get_next_update_time(period):
-    # 使用中国时区 (UTC+8)
     tz_shanghai = timezone(timedelta(hours=8))
     now = datetime.now(tz_shanghai)
     minutes = PERIOD_MINUTES.get(period, 5)
@@ -159,31 +149,25 @@ def get_next_update_time(period):
         period_minutes = int(period[:-1])
         current_minute = now.minute
         current_period_minute = (current_minute // period_minutes) * period_minutes
-        # 增加2秒延迟，对齐币安API
         next_update = now.replace(minute=current_period_minute, second=2, microsecond=0) + timedelta(minutes=period_minutes)
-        # 如果计算出的时间已经过去，则再加一个周期
         if next_update < now:
             next_update += timedelta(minutes=period_minutes)
     elif period.endswith('h'):
         period_hours = int(period[:-1])
         current_hour = now.hour
         current_period_hour = (current_hour // period_hours) * period_hours
-        # 增加2秒延迟，对齐币安API
         next_update = now.replace(hour=current_period_hour, minute=0, second=2, microsecond=0) + timedelta(hours=period_hours)
-    else:  # 1d
-        # 增加2秒延迟，对齐币安API
+    else:
         next_update = now.replace(hour=0, minute=0, second=2, microsecond=0) + timedelta(days=1)
 
     return next_update
 
 def get_open_interest(symbol, period, use_cache=True):
     try:
-        # 验证币种格式
         if not re.match(r"^[A-Z0-9]{1,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return {'series': [], 'timestamps': []}
 
-        # 只处理有效周期
         if period not in VALID_PERIODS:
             logger.warning(f"⚠️ 不支持的周期: {period}")
             return {'series': [], 'timestamps': []}
@@ -193,7 +177,6 @@ def get_open_interest(symbol, period, use_cache=True):
         
         if use_cache and cache_key in oi_data_cache:
             cached_data = oi_data_cache[cache_key]
-            # 检查缓存是否过期
             if 'expiration' in cached_data and cached_data['expiration'] > current_time:
                 logger.debug(f"📈 使用缓存数据: {symbol} {period}")
                 return cached_data['data']
@@ -220,7 +203,7 @@ def get_open_interest(symbol, period, use_cache=True):
         oi_series = [float(item['sumOpenInterest']) for item in data]
         timestamps = [item['timestamp'] for item in data]
 
-        if len(oi_series) < 30:  # 确保获取30个数据点
+        if len(oi_series) < 30:
             logger.warning(f"⚠️ {symbol}的{period}持仓量数据不足30个点")
             return {'series': [], 'timestamps': []}
             
@@ -229,7 +212,6 @@ def get_open_interest(symbol, period, use_cache=True):
             'timestamps': timestamps
         }
         
-        # 设置5分钟缓存过期
         expiration = current_time + timedelta(seconds=OI_CACHE_EXPIRATION)
         oi_data_cache[cache_key] = {
             'data': oi_data,
@@ -254,28 +236,22 @@ def is_latest_highest(oi_data):
     return latest_value > max(prev_data) if prev_data else False
 
 def add_volume_profile(symbol, interval):
-    """添加成交量剖面关键价位"""
     try:
-        # 获取K线数据（包含成交量）
         klines = client.futures_klines(symbol=symbol, interval=interval, limit=500)
         if not klines or len(klines) < 100:
             return []
         
-        # 提取价格和成交量
-        prices = [float(k[4]) for k in klines]  # 收盘价
-        volumes = [float(k[5]) for k in klines]  # 成交量
+        prices = [float(k[4]) for k in klines]
+        volumes = [float(k[5]) for k in klines]
         
-        # 创建价格分区
         price_range = max(prices) - min(prices)
-        bin_size = price_range / 20  # 20个价格区间
+        bin_size = price_range / 20
         
-        # 计算每个价格区间的总成交量
         volume_profile = {}
         for i in range(len(prices)):
             bin_key = round(prices[i] / bin_size) * bin_size
             volume_profile[bin_key] = volume_profile.get(bin_key, 0) + volumes[i]
         
-        # 提取成交量最大的3个价格区
         sorted_profile = sorted(volume_profile.items(), key=lambda x: x[1], reverse=True)
         return [item[0] for item in sorted_profile[:3]]
     
@@ -284,32 +260,26 @@ def add_volume_profile(symbol, interval):
         return []
 
 def get_orderbook_liquidity(symbol):
-    """获取订单簿关键流动性水平"""
     try:
         orderbook = client.futures_order_book(symbol=symbol, limit=50)
-        bids = orderbook['bids']  # 买盘
-        asks = orderbook['asks']  # 卖盘
+        bids = orderbook['bids']
+        asks = orderbook['asks']
         
-        # 计算流动性集中区
         liquidity_levels = []
         
-        # 分析卖盘流动性墙（阻力）
         ask_levels = {}
         for price, qty in asks:
-            price_key = round(float(price), 2)  # 0.01精度
+            price_key = round(float(price), 2)
             ask_levels[price_key] = ask_levels.get(price_key, 0) + float(qty)
         
-        # 找出最大3个卖单墙
         sorted_asks = sorted(ask_levels.items(), key=lambda x: x[1], reverse=True)
         liquidity_levels.extend([price for price, qty in sorted_asks[:3]])
         
-        # 分析买盘流动性墙（支撑）
         bid_levels = {}
         for price, qty in bids:
             price_key = round(float(price), 2)
             bid_levels[price_key] = bid_levels.get(price_key, 0) + float(qty)
         
-        # 找出最大3个买单墙
         sorted_bids = sorted(bid_levels.items(), key=lambda x: x[1], reverse=True)
         liquidity_levels.extend([price for price, qty in sorted_bids[:3]])
         
@@ -320,26 +290,22 @@ def get_orderbook_liquidity(symbol):
         return []
 
 def calculate_ema(data, period):
-    """替代的EMA计算函数"""
+    """指数移动平均计算"""
     if len(data) < period:
         return np.nan
     
-    # 使用NumPy计算EMA
     alpha = 2 / (period + 1)
     weights = np.array([(1 - alpha) ** i for i in range(period)][::-1])
     weights /= weights.sum()
     
-    # 计算最近的period个数据的EMA
     return np.dot(data[-period:], weights)
 
 def calculate_bollinger(data, period=20, num_std=2):
-    """替代的布林带计算函数"""
+    """布林带计算"""
     if len(data) < period:
         return np.nan, np.nan
     
-    # 计算移动平均
     ma = np.mean(data[-period:])
-    # 计算标准差
     std = np.std(data[-period:])
     
     upper = ma + (std * num_std)
@@ -351,7 +317,6 @@ def calculate_resistance_levels(symbol):
         logger.info(f"📊 计算阻力位: {symbol}")
         now = time.time()
         
-        # 检查缓存
         cache_key = f"{symbol}_resistance"
         if cache_key in resistance_cache:
             cache_data = resistance_cache[cache_key]
@@ -359,12 +324,10 @@ def calculate_resistance_levels(symbol):
                 logger.debug(f"📊 使用缓存的阻力位数据: {symbol}")
                 return cache_data['levels']
         
-        # 确保客户端已初始化
         if client is None and not init_client():
             logger.error("❌ 无法初始化Binance客户端，无法计算阻力位")
             return {'resistance': {}, 'support': {}, 'current_price': 0}
         
-        # 获取当前价格
         try:
             ticker = client.futures_symbol_ticker(symbol=symbol)
             current_price = float(ticker['price'])
@@ -373,10 +336,7 @@ def calculate_resistance_levels(symbol):
             logger.error(f"❌ 获取{symbol}当前价格失败: {str(e)}")
             current_price = None
         
-        # 存储各时间段阻力/支撑位
         interval_levels = {}
-        
-        # 全局获取一次成交量剖面和订单簿数据（避免重复请求）
         volume_profile_levels = add_volume_profile(symbol, '1d')
         orderbook_levels = get_orderbook_liquidity(symbol)
         
@@ -389,38 +349,20 @@ def calculate_resistance_levels(symbol):
                     logger.warning(f"⚠️ {symbol}在{interval}的K线数据不足")
                     continue
 
-                # 提取价格数据
                 high_prices = [float(k[2]) for k in klines]
                 low_prices = [float(k[3]) for k in klines]
                 close_prices = [float(k[4]) for k in klines]
                 open_prices = [float(k[1]) for k in klines]
                 
-                # ===== 多维度共振计算 =====
                 closes = np.array(close_prices)
                 
-                # 1. 计算技术指标
-                # 移动平均线
-                if talib:
-                    # 使用TA-Lib
-                    ema50 = talib.EMA(closes, timeperiod=50)[-1]
-                    ema100 = talib.EMA(closes, timeperiod=100)[-1]
-                    ema200 = talib.EMA(closes, timeperiod=200)[-1]
-                    
-                    # 布林带
-                    upper_band, middle_band, lower_band = talib.BBANDS(
-                        closes, timeperiod=20, nbdevup=2, nbdevdn=2
-                    )
-                    bb_upper = upper_band[-1]
-                    bb_lower = lower_band[-1]
-                else:
-                    # 使用替代函数
-                    logger.info("📊 使用替代函数计算技术指标")
-                    ema50 = calculate_ema(closes, 50)
-                    ema100 = calculate_ema(closes, 100)
-                    ema200 = calculate_ema(closes, 200)
-                    bb_upper, bb_lower = calculate_bollinger(closes, 20, 2)
+                # 使用内置函数计算技术指标
+                logger.info("📊 使用内置函数计算技术指标")
+                ema50 = calculate_ema(closes, 50)
+                ema100 = calculate_ema(closes, 100)
+                ema200 = calculate_ema(closes, 200)
+                bb_upper, bb_lower = calculate_bollinger(closes, 20, 2)
                 
-                # 斐波那契水平（基于最近100根K线的最高最低）
                 recent_high = max(high_prices)
                 recent_low = min(low_prices)
                 fib_618 = recent_high - (recent_high - recent_low) * 0.618
@@ -429,66 +371,50 @@ def calculate_resistance_levels(symbol):
                     for r in [0.236, 0.382, 0.5, 0.786]
                 ]
                 
-                # 2. 收集多维度水平（带来源类型）
                 levels_with_type = []
-                
-                # 斐波那契水平
                 levels_with_type.append(('fib_0.618', fib_618))
                 for level in fib_other:
                     levels_with_type.append(('fib_other', level))
                 
-                # 移动平均线
                 levels_with_type.append(('ema_50', ema50))
                 levels_with_type.append(('ema_100', ema100))
                 levels_with_type.append(('ema_200', ema200))
-                
-                # 布林带边界
                 levels_with_type.append(('bb_upper', bb_upper))
                 levels_with_type.append(('bb_lower', bb_lower))
                 
-                # 心理整数位
                 if current_price and current_price > 0:
-                    base = 10 ** max(0, math.floor(math.log10(current_price)) - 1)
+                    base = 10 ** max(0, math.floor(math.log10(current_price)) - 1
                     integer_level = round(current_price / base) * base
                     levels_with_type.append(('integer', integer_level))
                 
-                # 添加成交量剖面水平
                 for level in volume_profile_levels:
                     levels_with_type.append(('volume_profile', level))
                 
-                # 添加订单簿流动性水平
                 for level in orderbook_levels:
                     levels_with_type.append(('orderbook', level))
                 
-                # 3. 计算加权共振强度
                 level_scores = {}
-                tolerance = current_price * 0.005  # 0.5%价格容差
+                tolerance = current_price * 0.005 if current_price else 0.01
                 
-                # 初始化每个水平的分数
                 for level_type, level_value in levels_with_type:
                     level_value = round(level_value, 4)
                     if level_value not in level_scores:
                         level_scores[level_value] = {
                             'score': 0.0,
-                            'sources': set()  # 记录来源类型
+                            'sources': set()
                         }
                     level_scores[level_value]['sources'].add(level_type)
                 
-                # 加权共振计算
-                # 遍历所有水平对
                 for i, (level_type1, level_value1) in enumerate(levels_with_type):
                     level_value1 = round(level_value1, 4)
                     for j, (level_type2, level_value2) in enumerate(levels_with_type):
                         if i == j: 
                             continue
                         if abs(level_value1 - level_value2) <= tolerance:
-                            # 获取权重
                             weight1 = INDICATOR_WEIGHTS.get(level_type1, 1.0)
                             weight2 = INDICATOR_WEIGHTS.get(level_type2, 1.0)
-                            # 累加加权分
                             level_scores[level_value1]['score'] += weight1 * weight2
                 
-                # 4. 合并相近水平
                 merged_levels = []
                 sorted_levels = sorted(level_scores.keys())
                 i = 0
@@ -500,51 +426,47 @@ def calculate_resistance_levels(symbol):
                         group.append(sorted_levels[j])
                         j += 1
                     
-                    # 取组内最高分作为代表
                     best_level = max(group, key=lambda x: level_scores[x]['score'])
-                    # 合并来源
                     merged_sources = set()
                     for level in group:
                         merged_sources |= level_scores[level]['sources']
                     
-                    # 归一化强度 (0~1)
                     strength = min(1.0, level_scores[best_level]['score'] / 30.0)
                     
                     merged_levels.append({
                         'price': best_level,
                         'strength': strength,
-                        'sources': len(merged_sources),  # 来源数量
-                        'source_types': list(merged_sources)  # 来源类型列表
+                        'sources': len(merged_sources),
+                        'source_types': list(merged_sources)
                     })
                     i = j
                 
-                # 按强度排序
                 merged_levels.sort(key=lambda x: x['strength'], reverse=True)
                 
-                # 分类为阻力/支撑
                 resistance = []
                 support = []
                 
-                for level in merged_levels[:5]:  # 取前5个最强水平
+                for level in merged_levels[:5]:
                     price = level['price']
-                    if price > current_price:
+                    if current_price and price > current_price:
+                        distance_percent = (price - current_price) / current_price * 100
                         resistance.append({
                             'price': price,
                             'strength': round(level['strength'], 2),
-                            'distance_percent': round((price - current_price) / current_price * 100, 2),
-                            'sources': level['sources'],  # 共振来源数量
-                            'source_types': level['source_types']  # 来源类型
+                            'distance_percent': round(distance_percent, 2),
+                            'sources': level['sources'],
+                            'source_types': level['source_types']
                         })
-                    elif price < current_price:
+                    elif current_price and price < current_price:
+                        distance_percent = (price - current_price) / current_price * 100
                         support.append({
                             'price': price,
                             'strength': round(level['strength'], 2),
-                            'distance_percent': round((price - current_price) / current_price * 100, 2),
-                            'sources': level['sources'],  # 共振来源数量
-                            'source_types': level['source_types']  # 来源类型
+                            'distance_percent': round(distance_percent, 2),
+                            'sources': level['sources'],
+                            'source_types': level['source_types']
                         })
                 
-                # 排序并选取最有效的3个
                 resistance.sort(key=lambda x: x['strength'], reverse=True)
                 support.sort(key=lambda x: x['strength'], reverse=True)
                 
@@ -584,17 +506,14 @@ def analyze_symbol(symbol):
             'daily_rising': None,
             'short_term_active': None,
             'all_cycle_rising': None,
-            'period_status': {p: False for p in VALID_PERIODS},  # 只使用有效周期
+            'period_status': {p: False for p in VALID_PERIODS},
             'period_count': 0
         }
 
-        # 1. 获取日线持仓量数据 (确保30个数据点)
         daily_oi = get_open_interest(symbol, '1d')
         daily_series = daily_oi.get('series', [])
         
-        # 2. 检查日线上涨条件
         if len(daily_series) >= 30:
-            # 修复：确保正确计算趋势状态
             daily_status = is_latest_highest(daily_series)
             symbol_result['period_status']['1d'] = daily_status
             
@@ -602,17 +521,15 @@ def analyze_symbol(symbol):
                 daily_change = ((daily_series[-1] - daily_series[-30]) / daily_series[-30]) * 100
                 logger.info(f"📊 {symbol} 日线上涨条件满足，涨幅: {daily_change:.2f}%")
                 
-                # 创建临时对象存储日线数据
                 daily_rising_item = {
                     'symbol': symbol,
                     'oi': daily_series[-1],
                     'change': round(daily_change, 2),
-                    'period_status': symbol_result['period_status'].copy()  # 包含所有周期状态
+                    'period_status': symbol_result['period_status'].copy()
                 }
                 symbol_result['daily_rising'] = daily_rising_item
                 symbol_result['period_count'] = 1
 
-                # 3. 全周期分析 (只检查有效周期)
                 logger.info(f"📊 开始全周期分析: {symbol}")
                 all_intervals_up = True
                 for period in VALID_PERIODS:
@@ -622,7 +539,6 @@ def analyze_symbol(symbol):
                     oi_data = get_open_interest(symbol, period)
                     oi_series = oi_data.get('series', [])
                     
-                    # 确保正确计算周期状态
                     status = len(oi_series) >= 30 and is_latest_highest(oi_series)
                     symbol_result['period_status'][period] = status
                     
@@ -638,15 +554,13 @@ def analyze_symbol(symbol):
                         'oi': daily_series[-1],
                         'change': round(daily_change, 2),
                         'period_count': symbol_result['period_count'],
-                        'period_status': symbol_result['period_status'].copy()  # 包含所有周期状态
+                        'period_status': symbol_result['period_status'].copy()
                     }
                 
-                # 更新日线上涨币种的周期状态
                 if symbol_result['daily_rising']:
                     symbol_result['daily_rising']['period_status'] = symbol_result['period_status'].copy()
                     symbol_result['daily_rising']['period_count'] = symbol_result['period_count']
 
-        # 4. 短期活跃度分析 (仅计算活跃比值)
         min5_oi = get_open_interest(symbol, '5m')
         min5_series = min5_oi.get('series', [])
         
@@ -660,7 +574,6 @@ def analyze_symbol(symbol):
                 
                 if ratio > 1.5:
                     logger.info(f"📊 {symbol} 短期活跃条件满足")
-                    # 短期活跃只返回必要字段
                     symbol_result['short_term_active'] = {
                         'symbol': symbol,
                         'oi': min5_series[-1],
@@ -693,7 +606,6 @@ def analyze_trends():
     short_term_active = []
     all_cycle_rising = []
 
-    # 使用批量任务处理
     futures = [executor.submit(analyze_symbol, symbol) for symbol in symbols]
     
     for future in as_completed(futures):
@@ -708,16 +620,14 @@ def analyze_trends():
         except Exception as e:
             logger.error(f"❌ 处理币种时出错: {str(e)}")
 
-    # 排序结果 - 按符合周期数量排序
     daily_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
-    short_term_active.sort(key=lambda x: x.get('ratio', 0), reverse=True)  # 短期活跃按ratio排序
+    short_term_active.sort(key=lambda x: x.get('ratio', 0), reverse=True)
     all_cycle_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
 
     analysis_time = time.time() - start_time
     logger.info(f"📊 分析结果: 日线上涨 {len(daily_rising)}个, 短期活跃 {len(short_term_active)}个, 全部周期上涨 {len(all_cycle_rising)}个")
     logger.info(f"✅ 分析完成: 用时{analysis_time:.2f}秒")
 
-    # 使用中国时区 (UTC+8)
     tz_shanghai = timezone(timedelta(hours=8))
     return {
         'daily_rising': daily_rising,
@@ -729,7 +639,6 @@ def analyze_trends():
     }
 
 def get_high_volume_symbols():
-    # 确保客户端已初始化
     if client is None and not init_client():
         logger.error("❌ 无法连接API")
         return []
@@ -752,7 +661,6 @@ def analysis_worker():
     global data_cache, current_data_cache
     logger.info("🔧 数据分析线程启动")
 
-    # 初始数据使用默认缓存
     data_cache = {
         "last_updated": "从未更新",
         "daily_rising": [],
@@ -768,7 +676,7 @@ def analysis_worker():
             task = analysis_queue.get()
             if task == "STOP":
                 logger.info("🛑 收到停止信号，结束分析线程")
-                analysis_queue.task_done()  # 关键修复：标记任务完成
+                analysis_queue.task_done()
                 break
 
             analysis_start = datetime.now(timezone.utc)
@@ -808,19 +716,16 @@ def analysis_worker():
             analysis_duration = (analysis_end - analysis_start).total_seconds()
             logger.info(f"⏱️ 分析耗时: {analysis_duration:.2f}秒")
             
-            # 记录下一次分析时间
             next_time = get_next_update_time('5m')
             wait_seconds = (next_time - analysis_end).total_seconds()
             logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
             
             logger.info("=" * 50)
             
-            # 关键修复：标记任务完成
             analysis_queue.task_done()
         except Exception as e:
             logger.error(f"❌ 分析失败: {str(e)}")
             logger.error(traceback.format_exc())
-            # 确保即使出错也标记任务完成
             analysis_queue.task_done()
 
 def schedule_analysis():
@@ -835,7 +740,7 @@ def schedule_analysis():
         analysis_start = datetime.now(timezone.utc)
         logger.info(f"🔔 触发定时分析任务 ({analysis_start.strftime('%Y-%m-%d %H:%M:%S')}")
         analysis_queue.put("ANALYZE")
-        analysis_queue.join()  # 等待分析任务完成
+        analysis_queue.join()
 
         analysis_duration = (datetime.now(timezone.utc) - analysis_start).total_seconds()
         now = datetime.now(timezone.utc)
@@ -909,7 +814,6 @@ def get_data():
         short_term_active = validate_coins(current_data_cache.get('short_term_active', []))
         all_cycle_rising = validate_coins(current_data_cache.get('all_cycle_rising', []))
         
-        # 过滤掉全周期上涨的币种（不在日线上涨列表显示）
         all_cycle_symbols = {coin['symbol'] for coin in all_cycle_rising}
         filtered_daily_rising = [coin for coin in daily_rising if coin['symbol'] not in all_cycle_symbols]
         
@@ -927,7 +831,6 @@ def get_data():
     
     except Exception as e:
         logger.error(f"❌ 获取数据失败: {str(e)}")
-        # 使用中国时区 (UTC+8)
         tz_shanghai = timezone(timedelta(hours=8))
         return jsonify({
             'last_updated': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
@@ -948,12 +851,10 @@ def get_resistance_levels(symbol):
         logger.info(f"📊 获取阻力位数据: {symbol}")
         levels = calculate_resistance_levels(symbol)
         
-        # 确保数据结构正确
         if not isinstance(levels, dict):
             logger.error(f"❌ 阻力位数据结构错误: {type(levels)}")
             return jsonify({'error': 'Invalid resistance data structure'}), 500
         
-        # 确保包含必要的键
         if 'levels' not in levels:
             levels['levels'] = {}
         if 'current_price' not in levels:
@@ -975,7 +876,6 @@ def get_oi_chart_data(symbol, period):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
             return jsonify({'error': 'Invalid symbol format'}), 400
 
-        # 只支持有效的9个周期
         if period not in VALID_PERIODS:
             logger.warning(f"⚠ 不支持的周期: {period}")
             return jsonify({'error': 'Unsupported period'}), 400
@@ -1002,7 +902,6 @@ def health_check():
         else:
             binance_status = 'not initialized'
         
-        # 使用中国时区 (UTC+8)
         tz_shanghai = timezone(timedelta(hours=8))
         return jsonify({
             'status': 'healthy',
@@ -1032,7 +931,6 @@ def start_background_threads():
         return False
     
     global current_data_cache
-    # 优化缓存初始化逻辑
     tz_shanghai = timezone(timedelta(hours=8))
     current_data_cache = {
         "last_updated": "等待首次分析",
@@ -1059,7 +957,7 @@ if __name__ == '__main__':
     PORT = int(os.environ.get("PORT", 9600))
     
     logger.info("=" * 50)
-    logger.info(f"🚀 启动加密货币持仓量分析服务 (内存存储版)")
+    logger.info(f"🚀 启动加密货币持仓量分析服务")
     logger.info(f"🔑 API密钥: {API_KEY[:5]}...{API_KEY[-3:] if API_KEY else '未设置'}")
     logger.info(f"🌐 服务端口: {PORT}")
     logger.info("💾 数据存储: 内存存储 (无持久化)")

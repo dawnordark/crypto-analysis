@@ -1,6 +1,6 @@
-flask
-flask-cors
-python-binance
-requests
-numpy
-ta-lib-binary==0.4.28
+flask==3.0.3
+flask-cors==4.0.0
+python-binance==1.0.24
+requests==2.32.3
+numpy==1.26.4
+pandas==2.2.2  # 添加 pandas 以增强技术指标计算
