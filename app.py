@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
 import talib  # 新增技术指标库
+import itertools
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -92,6 +93,20 @@ VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
 # 阻力位计算周期
 RESISTANCE_INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
+
+# 指标权重配置
+INDICATOR_WEIGHTS = {
+    'fib_0.618': 1.5,    # 黄金分割位
+    'ema_200': 1.4,      # 长期均线
+    'ema_100': 1.2,
+    'bb_upper': 1.1,     # 布林带边界
+    'bb_lower': 1.1,
+    'fib_other': 1.0,    # 其他斐波那契位
+    'ema_50': 0.9,
+    'integer': 0.8,      # 心理整数位
+    'volume_profile': 1.8, # 成交量剖面
+    'orderbook': 2.0      # 订单簿流动性
+}
 
 def init_client():
     global client
@@ -227,6 +242,72 @@ def is_latest_highest(oi_data):
     
     return latest_value > max(prev_data) if prev_data else False
 
+def add_volume_profile(symbol, interval):
+    """添加成交量剖面关键价位"""
+    try:
+        # 获取K线数据（包含成交量）
+        klines = client.futures_klines(symbol=symbol, interval=interval, limit=500)
+        if not klines or len(klines) < 100:
+            return []
+        
+        # 提取价格和成交量
+        prices = [float(k[4]) for k in klines]  # 收盘价
+        volumes = [float(k[5]) for k in klines]  # 成交量
+        
+        # 创建价格分区
+        price_range = max(prices) - min(prices)
+        bin_size = price_range / 20  # 20个价格区间
+        
+        # 计算每个价格区间的总成交量
+        volume_profile = {}
+        for i in range(len(prices)):
+            bin_key = round(prices[i] / bin_size) * bin_size
+            volume_profile[bin_key] = volume_profile.get(bin_key, 0) + volumes[i]
+        
+        # 提取成交量最大的3个价格区
+        sorted_profile = sorted(volume_profile.items(), key=lambda x: x[1], reverse=True)
+        return [item[0] for item in sorted_profile[:3]]
+    
+    except Exception as e:
+        logger.error(f"成交量剖面分析失败: {str(e)}")
+        return []
+
+def get_orderbook_liquidity(symbol):
+    """获取订单簿关键流动性水平"""
+    try:
+        orderbook = client.futures_order_book(symbol=symbol, limit=50)
+        bids = orderbook['bids']  # 买盘
+        asks = orderbook['asks']  # 卖盘
+        
+        # 计算流动性集中区
+        liquidity_levels = []
+        
+        # 分析卖盘流动性墙（阻力）
+        ask_levels = {}
+        for price, qty in asks:
+            price_key = round(float(price), 2)  # 0.01精度
+            ask_levels[price_key] = ask_levels.get(price_key, 0) + float(qty)
+        
+        # 找出最大3个卖单墙
+        sorted_asks = sorted(ask_levels.items(), key=lambda x: x[1], reverse=True)
+        liquidity_levels.extend([price for price, qty in sorted_asks[:3]])
+        
+        # 分析买盘流动性墙（支撑）
+        bid_levels = {}
+        for price, qty in bids:
+            price_key = round(float(price), 2)
+            bid_levels[price_key] = bid_levels.get(price_key, 0) + float(qty)
+        
+        # 找出最大3个买单墙
+        sorted_bids = sorted(bid_levels.items(), key=lambda x: x[1], reverse=True)
+        liquidity_levels.extend([price for price, qty in sorted_bids[:3]])
+        
+        return liquidity_levels
+    
+    except Exception as e:
+        logger.error(f"订单簿分析失败: {str(e)}")
+        return []
+
 def calculate_resistance_levels(symbol):
     try:
         logger.info(f"📊 计算阻力位: {symbol}")
@@ -256,6 +337,10 @@ def calculate_resistance_levels(symbol):
         
         # 存储各时间段阻力/支撑位
         interval_levels = {}
+        
+        # 全局获取一次成交量剖面和订单簿数据（避免重复请求）
+        volume_profile_levels = add_volume_profile(symbol, '1d')
+        orderbook_levels = get_orderbook_liquidity(symbol)
         
         for interval in RESISTANCE_INTERVALS:
             try:
@@ -288,38 +373,73 @@ def calculate_resistance_levels(symbol):
                 bb_upper = upper_band[-1]
                 bb_lower = lower_band[-1]
                 
-                # 2. 收集多维度水平
-                levels = []
+                # 斐波那契水平（基于最近100根K线的最高最低）
+                recent_high = max(high_prices)
+                recent_low = min(low_prices)
+                fib_618 = recent_high - (recent_high - recent_low) * 0.618
+                fib_other = [
+                    recent_high - (recent_high - recent_low) * r 
+                    for r in [0.236, 0.382, 0.5, 0.786]
+                ]
+                
+                # 2. 收集多维度水平（带来源类型）
+                levels_with_type = []
                 
                 # 斐波那契水平
-                fib_levels = [recent_high - (recent_high - recent_low) * ratio 
-                              for ratio in [0.236, 0.382, 0.5, 0.618, 0.786]]
-                levels.extend(fib_levels)
+                levels_with_type.append(('fib_0.618', fib_618))
+                for level in fib_other:
+                    levels_with_type.append(('fib_other', level))
                 
                 # 移动平均线
-                levels.extend([ema50, ema100, ema200])
+                levels_with_type.append(('ema_50', ema50))
+                levels_with_type.append(('ema_100', ema100))
+                levels_with_type.append(('ema_200', ema200))
                 
                 # 布林带边界
-                levels.extend([bb_upper, bb_lower])
+                levels_with_type.append(('bb_upper', bb_upper))
+                levels_with_type.append(('bb_lower', bb_lower))
                 
                 # 心理整数位
                 if current_price and current_price > 0:
                     base = 10 ** max(0, math.floor(math.log10(current_price)) - 1)
                     integer_level = round(current_price / base) * base
-                    levels.append(integer_level)
+                    levels_with_type.append(('integer', integer_level))
                 
-                # 3. 计算共振强度
+                # 添加成交量剖面水平
+                for level in volume_profile_levels:
+                    levels_with_type.append(('volume_profile', level))
+                
+                # 添加订单簿流动性水平
+                for level in orderbook_levels:
+                    levels_with_type.append(('orderbook', level))
+                
+                # 3. 计算加权共振强度
                 level_scores = {}
                 tolerance = current_price * 0.005  # 0.5%价格容差
                 
-                for level in levels:
-                    level = round(level, 4)  # 保留4位小数
-                    level_scores[level] = 0
-                    
-                    # 检查与其他水平的接近程度
-                    for other in levels:
-                        if abs(level - other) <= tolerance:
-                            level_scores[level] += 1
+                # 初始化每个水平的分数
+                for level_type, level_value in levels_with_type:
+                    level_value = round(level_value, 4)
+                    if level_value not in level_scores:
+                        level_scores[level_value] = {
+                            'score': 0.0,
+                            'sources': set()  # 记录来源类型
+                        }
+                    level_scores[level_value]['sources'].add(level_type)
+                
+                # 加权共振计算
+                # 遍历所有水平对
+                for i, (level_type1, level_value1) in enumerate(levels_with_type):
+                    level_value1 = round(level_value1, 4)
+                    for j, (level_type2, level_value2) in enumerate(levels_with_type):
+                        if i == j: 
+                            continue
+                        if abs(level_value1 - level_value2) <= tolerance:
+                            # 获取权重
+                            weight1 = INDICATOR_WEIGHTS.get(level_type1, 1.0)
+                            weight2 = INDICATOR_WEIGHTS.get(level_type2, 1.0)
+                            # 累加加权分
+                            level_scores[level_value1]['score'] += weight1 * weight2
                 
                 # 4. 合并相近水平
                 merged_levels = []
@@ -334,18 +454,27 @@ def calculate_resistance_levels(symbol):
                         j += 1
                     
                     # 取组内最高分作为代表
-                    best_level = max(group, key=lambda x: level_scores[x])
+                    best_level = max(group, key=lambda x: level_scores[x]['score'])
+                    # 合并来源
+                    merged_sources = set()
+                    for level in group:
+                        merged_sources |= level_scores[level]['sources']
+                    
+                    # 归一化强度 (0~1)
+                    strength = min(1.0, level_scores[best_level]['score'] / 30.0)
+                    
                     merged_levels.append({
                         'price': best_level,
-                        'strength': min(1.0, level_scores[best_level] / 10.0),  # 归一化到0~1
-                        'sources': level_scores[best_level]  # 共振来源数量
+                        'strength': strength,
+                        'sources': len(merged_sources),  # 来源数量
+                        'source_types': list(merged_sources)  # 来源类型列表
                     })
                     i = j
                 
                 # 按强度排序
                 merged_levels.sort(key=lambda x: x['strength'], reverse=True)
                 
-                # ===== 原有分类逻辑 =====
+                # 分类为阻力/支撑
                 resistance = []
                 support = []
                 
@@ -356,14 +485,16 @@ def calculate_resistance_levels(symbol):
                             'price': price,
                             'strength': round(level['strength'], 2),
                             'distance_percent': round((price - current_price) / current_price * 100, 2),
-                            'sources': level['sources']  # 共振来源数量
+                            'sources': level['sources'],  # 共振来源数量
+                            'source_types': level['source_types']  # 来源类型
                         })
                     elif price < current_price:
                         support.append({
                             'price': price,
                             'strength': round(level['strength'], 2),
                             'distance_percent': round((price - current_price) / current_price * 100, 2),
-                            'sources': level['sources']  # 共振来源数量
+                            'sources': level['sources'],  # 共振来源数量
+                            'source_types': level['source_types']  # 来源类型
                         })
                 
                 # 排序并选取最有效的3个
@@ -382,9 +513,10 @@ def calculate_resistance_levels(symbol):
                 logger.error(traceback.format_exc())
 
         levels = {
-            'resistance': interval_levels,
-            'support': interval_levels,
-            'current_price': current_price or 0
+            'levels': interval_levels,
+            'current_price': current_price or 0,
+            'volume_profile_levels': volume_profile_levels,
+            'orderbook_levels': orderbook_levels
         }
         
         resistance_cache[cache_key] = {
@@ -395,7 +527,7 @@ def calculate_resistance_levels(symbol):
     except Exception as e:
         logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
         logger.error(traceback.format_exc())
-        return {'resistance': {}, 'support': {}, 'current_price': 0}
+        return {'levels': {}, 'current_price': 0}
 
 def analyze_symbol(symbol):
     try:
@@ -782,10 +914,8 @@ def get_resistance_levels(symbol):
             return jsonify({'error': 'Invalid resistance data structure'}), 500
         
         # 确保包含必要的键
-        if 'resistance' not in levels:
-            levels['resistance'] = {}
-        if 'support' not in levels:
-            levels['support'] = {}
+        if 'levels' not in levels:
+            levels['levels'] = {}
         if 'current_price' not in levels:
             levels['current_price'] = 0
         
@@ -793,8 +923,7 @@ def get_resistance_levels(symbol):
     except Exception as e:
         logger.error(f"❌ 获取阻力位数据失败: {symbol}, {str(e)}")
         return jsonify({
-            'resistance': {},
-            'support': {},
+            'levels': {},
             'current_price': 0,
             'error': str(e)
         }), 500
