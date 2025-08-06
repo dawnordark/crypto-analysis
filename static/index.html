@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>币安风格合约分析</title>
+    <title>币安风格合约分析系统</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.27.2/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -650,7 +650,7 @@
             <span v-else>{{ statusMessage }}</span>
         </div>
 
-        <!-- 阻力位查询区域 -->
+        <!-- 阻力位查询区域 - 默认展开 -->
         <div class="resistance-query fade-in">
             <div class="resistance-header" @click="isResistanceCollapsed = !isResistanceCollapsed">
                 <div class="resistance-title">
@@ -737,6 +737,10 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div v-else-if="queryLoading" class="chart-placeholder">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>正在加载阻力位数据...</span>
                 </div>
             </div>
         </div>
@@ -944,6 +948,28 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // 创建Web Worker来处理数据获取
+            const dataWorker = new Worker(URL.createObjectURL(new Blob([`
+                self.onmessage = function(event) {
+                    if (event.data.type === 'fetchData') {
+                        fetchData(event.data.url);
+                    }
+                };
+                
+                async function fetchData(url) {
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        const data = await response.json();
+                        postMessage({ type: 'data', data: data });
+                    } catch (error) {
+                        postMessage({ type: 'error', error: error.message });
+                    }
+                }
+            `], { type: 'text/javascript' })));
+            
             new Vue({
                 el: '#app',
                 data: {
@@ -966,7 +992,7 @@
                     statusMessage: "正在加载数据...",
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
-                    isResistanceCollapsed: true,
+                    isResistanceCollapsed: false, // 默认展开阻力位支撑位分析
                     darkMode: true,
                     refreshInterval: null
                 },
@@ -1065,7 +1091,7 @@
                             this.renderChart(symbol, period);
                         });
                     },
-                    renderChart(symbol, period) {
+                    async renderChart(symbol, period) {
                         const canvasId = `chart-${symbol}-${period}`;
                         const canvas = document.getElementById(canvasId);
                         if (!canvas) return;
@@ -1077,131 +1103,122 @@
                             canvas.chart.destroy();
                         }
                         
-                        // 模拟数据
-                        const data = {
-                            labels: Array.from({length: 30}, (_, i) => `${i + 1}`),
-                            datasets: [{
-                                label: '持仓量',
-                                data: Array.from({length: 30}, () => Math.floor(Math.random() * 10000) + 5000),
-                                borderColor: '#f0b90b',
-                                backgroundColor: 'rgba(240, 185, 11, 0.1)',
-                                borderWidth: 2,
-                                pointRadius: 0,
-                                tension: 0.4,
-                                fill: true
-                            }]
-                        };
-                        
-                        // 创建图表
-                        canvas.chart = new Chart(ctx, {
-                            type: 'line',
-                            data: data,
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: {
-                                        display: false
+                        try {
+                            // 从API获取持仓量数据
+                            const response = await axios.get(`/api/oi_chart/${symbol}/${period}`);
+                            const chartData = response.data;
+                            
+                            if (!chartData.data || chartData.data.length === 0) {
+                                throw new Error('没有可用数据');
+                            }
+                            
+                            // 转换时间戳为可读格式
+                            const labels = chartData.timestamps.map(timestamp => {
+                                const date = new Date(timestamp);
+                                return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                            });
+                            
+                            // 计算数据范围用于自适应y轴
+                            const dataValues = chartData.data;
+                            const minVal = Math.min(...dataValues);
+                            const maxVal = Math.max(...dataValues);
+                            const range = maxVal - minVal;
+                            
+                            // 创建柱状图
+                            canvas.chart = new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: [{
+                                        label: '持仓量',
+                                        data: dataValues,
+                                        backgroundColor: 'rgba(240, 185, 11, 0.7)',
+                                        borderColor: 'rgba(240, 185, 11, 1)',
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            display: false
+                                        },
+                                        tooltip: {
+                                            mode: 'index',
+                                            intersect: false,
+                                            backgroundColor: 'rgba(30, 32, 38, 0.9)',
+                                            titleColor: '#f0b90b',
+                                            bodyColor: '#eaecef',
+                                            borderColor: '#2b2f36',
+                                            borderWidth: 1,
+                                            padding: 10,
+                                            callbacks: {
+                                                label: function(context) {
+                                                    return `持仓量: ${context.parsed.y.toLocaleString()}`;
+                                                }
+                                            }
+                                        }
                                     },
-                                    tooltip: {
+                                    scales: {
+                                        x: {
+                                            grid: {
+                                                color: 'rgba(43, 47, 54, 0.5)',
+                                                drawBorder: false
+                                            },
+                                            ticks: {
+                                                color: '#848e9c',
+                                                maxRotation: 0,
+                                                autoSkip: true,
+                                                maxTicksLimit: 10
+                                            }
+                                        },
+                                        y: {
+                                            min: minVal - range * 0.1,
+                                            max: maxVal + range * 0.1,
+                                            grid: {
+                                                color: 'rgba(43, 47, 54, 0.5)',
+                                                drawBorder: false
+                                            },
+                                            ticks: {
+                                                color: '#848e9c',
+                                                callback: function(value) {
+                                                    if (value >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                                    if (value >= 1000) return (value/1000).toFixed(1) + 'K';
+                                                    return value;
+                                                }
+                                            }
+                                        }
+                                    },
+                                    interaction: {
                                         mode: 'index',
-                                        intersect: false,
-                                        backgroundColor: 'rgba(30, 32, 38, 0.9)',
-                                        titleColor: '#f0b90b',
-                                        bodyColor: '#eaecef',
-                                        borderColor: '#2b2f36',
-                                        borderWidth: 1,
-                                        padding: 10,
-                                        callbacks: {
-                                            label: function(context) {
-                                                return `持仓量: ${context.parsed.y.toLocaleString()}`;
-                                            }
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    x: {
-                                        grid: {
-                                            color: 'rgba(43, 47, 54, 0.5)',
-                                            drawBorder: false
-                                        },
-                                        ticks: {
-                                            color: '#848e9c'
-                                        }
+                                        intersect: false
                                     },
-                                    y: {
-                                        grid: {
-                                            color: 'rgba(43, 47, 54, 0.5)',
-                                            drawBorder: false
-                                        },
-                                        ticks: {
-                                            color: '#848e9c',
-                                            callback: function(value) {
-                                                if (value >= 10000) return (value/1000).toFixed(0) + 'K';
-                                                return value;
-                                            }
-                                        }
-                                    }
-                                },
-                                interaction: {
-                                    mode: 'nearest',
-                                    axis: 'x',
-                                    intersect: false
-                                },
-                                elements: {
-                                    point: {
-                                        radius: 0
+                                    animation: {
+                                        duration: 500
                                     }
                                 }
-                            }
-                        });
+                            });
+                        } catch (error) {
+                            console.error('图表渲染失败:', error);
+                            this.chartErrors[`${symbol}-${period}`] = `图表加载失败: ${error.message}`;
+                        }
                     },
                     async queryResistanceLevels() {
                         if (!this.resistanceQuery) return;
                         
                         this.queryLoading = true;
+                        this.queryResult = null;
                         const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
                         
                         try {
-                            // 模拟API请求
-                            await new Promise(resolve => setTimeout(resolve, 800));
+                            // 从API获取阻力位数据
+                            const response = await axios.get(`/api/resistance_levels/${symbol}`);
+                            this.queryResult = response.data;
                             
-                            // 模拟响应数据
-                            this.queryResult = {
-                                symbol: symbol,
-                                levels: {
-                                    '1d': {
-                                        resistance: [
-                                            {price: 37850.25, strength: 0.85, distance_percent: 2.5, sources: 5, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer']},
-                                            {price: 38210.75, strength: 0.65, distance_percent: 3.8, sources: 3, source_types: ['fib_other', 'ema_100', 'bb_upper']}
-                                        ],
-                                        support: [
-                                            {price: 36520.50, strength: 0.78, distance_percent: -1.2, sources: 4, source_types: ['ema_50', 'bb_lower', 'volume_profile', 'orderbook']},
-                                            {price: 36045.25, strength: 0.92, distance_percent: -2.8, sources: 6, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer', 'bb_lower']}
-                                        ]
-                                    },
-                                    '4h': {
-                                        resistance: [
-                                            {price: 37680.30, strength: 0.72, distance_percent: 1.8, sources: 4, source_types: ['ema_100', 'bb_upper', 'volume_profile', 'integer']},
-                                            {price: 38025.40, strength: 0.88, distance_percent: 3.2, sources: 5, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'bb_upper']}
-                                        ],
-                                        support: [
-                                            {price: 36890.20, strength: 0.65, distance_percent: -0.5, sources: 3, source_types: ['ema_50', 'bb_lower', 'fib_other']},
-                                            {price: 36575.10, strength: 0.95, distance_percent: -2.0, sources: 7, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer', 'bb_lower', 'ema_100']}
-                                        ]
-                                    },
-                                    '1h': {
-                                        resistance: [
-                                            {price: 37420.50, strength: 0.68, distance_percent: 0.9, sources: 3, source_types: ['bb_upper', 'volume_profile', 'integer']}
-                                        ],
-                                        support: [
-                                            {price: 37015.75, strength: 0.82, distance_percent: -0.5, sources: 4, source_types: ['ema_50', 'bb_lower', 'volume_profile', 'orderbook']},
-                                            {price: 36785.30, strength: 0.75, distance_percent: -1.8, sources: 3, source_types: ['fib_other', 'ema_100', 'bb_lower']}
-                                        ]
-                                    }
-                                },
-                                current_price: 37085.25
-                            };
+                            if (!this.queryResult || !this.queryResult.levels) {
+                                throw new Error('未获取到阻力位数据');
+                            }
                             
                             this.statusMessage = `${symbol}阻力位数据已加载`;
                         } catch (error) {
@@ -1223,47 +1240,16 @@
                     formatSymbol(symbol) {
                         return symbol.replace('USDT', '');
                     },
-                    async fetchData() {
+                    fetchData() {
                         this.loading = true;
                         this.dataLoading = true;
                         this.statusMessage = "正在刷新数据...";
                         
-                        try {
-                            // 模拟API请求
-                            await new Promise(resolve => setTimeout(resolve, 1500));
-                            
-                            // 模拟响应数据
-                            this.lastUpdated = new Date().toLocaleString();
-                            this.nextAnalysisTime = new Date(Date.now() + 5*60000).toLocaleTimeString();
-                            
-                            this.dailyRising = [
-                                {symbol: "BTCUSDT", oi: 24567890, change: 3.5, period_status: {'1d': true, '4h': true, '1h': true, '15m': false}, period_count: 3},
-                                {symbol: "ETHUSDT", oi: 18765432, change: 2.8, period_status: {'1d': true, '4h': false, '1h': true, '15m': true}, period_count: 3},
-                                {symbol: "SOLUSDT", oi: 12345678, change: 5.2, period_status: {'1d': true, '4h': true, '1h': false, '15m': true}, period_count: 3}
-                            ];
-                            
-                            this.shortTermActive = [
-                                {symbol: "SOLUSDT", oi: 9876543, ratio: 2.1},
-                                {symbol: "DOGEUSDT", oi: 5678901, ratio: 1.8},
-                                {symbol: "AVAXUSDT", oi: 3456789, ratio: 1.7}
-                            ];
-                            
-                            this.allCycleRising = [
-                                {symbol: "BNBUSDT", oi: 12345678, change: 4.2, period_status: {'1d': true, '4h': true, '1h': true, '15m': true}, period_count: 4},
-                                {symbol: "XRPUSDT", oi: 8765432, change: 3.1, period_status: {'1d': true, '4h': true, '1h': true, '15m': true}, period_count: 4}
-                            ];
-                            
-                            const total = this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length;
-                            this.statusMessage = `数据已刷新，共 ${total} 个币种`;
-                            this.error = null;
-                        } catch (error) {
-                            console.error('数据加载失败:', error);
-                            this.error = `数据加载失败: ${error.message}`;
-                            this.statusMessage = this.error;
-                        } finally {
-                            this.loading = false;
-                            this.dataLoading = false;
-                        }
+                        // 使用Web Worker获取数据
+                        dataWorker.postMessage({
+                            type: 'fetchData',
+                            url: '/api/data'
+                        });
                     },
                     initAutoRefresh() {
                         // 每5分钟刷新一次
@@ -1280,6 +1266,28 @@
                     }
                     this.applyTheme();
                     
+                    // 设置Web Worker消息处理器
+                    dataWorker.onmessage = (event) => {
+                        if (event.data.type === 'data') {
+                            const data = event.data.data;
+                            this.lastUpdated = data.last_updated;
+                            this.nextAnalysisTime = data.next_analysis_time;
+                            this.dailyRising = data.daily_rising || [];
+                            this.shortTermActive = data.short_term_active || [];
+                            this.allCycleRising = data.all_cycle_rising || [];
+                            
+                            const total = this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length;
+                            this.statusMessage = `数据已刷新，共 ${total} 个币种`;
+                            this.error = null;
+                        } else if (event.data.type === 'error') {
+                            this.error = `数据加载失败: ${event.data.error}`;
+                            this.statusMessage = this.error;
+                        }
+                        
+                        this.loading = false;
+                        this.dataLoading = false;
+                    };
+                    
                     // 初始加载数据
                     this.fetchData();
                     this.initAutoRefresh();
@@ -1288,6 +1296,7 @@
                     if (this.refreshInterval) {
                         clearInterval(this.refreshInterval);
                     }
+                    dataWorker.terminate();
                 }
             });
         });
