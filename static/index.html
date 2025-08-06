@@ -644,7 +644,7 @@
         <!-- 数据状态指示器 -->
         <div class="data-status fade-in">
             <i class="fas fa-info-circle"></i>
-            <span v-if="dataLoading">数据加载中，请稍候...</span>
+            <span v-if="dataLoading && !error">数据加载中，已等待 {{loadingSeconds}} 秒...</span>
             <span v-else-if="loading">正在刷新数据...</span>
             <span v-else-if="error">{{ error }}</span>
             <span v-else>{{ statusMessage }}</span>
@@ -948,28 +948,6 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 创建Web Worker来处理数据获取
-            const dataWorker = new Worker(URL.createObjectURL(new Blob([`
-                self.onmessage = function(event) {
-                    if (event.data.type === 'fetchData') {
-                        fetchData(event.data.url);
-                    }
-                };
-                
-                async function fetchData(url) {
-                    try {
-                        const response = await fetch(url);
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        const data = await response.json();
-                        postMessage({ type: 'data', data: data });
-                    } catch (error) {
-                        postMessage({ type: 'error', error: error.message });
-                    }
-                }
-            `], { type: 'text/javascript' })));
-            
             new Vue({
                 el: '#app',
                 data: {
@@ -994,7 +972,9 @@
                     chartErrors: {},
                     isResistanceCollapsed: false, // 默认展开阻力位支撑位分析
                     darkMode: true,
-                    refreshInterval: null
+                    refreshInterval: null,
+                    loadingSeconds: 0,
+                    loadingTimer: null
                 },
                 computed: {
                     sortedDailyRising() {
@@ -1088,7 +1068,8 @@
                         
                         // 渲染图表
                         this.$nextTick(() => {
-                            this.renderChart(symbol, period);
+                            // 添加延迟确保DOM更新完成
+                            setTimeout(() => this.renderChart(symbol, period), 300);
                         });
                     },
                     async renderChart(symbol, period) {
@@ -1241,15 +1222,49 @@
                         return symbol.replace('USDT', '');
                     },
                     fetchData() {
+                        // 重置计时器
+                        this.loadingSeconds = 0;
+                        clearInterval(this.loadingTimer);
+                        this.loadingTimer = setInterval(() => {
+                            this.loadingSeconds++;
+                        }, 1000);
+                        
                         this.loading = true;
                         this.dataLoading = true;
                         this.statusMessage = "正在刷新数据...";
                         
-                        // 使用Web Worker获取数据
-                        dataWorker.postMessage({
-                            type: 'fetchData',
-                            url: '/api/data'
-                        });
+                        // 使用axios获取数据
+                        axios.get('/api/data')
+                            .then(response => {
+                                this.processData(response.data);
+                            })
+                            .catch(error => {
+                                this.handleDataError(error);
+                            });
+                    },
+                    processData(data) {
+                        this.lastUpdated = data.last_updated;
+                        this.nextAnalysisTime = data.next_analysis_time;
+                        this.dailyRising = data.daily_rising || [];
+                        this.shortTermActive = data.short_term_active || [];
+                        this.allCycleRising = data.all_cycle_rising || [];
+                        
+                        const total = this.dailyRising.length + 
+                                      this.shortTermActive.length + 
+                                      this.allCycleRising.length;
+                        this.statusMessage = `数据已刷新，共 ${total} 个币种`;
+                        this.error = null;
+                        this.loading = false;
+                        this.dataLoading = false;
+                        clearInterval(this.loadingTimer);
+                    },
+                    handleDataError(error) {
+                        console.error('数据加载失败:', error);
+                        this.error = `数据加载失败: ${error.message}`;
+                        this.statusMessage = this.error;
+                        this.loading = false;
+                        this.dataLoading = false;
+                        clearInterval(this.loadingTimer);
                     },
                     initAutoRefresh() {
                         // 每5分钟刷新一次
@@ -1266,28 +1281,6 @@
                     }
                     this.applyTheme();
                     
-                    // 设置Web Worker消息处理器
-                    dataWorker.onmessage = (event) => {
-                        if (event.data.type === 'data') {
-                            const data = event.data.data;
-                            this.lastUpdated = data.last_updated;
-                            this.nextAnalysisTime = data.next_analysis_time;
-                            this.dailyRising = data.daily_rising || [];
-                            this.shortTermActive = data.short_term_active || [];
-                            this.allCycleRising = data.all_cycle_rising || [];
-                            
-                            const total = this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length;
-                            this.statusMessage = `数据已刷新，共 ${total} 个币种`;
-                            this.error = null;
-                        } else if (event.data.type === 'error') {
-                            this.error = `数据加载失败: ${event.data.error}`;
-                            this.statusMessage = this.error;
-                        }
-                        
-                        this.loading = false;
-                        this.dataLoading = false;
-                    };
-                    
                     // 初始加载数据
                     this.fetchData();
                     this.initAutoRefresh();
@@ -1296,7 +1289,9 @@
                     if (this.refreshInterval) {
                         clearInterval(this.refreshInterval);
                     }
-                    dataWorker.terminate();
+                    if (this.loadingTimer) {
+                        clearInterval(this.loadingTimer);
+                    }
                 }
             });
         });
