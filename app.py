@@ -6,31 +6,13 @@ import sys
 import subprocess
 import traceback
 
-# 尝试安装 TA-Lib
+# 简化后的 TA-Lib 导入逻辑
 try:
     import talib
     print("✅ TA-Lib 已安装")
 except ImportError:
-    print("TA-Lib 未安装，尝试安装...")
-    try:
-        # 安装依赖
-        subprocess.run(["sudo", "apt-get", "update"], check=True)
-        subprocess.run(["sudo", "apt-get", "install", "-y", "build-essential"], check=True)
-        subprocess.run(["wget", "http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz"], check=True)
-        subprocess.run(["tar", "-xvf", "ta-lib-0.4.0-src.tar.gz"], check=True)
-        os.chdir("ta-lib")
-        subprocess.run(["./configure", "--prefix=/usr"], check=True)
-        subprocess.run(["make"], check=True)
-        subprocess.run(["sudo", "make", "install"], check=True)
-        os.chdir("..")
-        subprocess.run(["pip", "install", "TA-Lib"], check=True)
-        import talib
-        print("✅ TA-Lib 安装成功")
-    except Exception as e:
-        print(f"❌ TA-Lib 安装失败: {str(e)}")
-        print(traceback.format_exc())
-        # 如果安装失败，使用替代方案
-        talib = None
+    print("❌ TA-Lib 未安装，使用替代函数")
+    talib = None
 
 import time
 import re
