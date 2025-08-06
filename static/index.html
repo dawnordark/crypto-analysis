@@ -479,6 +479,74 @@
         .show-more-btn:hover {
             text-decoration: underline;
         }
+        
+        /* 共振来源标记 */
+        .sources-badge {
+            display: inline-block;
+            min-width: 18px;
+            height: 18px;
+            line-height: 18px;
+            text-align: center;
+            border-radius: 9px;
+            font-size: 10px;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+        .dark-theme .sources-badge {
+            background: rgba(240, 185, 11, 0.7);
+            color: #1e2026;
+        }
+        .light-theme .sources-badge {
+            background: rgba(240, 185, 11, 0.9);
+            color: #1e2329;
+        }
+        
+        /* 强度说明 */
+        .strength-explanation {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+        .dark-theme .strength-explanation {
+            background: #1c1f26;
+            border: 1px solid #2b2f36;
+        }
+        .light-theme .strength-explanation {
+            background: #f8f9fa;
+            border: 1px solid #e0e3eb;
+        }
+        .explanation-title {
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .explanation-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .strength-demo-bar {
+            display: inline-block;
+            width: 50px;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(128, 128, 128, 0.2);
+            margin-right: 10px;
+        }
+        .strength-demo-fill {
+            display: block;
+            height: 100%;
+            border-radius: 3px;
+        }
+        .dark-theme .strength-demo-fill {
+            background: #f0b90b;
+        }
+        .light-theme .strength-demo-fill {
+            background: #f0b90b;
+        }
+        .explanation-text {
+            flex: 1;
+        }
 
         /* 列表容器 */
         .list-container {
@@ -821,11 +889,16 @@
                             <td>
                                 <div v-if="intervalData.resistance && intervalData.resistance.length > 0">
                                     <div v-for="(resistance, idx) in intervalData.resistance" :key="'resistance-'+intervalName+'-'+idx" class="level-item resistance-value">
-                                        <div class="level-price">{{ resistance.price.toFixed(4) }}</div>
+                                        <div class="level-price">
+                                            {{ resistance.price.toFixed(4) }}
+                                            <span class="sources-badge">{{ resistance.sources }}</span>
+                                        </div>
                                         <div class="strength-bar">
                                             <div class="strength-value" :style="{ width: resistance.strength * 100 + '%' }"></div>
                                         </div>
-                                        <div class="distance-value distance-positive">+{{ resistance.distance_percent.toFixed(1) }}%</div>
+                                        <div class="distance-value distance-positive">
+                                            +{{ resistance.distance_percent.toFixed(1) }}%
+                                        </div>
                                     </div>
                                 </div>
                                 <div v-else class="no-level">无数据</div>
@@ -833,11 +906,16 @@
                             <td>
                                 <div v-if="intervalData.support && intervalData.support.length > 0">
                                     <div v-for="(support, idx) in intervalData.support" :key="'support-'+intervalName+'-'+idx" class="level-item support-value">
-                                        <div class="level-price">{{ support.price.toFixed(4) }}</div>
+                                        <div class="level-price">
+                                            {{ support.price.toFixed(4) }}
+                                            <span class="sources-badge">{{ support.sources }}</span>
+                                        </div>
                                         <div class="strength-bar">
                                             <div class="strength-value" :style="{ width: support.strength * 100 + '%' }"></div>
                                         </div>
-                                        <div class="distance-value distance-negative">{{ support.distance_percent.toFixed(1) }}%</div>
+                                        <div class="distance-value distance-negative">
+                                            {{ support.distance_percent.toFixed(1) }}%
+                                        </div>
                                     </div>
                                 </div>
                                 <div v-else class="no-level">无数据</div>
@@ -845,6 +923,23 @@
                         </tr>
                     </tbody>
                 </table>
+                
+                <!-- 强度说明 -->
+                <div class="strength-explanation">
+                    <div class="explanation-title">强度说明：</div>
+                    <div class="explanation-item">
+                        <span class="strength-demo-bar"><span class="strength-demo-fill" style="width: 30%"></span></span>
+                        <span class="explanation-text">弱 (1-3源)</span>
+                    </div>
+                    <div class="explanation-item">
+                        <span class="strength-demo-bar"><span class="strength-demo-fill" style="width: 60%"></span></span>
+                        <span class="explanation-text">中 (4-6源)</span>
+                    </div>
+                    <div class="explanation-item">
+                        <span class="strength-demo-bar"><span class="strength-demo-fill" style="width: 100%"></span></span>
+                        <span class="explanation-text">强 (7+源)</span>
+                    </div>
+                </div>
                 
                 <!-- 显示更多按钮 -->
                 <button v-if="hasMoreLevels" class="show-more-btn" @click="showAllLevels = !showAllLevels">
