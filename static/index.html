@@ -587,6 +587,22 @@
             animation: pulse 1.5s infinite;
         }
         
+        /* 修复阻力位表格显示问题 */
+        .no-data {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        
+        /* 旋转箭头 */
+        .rotate-180 {
+            transform: rotate(180deg);
+            transition: transform 0.3s ease;
+        }
+        
+        .fa-chevron-down {
+            transition: transform 0.3s ease;
+        }
+        
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -1008,6 +1024,27 @@
                     }
                 },
                 methods: {
+                    // 添加缺失的方法：获取阻力位来源提示
+                    getSourceTypesTooltip(sourceTypes) {
+                        if (!sourceTypes || sourceTypes.length === 0) return "未知来源";
+                        
+                        // 来源类型映射
+                        const sourceMap = {
+                            'fib_0.618': '斐波那契0.618',
+                            'fib_other': '斐波那契其他',
+                            'ema_50': '50周期均线',
+                            'ema_100': '100周期均线',
+                            'ema_200': '200周期均线',
+                            'bb_upper': '布林带上轨',
+                            'bb_lower': '布林带下轨',
+                            'integer': '心理整数位',
+                            'volume_profile': '成交量剖面',
+                            'orderbook': '订单簿流动性'
+                        };
+                        
+                        return sourceTypes.map(type => sourceMap[type] || type).join(', ');
+                    },
+                    
                     toggleTheme() {
                         this.darkMode = !this.darkMode;
                         localStorage.setItem('darkMode', this.darkMode);
