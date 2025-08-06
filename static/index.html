@@ -221,31 +221,37 @@
         }
         
         /* 优化阻力位支撑位显示 - 单行布局 */
-        .resistance-row {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 15px;
-            padding: 15px;
+        .resistance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 15px;
+        }
+        
+        .resistance-card {
             background-color: var(--bg-secondary);
             border-radius: 8px;
+            padding: 15px;
             border: 1px solid var(--border);
         }
         
-        .resistance-row .interval-title {
-            min-width: 120px;
-            font-weight: 600;
-            color: var(--accent);
-            font-size: 15px;
+        .resistance-card-header {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 0;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .resistance-card-title {
+            font-weight: 600;
+            color: var(--accent);
+            font-size: 15px;
         }
         
         .level-group {
-            flex: 1;
             display: flex;
-            gap: 20px;
+            gap: 15px;
         }
         
         .resistance-group, .support-group {
@@ -263,7 +269,7 @@
         
         .level-items {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 8px;
         }
         
@@ -276,7 +282,6 @@
             cursor: default;
             font-size: 14px;
             border: 1px solid rgba(0,0,0,0.1);
-            min-width: 140px;
             transition: all 0.2s ease;
         }
         
@@ -728,12 +733,8 @@
                 flex-direction: column;
             }
             
-            .resistance-row {
-                flex-direction: column;
-            }
-            
-            .level-group {
-                flex-direction: column;
+            .resistance-grid {
+                grid-template-columns: 1fr;
             }
             
             .short-term-stats {
@@ -809,13 +810,14 @@
                         <i class="fas fa-dollar-sign"></i> 当前价格: {{ queryResult.current_price.toFixed(4) }}
                     </div>
                     
-                    <!-- 优化后的阻力位支撑位显示 - 单行布局 -->
-                    <div class="resistance-level-container">
+                    <!-- 优化后的阻力位支撑位显示 - 网格布局 -->
+                    <div class="resistance-grid">
                         <div v-for="(intervalData, intervalName) in visibleResistanceLevels" 
                              :key="intervalName" 
-                             class="resistance-row">
-                            <div class="interval-title">
-                                <i class="fas fa-chart-area"></i> {{ intervalName.toUpperCase() }} 周期
+                             class="resistance-card">
+                            <div class="resistance-card-header">
+                                <i class="fas fa-chart-area"></i>
+                                <div class="resistance-card-title">{{ intervalName.toUpperCase() }} 周期</div>
                             </div>
                             
                             <div class="level-group">
