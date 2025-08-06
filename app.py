@@ -382,10 +382,17 @@ def calculate_resistance_levels(symbol):
                 levels_with_type.append(('bb_upper', bb_upper))
                 levels_with_type.append(('bb_lower', bb_lower))
                 
+                # 修复括号错误
                 if current_price and current_price > 0:
-                    base = 10 ** max(0, math.floor(math.log10(current_price)) - 1
-                    integer_level = round(current_price / base) * base
-                    levels_with_type.append(('integer', integer_level))
+                    try:
+                        # 修复括号问题
+                        exponent = math.floor(math.log10(current_price))
+                        adjusted_exponent = max(0, exponent - 1)
+                        base = 10 ** adjusted_exponent
+                        integer_level = round(current_price / base) * base
+                        levels_with_type.append(('integer', integer_level))
+                    except Exception as e:
+                        logger.error(f"计算心理整数位失败: {str(e)}")
                 
                 for level in volume_profile_levels:
                     levels_with_type.append(('volume_profile', level))
