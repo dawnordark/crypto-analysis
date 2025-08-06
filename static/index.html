@@ -393,27 +393,10 @@
             gap: 12px;
         }
         
-        .coin-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background-color: rgba(240, 185, 11, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            color: var(--accent);
-        }
-        
         .coin-name {
             font-size: 17px;
             font-weight: 600;
             color: var(--text-primary);
-        }
-        
-        .symbol-usdt {
-            color: var(--text-secondary);
-            margin-left: 4px;
         }
         
         .coin-info {
@@ -603,6 +586,276 @@
             transition: transform 0.3s ease;
         }
         
+        /* ============ 优化部分 ============ */
+        /* 阻力位支撑位优化样式 */
+        .resistance-level-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .interval-card {
+            flex: 1 1 300px;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid var(--border);
+        }
+        
+        .interval-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--accent);
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .level-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .level-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .level-column-title {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .level-box {
+            padding: 10px;
+            border-radius: 6px;
+            background-color: rgba(43, 47, 54, 0.7);
+            transition: var(--transition);
+        }
+        
+        .resistance-box {
+            border-left: 3px solid var(--negative);
+        }
+        
+        .support-box {
+            border-left: 3px solid var(--positive);
+        }
+        
+        .level-box:hover {
+            background-color: rgba(59, 64, 72, 0.7);
+        }
+        
+        .level-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .level-price-value {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        .level-confidence {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .confidence-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .confidence-high {
+            background-color: var(--positive);
+        }
+        
+        .confidence-medium {
+            background-color: var(--accent);
+        }
+        
+        .confidence-low {
+            background-color: var(--text-secondary);
+        }
+        
+        .level-strength-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .strength-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            min-width: 60px;
+        }
+        
+        .strength-bar-compact {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background-color: rgba(128, 128, 128, 0.2);
+            overflow: hidden;
+        }
+        
+        .strength-value-compact {
+            height: 100%;
+            border-radius: 3px;
+        }
+        
+        .resistance-strength {
+            background-color: var(--negative);
+        }
+        
+        .support-strength {
+            background-color: var(--positive);
+        }
+        
+        .level-distance {
+            font-size: 13px;
+            text-align: right;
+            font-weight: 500;
+        }
+        
+        .distance-positive {
+            color: var(--positive);
+        }
+        
+        .distance-negative {
+            color: var(--negative);
+        }
+        
+        .level-explanation {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: rgba(240, 185, 11, 0.1);
+            border: 1px solid rgba(240, 185, 11, 0.2);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .explanation-title {
+            color: var(--accent);
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        /* 币种列表优化 */
+        .coin-item-compact {
+            padding: 15px;
+            background-color: var(--bg-secondary);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            margin-bottom: 12px;
+        }
+        
+        .coin-header-compact {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .coin-name-compact {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .coin-stats-compact {
+            display: flex;
+            gap: 10px;
+            font-size: 14px;
+        }
+        
+        .stat-item-compact {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stat-label-compact {
+            color: var(--text-secondary);
+        }
+        
+        .stat-value-compact {
+            font-weight: 600;
+        }
+        
+        .period-status-compact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            font-size: 12px;
+        }
+        
+        /* 短期活跃优化 */
+        .short-term-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            transition: var(--transition);
+        }
+        
+        .short-term-item:hover {
+            border-color: var(--accent);
+        }
+        
+        .short-term-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        .short-term-stats {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .short-term-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .short-term-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .short-term-value {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        
+        .ratio-high {
+            color: var(--positive);
+        }
+        
+        .ratio-medium {
+            color: var(--accent);
+        }
+        
+        .ratio-low {
+            color: var(--text-secondary);
+        }
+        
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
@@ -629,6 +882,15 @@
             
             .coin-info {
                 flex-wrap: wrap;
+            }
+            
+            .level-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .short-term-stats {
+                flex-direction: column;
+                gap: 5px;
             }
         }
     </style>
@@ -697,62 +959,97 @@
                 <div v-if="queryResult" class="resistance-result">
                     <div v-if="queryResult.current_price" class="current-price">
                         <i class="fas fa-dollar-sign"></i> 当前价格: {{ queryResult.current_price.toFixed(4) }}
-                        <span class="liquidity-indicator" v-if="hasHighLiquidity" title="高流动性区域"><i class="fas fa-tint"></i></span>
-                        <span class="liquidity-indicator" v-if="hasVolumeCluster" title="成交量密集区"><i class="fas fa-chart-bar"></i></span>
                     </div>
                     
-                    <table class="compact-resistance-table">
-                        <thead>
-                            <tr>
-                                <th>周期</th>
-                                <th>阻力位</th>
-                                <th>支撑位</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(intervalData, intervalName) in visibleResistanceLevels" :key="intervalName">
-                                <td>{{ intervalName.toUpperCase() }}</td>
-                                <td>
+                    <!-- 优化后的阻力位支撑位显示 -->
+                    <div class="resistance-level-container">
+                        <div v-for="(intervalData, intervalName) in visibleResistanceLevels" :key="intervalName" class="interval-card">
+                            <div class="interval-title">
+                                <i class="fas fa-chart-area"></i> {{ intervalName.toUpperCase() }} 周期
+                            </div>
+                            
+                            <div class="level-grid">
+                                <!-- 阻力位列 -->
+                                <div class="level-column">
+                                    <div class="level-column-title">
+                                        <i class="fas fa-arrow-up"></i> 阻力位
+                                    </div>
                                     <div v-if="intervalData.resistance && intervalData.resistance.length > 0">
                                         <div v-for="(resistance, idx) in intervalData.resistance" 
                                             :key="'resistance-'+intervalName+'-'+idx" 
-                                            class="level-item resistance-value"
+                                            class="level-box resistance-box"
                                             :title="getSourceTypesTooltip(resistance.source_types)">
-                                            <div class="level-price">
-                                                {{ resistance.price.toFixed(4) }}
+                                            <div class="level-header">
+                                                <div class="level-price-value">
+                                                    {{ resistance.price.toFixed(4) }}
+                                                </div>
+                                                <div class="level-confidence">
+                                                    <span>置信度</span>
+                                                    <div class="confidence-dot" :class="getConfidenceClass(resistance.strength)"></div>
+                                                </div>
                                             </div>
-                                            <div class="strength-bar">
-                                                <div class="strength-value" :style="{ width: resistance.strength * 100 + '%' }"></div>
+                                            
+                                            <div class="level-strength-container">
+                                                <div class="strength-label">强度: {{ Math.round(resistance.strength * 100) }}%</div>
+                                                <div class="strength-bar-compact">
+                                                    <div class="strength-value-compact resistance-strength" :style="{ width: resistance.strength * 100 + '%' }"></div>
+                                                </div>
                                             </div>
-                                            <div class="distance-value distance-positive">
-                                                +{{ resistance.distance_percent.toFixed(1) }}%
+                                            
+                                            <div class="level-distance distance-positive">
+                                                +{{ resistance.distance_percent.toFixed(1) }}% (高于当前价)
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-else class="no-data">-</div>
-                                </td>
-                                <td>
+                                    <div v-else class="no-data">无阻力位数据</div>
+                                </div>
+                                
+                                <!-- 支撑位列 -->
+                                <div class="level-column">
+                                    <div class="level-column-title">
+                                        <i class="fas fa-arrow-down"></i> 支撑位
+                                    </div>
                                     <div v-if="intervalData.support && intervalData.support.length > 0">
                                         <div v-for="(support, idx) in intervalData.support" 
                                             :key="'support-'+intervalName+'-'+idx" 
-                                            class="level-item support-value"
+                                            class="level-box support-box"
                                             :title="getSourceTypesTooltip(support.source_types)">
-                                            <div class="level-price">
-                                                {{ support.price.toFixed(4) }}
+                                            <div class="level-header">
+                                                <div class="level-price-value">
+                                                    {{ support.price.toFixed(4) }}
+                                                </div>
+                                                <div class="level-confidence">
+                                                    <span>置信度</span>
+                                                    <div class="confidence-dot" :class="getConfidenceClass(support.strength)"></div>
+                                                </div>
                                             </div>
-                                            <div class="strength-bar">
-                                                <div class="strength-value" :style="{ width: support.strength * 100 + '%' }"></div>
+                                            
+                                            <div class="level-strength-container">
+                                                <div class="strength-label">强度: {{ Math.round(support.strength * 100) }}%</div>
+                                                <div class="strength-bar-compact">
+                                                    <div class="strength-value-compact support-strength" :style="{ width: support.strength * 100 + '%' }"></div>
+                                                </div>
                                             </div>
-                                            <div class="distance-value distance-negative">
-                                                {{ support.distance_percent.toFixed(1) }}%
+                                            
+                                            <div class="level-distance distance-negative">
+                                                {{ support.distance_percent.toFixed(1) }}% (低于当前价)
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-else class="no-data">-</div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <div v-else class="no-data">无支撑位数据</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 强度与置信度说明 -->
+                    <div class="level-explanation">
+                        <div class="explanation-title"><i class="fas fa-info-circle"></i> 强度与置信度说明</div>
+                        <div class="explanation-content">
+                            <p><strong>强度</strong>：表示价格在该位置的阻力/支撑力度，数值越高表示阻力/支撑越强。</p>
+                            <p><strong>置信度</strong>：根据多个技术指标聚合计算得出：<span class="confidence-high">● 高</span> (强度 > 70%)，<span class="confidence-medium">● 中</span> (强度 30%-70%)，<span class="confidence-low">● 低</span> (强度 < 30%)</p>
+                        </div>
+                    </div>
                 </div>
                 <div v-else-if="queryLoading" class="chart-placeholder">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -785,27 +1082,25 @@
                             <span>暂无全周期上涨币种</span>
                         </div>
                         <div v-else v-for="coin in sortedAllCycleRising" :key="coin.symbol + 'allcycle'">
-                            <div class="coin-item">
-                                <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-icon">
-                                            {{ coin.symbol.charAt(0) }}
-                                        </div>
-                                        <div class="coin-name">
-                                            {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">/USDT</span>
-                                        </div>
+                            <!-- 优化后的币种显示 -->
+                            <div class="coin-item-compact">
+                                <div class="coin-header-compact">
+                                    <div class="coin-name-compact">
+                                        {{ coin.symbol }}
                                     </div>
-                                    <div class="coin-info">
-                                        <div class="info-item">
-                                            <span class="stat-label">持仓:</span>
-                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                    <div class="coin-stats-compact">
+                                        <div class="stat-item-compact">
+                                            <span class="stat-label-compact">持仓量:</span>
+                                            <span class="stat-value-compact">{{ formatNumber(coin.oi) }}</span>
                                         </div>
-                                        <div class="info-item positive">
-                                            <span class="stat-value">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                        <div class="stat-item-compact positive">
+                                            <span class="stat-label-compact">涨幅:</span>
+                                            <span class="stat-value-compact">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="period-status">
+                                
+                                <div class="period-status-compact">
                                     <span 
                                         v-for="period in periods" 
                                         :key="period" 
@@ -815,19 +1110,6 @@
                                     >
                                         {{ period }}
                                     </span>
-                                </div>
-
-                                <!-- 持仓量图表 -->
-                                <div v-if="activeChart.symbol === coin.symbol && activeChart.period" class="chart-container">
-                                    <div class="chart-header">
-                                        <div class="chart-title">
-                                            {{ formatSymbol(coin.symbol) }} - {{ activeChart.period.toUpperCase() }} 持仓量
-                                        </div>
-                                        <button class="close-chart" @click="closeChart">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <canvas :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -857,27 +1139,25 @@
                             <span>暂无日线上涨币种</span>
                         </div>
                         <div v-else v-for="coin in sortedDailyRising" :key="coin.symbol + 'daily'">
-                            <div class="coin-item">
-                                <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-icon">
-                                            {{ coin.symbol.charAt(0) }}
-                                        </div>
-                                        <div class="coin-name">
-                                            {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">/USDT</span>
-                                        </div>
+                            <!-- 优化后的币种显示 -->
+                            <div class="coin-item-compact">
+                                <div class="coin-header-compact">
+                                    <div class="coin-name-compact">
+                                        {{ coin.symbol }}
                                     </div>
-                                    <div class="coin-info">
-                                        <div class="info-item">
-                                            <span class="stat-label">持仓:</span>
-                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
+                                    <div class="coin-stats-compact">
+                                        <div class="stat-item-compact">
+                                            <span class="stat-label-compact">持仓量:</span>
+                                            <span class="stat-value-compact">{{ formatNumber(coin.oi) }}</span>
                                         </div>
-                                        <div class="info-item positive">
-                                            <span class="stat-value">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
+                                        <div class="stat-item-compact positive">
+                                            <span class="stat-label-compact">涨幅:</span>
+                                            <span class="stat-value-compact">{{ coin.change > 0 ? '+' : '' }}{{ coin.change }}%</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="period-status">
+                                
+                                <div class="period-status-compact">
                                     <span 
                                         v-for="period in periods" 
                                         :key="period" 
@@ -887,19 +1167,6 @@
                                     >
                                         {{ period }}
                                     </span>
-                                </div>
-
-                                <!-- 持仓量图表 -->
-                                <div v-if="activeChart.symbol === coin.symbol && activeChart.period" class="chart-container">
-                                    <div class="chart-header">
-                                        <div class="chart-title">
-                                            {{ formatSymbol(coin.symbol) }} - {{ activeChart.period.toUpperCase() }} 持仓量
-                                        </div>
-                                        <button class="close-chart" @click="closeChart">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <canvas :id="'chart-'+coin.symbol+'-'+activeChart.period"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -929,24 +1196,20 @@
                             <span>暂无短期活跃币种</span>
                         </div>
                         <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
-                            <div class="coin-item">
-                                <div class="coin-header">
-                                    <div class="coin-name-container">
-                                        <div class="coin-icon">
-                                            {{ coin.symbol.charAt(0) }}
-                                        </div>
-                                        <div class="coin-name">
-                                            {{ formatSymbol(coin.symbol) }}<span class="symbol-usdt">/USDT</span>
-                                        </div>
+                            <!-- 优化后的短期活跃币种显示 -->
+                            <div class="short-term-item">
+                                <div class="short-term-name">
+                                    {{ coin.symbol }}
+                                </div>
+                                <div class="short-term-stats">
+                                    <div class="short-term-stat">
+                                        <div class="short-term-label">持仓量</div>
+                                        <div class="short-term-value">{{ formatNumber(coin.oi) }}</div>
                                     </div>
-                                    <div class="coin-info">
-                                        <div class="info-item">
-                                            <span class="stat-label">持仓:</span>
-                                            <span class="stat-value">{{ formatNumber(coin.oi) }}</span>
-                                        </div>
-                                        <div class="info-item">
-                                            <span class="stat-value" style="color: var(--accent);">{{ coin.ratio }}x</span>
-                                            <span class="stat-label">活跃度</span>
+                                    <div class="short-term-stat">
+                                        <div class="short-term-label">活跃度</div>
+                                        <div class="short-term-value" :class="getRatioClass(coin.ratio)">
+                                            {{ coin.ratio.toFixed(1) }}x
                                         </div>
                                     </div>
                                 </div>
@@ -986,7 +1249,7 @@
                     statusMessage: "正在加载数据...",
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
-                    isResistanceCollapsed: false, // 默认展开阻力位支撑位分析
+                    isResistanceCollapsed: false,
                     darkMode: true,
                     refreshInterval: null,
                     loadingSeconds: 0,
@@ -1015,16 +1278,23 @@
                     visibleResistanceLevels() {
                         if (!this.queryResult || !this.queryResult.levels) return {};
                         return this.queryResult.levels;
-                    },
-                    hasHighLiquidity() {
-                        return true;
-                    },
-                    hasVolumeCluster() {
-                        return true;
                     }
                 },
                 methods: {
-                    // 添加缺失的方法：获取阻力位来源提示
+                    // 获取置信度分类
+                    getConfidenceClass(strength) {
+                        if (strength > 0.7) return 'confidence-high';
+                        if (strength > 0.3) return 'confidence-medium';
+                        return 'confidence-low';
+                    },
+                    
+                    // 获取活跃度分类
+                    getRatioClass(ratio) {
+                        if (ratio > 2.0) return 'ratio-high';
+                        if (ratio > 1.5) return 'ratio-medium';
+                        return 'ratio-low';
+                    },
+                    
                     getSourceTypesTooltip(sourceTypes) {
                         if (!sourceTypes || sourceTypes.length === 0) return "未知来源";
                         
@@ -1093,7 +1363,6 @@
                         return classes;
                     },
                     togglePeriodChart(symbol, period) {
-                        // 如果点击的是当前已激活的标签，则关闭图表
                         if (this.activeChart.symbol === symbol && this.activeChart.period === period) {
                             this.activeChart.symbol = null;
                             this.activeChart.period = null;
@@ -1103,9 +1372,7 @@
                         this.activeChart.symbol = symbol;
                         this.activeChart.period = period;
                         
-                        // 渲染图表
                         this.$nextTick(() => {
-                            // 添加延迟确保DOM更新完成
                             setTimeout(() => this.renderChart(symbol, period), 300);
                         });
                     },
@@ -1116,13 +1383,11 @@
                         
                         const ctx = canvas.getContext('2d');
                         
-                        // 清除之前的图表
                         if (canvas.chart) {
                             canvas.chart.destroy();
                         }
                         
                         try {
-                            // 从API获取持仓量数据
                             const response = await axios.get(`/api/oi_chart/${symbol}/${period}`);
                             const chartData = response.data;
                             
@@ -1130,19 +1395,16 @@
                                 throw new Error('没有可用数据');
                             }
                             
-                            // 转换时间戳为可读格式
                             const labels = chartData.timestamps.map(timestamp => {
                                 const date = new Date(timestamp);
                                 return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
                             });
                             
-                            // 计算数据范围用于自适应y轴
                             const dataValues = chartData.data;
                             const minVal = Math.min(...dataValues);
                             const maxVal = Math.max(...dataValues);
                             const range = maxVal - minVal;
                             
-                            // 创建柱状图
                             canvas.chart = new Chart(ctx, {
                                 type: 'bar',
                                 data: {
@@ -1230,7 +1492,6 @@
                         const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
                         
                         try {
-                            // 从API获取阻力位数据
                             const response = await axios.get(`/api/resistance_levels/${symbol}`);
                             this.queryResult = response.data;
                             
@@ -1255,11 +1516,7 @@
                         if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
                         return num.toFixed(2);
                     },
-                    formatSymbol(symbol) {
-                        return symbol.replace('USDT', '');
-                    },
                     fetchData() {
-                        // 重置计时器
                         this.loadingSeconds = 0;
                         clearInterval(this.loadingTimer);
                         this.loadingTimer = setInterval(() => {
@@ -1270,7 +1527,6 @@
                         this.dataLoading = true;
                         this.statusMessage = "正在刷新数据...";
                         
-                        // 使用axios获取数据
                         axios.get('/api/data')
                             .then(response => {
                                 this.processData(response.data);
@@ -1304,21 +1560,18 @@
                         clearInterval(this.loadingTimer);
                     },
                     initAutoRefresh() {
-                        // 每5分钟刷新一次
                         this.refreshInterval = setInterval(() => {
                             this.fetchData();
                         }, 5 * 60 * 1000);
                     }
                 },
                 created() {
-                    // 加载主题偏好
                     const savedTheme = localStorage.getItem('darkMode');
                     if (savedTheme !== null) {
                         this.darkMode = JSON.parse(savedTheme);
                     }
                     this.applyTheme();
                     
-                    // 初始加载数据
                     this.fetchData();
                     this.initAutoRefresh();
                 },
