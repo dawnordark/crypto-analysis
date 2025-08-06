@@ -54,7 +54,11 @@ logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
-CORS(app)
+# 扩展 CORS 配置
+CORS(app, resources={
+    r"/api/*": {"origins": "*"},
+    r"/static/*": {"origins": "*"}
+})
 
 # Binance API 配置
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
@@ -786,6 +790,19 @@ def get_data():
     try:
         logger.info("📡 收到 /api/data 请求")
         
+        # 强制刷新数据如果缓存为空
+        if not current_data_cache or current_data_cache.get("last_updated") == "从未更新":
+            logger.info("🔄 缓存为空，触发即时分析")
+            analysis_queue.put("ANALYZE")
+            return jsonify({
+                'last_updated': "数据生成中...",
+                'daily_rising': [],
+                'short_term_active': [],
+                'all_cycle_rising': [],
+                'analysis_time': 0,
+                'next_analysis_time': "计算中..."
+            })
+        
         if not current_data_cache or not isinstance(current_data_cache, dict):
             logger.warning("⚠️ 当前数据缓存格式错误，重置为默认")
             current_data_cache = {
@@ -956,6 +973,10 @@ def start_background_threads():
     scheduler_thread = threading.Thread(target=schedule_analysis, name="AnalysisScheduler")
     scheduler_thread.daemon = True
     scheduler_thread.start()
+    
+    # 添加初始分析任务
+    analysis_queue.put("ANALYZE")
+    logger.info("🔄 已提交初始分析任务")
     
     logger.info("✅ 后台线程启动成功")
     return True
