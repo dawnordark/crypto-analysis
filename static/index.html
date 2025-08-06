@@ -9,13 +9,38 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #1e2026;
+            --bg-card: rgba(30, 32, 38, 0.8);
+            --text-primary: #eaecef;
+            --text-secondary: #9aa1ab;
+            --accent: #f0b90b;
+            --positive: #03a66d;
+            --negative: #cf304a;
+            --border: #2b2f36;
+            --shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        .light-theme {
+            --bg-primary: #f0f2f5;
+            --bg-secondary: #ffffff;
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --text-primary: #1e2026;
+            --text-secondary: #707a8a;
+            --accent: #f0b90b;
+            --positive: #03a66d;
+            --negative: #cf304a;
+            --border: #e6e8ec;
+            --shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+        }
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 20px;
             line-height: 1.6;
-            background: linear-gradient(135deg, #0a0e17 0%, #121a2b 100%);
-            color: #eaecef;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-primary) 100%);
+            color: var(--text-primary);
             min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
         }
         .container { 
             max-width: 1400px; 
@@ -26,25 +51,24 @@
             border-radius: 16px; 
             padding: 25px 30px;
             margin-bottom: 25px;
-            background: rgba(30, 32, 38, 0.8);
-            border: 1px solid #2b2f36;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow);
         }
         .title-section h1 { 
             font-size: 32px; 
             margin-bottom: 8px;
-            background: linear-gradient(90deg, #f0b90b 0%, #ffd166 100%);
+            background: linear-gradient(90deg, var(--accent) 0%, #ffd166 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-weight: 800;
         }
         .time-info {
             font-size: 14px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
             display: flex;
             gap: 15px;
         }
@@ -54,7 +78,7 @@
         }
         .time-item i {
             margin-right: 8px;
-            color: #f0b90b;
+            color: var(--accent);
         }
         .refresh-btn { 
             border: none; 
@@ -64,7 +88,7 @@
             font-weight: bold;
             font-size: 15px;
             transition: all 0.3s;
-            background: linear-gradient(90deg, #f0b90b 0%, #ffd166 100%);
+            background: linear-gradient(90deg, var(--accent) 0%, #ffd166 100%);
             color: #1e2026;
             box-shadow: 0 4px 15px rgba(240, 185, 11, 0.3);
             position: relative;
@@ -76,26 +100,12 @@
         }
         .refresh-btn:disabled { 
             background: #474d57; 
-            color: #9aa1ab;
+            color: var(--text-secondary);
             box-shadow: none;
-        }
-        .refresh-btn:after {
-            content: "";
-            position: absolute;
-            top: -50%;
-            left: -60%;
-            width: 20px;
-            height: 200%;
-            background: rgba(255,255,255,0.3);
-            transform: rotate(25deg);
-            transition: all 0.5s;
-        }
-        .refresh-btn:hover:after {
-            left: 120%;
         }
         .theme-toggle {
             background: rgba(240, 185, 11, 0.15);
-            color: #f0b90b;
+            color: var(--accent);
             border: none;
             font-size: 22px;
             cursor: pointer;
@@ -122,8 +132,8 @@
             font-weight: bold;
             margin-bottom: 25px;
             background: rgba(240, 185, 11, 0.2);
-            color: #f0b90b;
-            border-left: 4px solid #f0b90b;
+            color: var(--accent);
+            border-left: 4px solid var(--accent);
             display: flex;
             align-items: center;
         }
@@ -146,11 +156,10 @@
             border-radius: 16px;
             padding: 0;
             margin-bottom: 30px;
-            background: rgba(30, 32, 38, 0.8);
-            border: 1px solid #2b2f36;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
             overflow: hidden;
-            backdrop-filter: blur(10px);
         }
         .resistance-header {
             display: flex;
@@ -172,12 +181,12 @@
             gap: 12px;
         }
         .resistance-title i {
-            color: #f0b90b;
+            color: var(--accent);
             font-size: 22px;
         }
         .collapse-icon {
             font-size: 18px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
             transition: transform 0.3s;
         }
         .resistance-content {
@@ -193,13 +202,13 @@
             padding: 12px 18px;
             border-radius: 8px;
             font-size: 15px;
-            background: #1c1f26;
-            border: 1px solid #2b2f36;
-            color: #eaecef;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
             transition: all 0.3s;
         }
         .query-input:focus {
-            border-color: #f0b90b;
+            border-color: var(--accent);
             box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.3);
             outline: none;
         }
@@ -210,8 +219,8 @@
             cursor: pointer;
             font-weight: bold;
             transition: all 0.3s;
-            background: #2b2f36;
-            color: #eaecef;
+            background: var(--border);
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -235,13 +244,13 @@
             text-align: left;
             font-weight: 600;
             background: rgba(240, 185, 11, 0.25);
-            color: #f0b90b;
+            color: var(--accent);
         }
         .compact-resistance-table td {
             padding: 12px;
             vertical-align: top;
             background: rgba(28, 31, 38, 0.6);
-            border-bottom: 1px solid #2b2f36;
+            border-bottom: 1px solid var(--border);
         }
         .compact-resistance-table tr:last-child td {
             border-bottom: none;
@@ -295,10 +304,10 @@
             font-size: 14px;
         }
         .distance-positive {
-            color: #03a66d;
+            color: var(--positive);
         }
         .distance-negative {
-            color: #cf304a;
+            color: var(--negative);
         }
         .current-price {
             padding: 12px 18px;
@@ -309,7 +318,7 @@
             display: flex;
             align-items: center;
             background: rgba(240, 185, 11, 0.15);
-            color: #f0b90b;
+            color: var(--accent);
             border: 1px solid rgba(240, 185, 11, 0.3);
         }
         .liquidity-indicator {
@@ -325,7 +334,7 @@
             padding: 15px;
             font-style: italic;
             font-size: 14px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
             background: rgba(43, 47, 54, 0.3);
             border-radius: 8px;
         }
@@ -341,134 +350,17 @@
         }
         .high-confidence-tag {
             background: rgba(3, 166, 109, 0.3);
-            color: #03a66d;
+            color: var(--positive);
             border: 1px solid rgba(3, 166, 109, 0.5);
         }
         .medium-confidence-tag {
             background: rgba(240, 185, 11, 0.3);
-            color: #f0b90b;
+            color: var(--accent);
             border: 1px solid rgba(240, 185, 11, 0.5);
         }
         .low-confidence-tag {
             background: rgba(207, 48, 74, 0.3);
-            color: #cf304a;
-            border: 1px solid rgba(207, 48, 74, 0.5);
-        }
-        
-        .strength-explanation {
-            margin-top: 25px;
-            padding: 25px;
-            border-radius: 16px;
-            font-size: 14px;
-            background: rgba(28, 31, 38, 0.8);
-            border: 1px solid #2b2f36;
-        }
-        .explanation-title {
-            margin-bottom: 20px;
-            font-weight: 700;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #f0b90b;
-        }
-        .explanation-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 25px;
-        }
-        @media (max-width: 768px) {
-            .explanation-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        .explanation-card {
-            background: rgba(43, 47, 54, 0.6);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid #2b2f36;
-            transition: all 0.3s;
-        }
-        .explanation-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-        }
-        .explanation-card-title {
-            font-weight: 700;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 16px;
-            color: #f0b90b;
-        }
-        .explanation-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-            font-size: 14px;
-            padding: 12px;
-            background: rgba(28, 31, 38, 0.6);
-            border-radius: 8px;
-        }
-        .strength-demo-bar {
-            display: inline-block;
-            width: 70px;
-            height: 10px;
-            border-radius: 5px;
-            background: rgba(128, 128, 128, 0.2);
-            margin-right: 15px;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
-        }
-        .strength-demo-fill {
-            display: block;
-            height: 100%;
-            border-radius: 5px;
-        }
-        .strength-demo-fill-weak {
-            background: linear-gradient(90deg, rgba(207, 48, 74, 0.6), rgba(207, 48, 74, 1));
-            width: 30%;
-        }
-        .strength-demo-fill-medium {
-            background: linear-gradient(90deg, rgba(240, 185, 11, 0.6), rgba(240, 185, 11, 1));
-            width: 60%;
-        }
-        .strength-demo-fill-strong {
-            background: linear-gradient(90deg, rgba(3, 166, 109, 0.6), rgba(3, 166, 109, 1));
-            width: 100%;
-        }
-        .confidence-demo {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-            padding: 12px;
-            background: rgba(28, 31, 38, 0.6);
-            border-radius: 8px;
-        }
-        .confidence-demo-box {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
-            margin-right: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .high-confidence-demo {
-            background: rgba(3, 166, 109, 0.3);
-            color: #03a66d;
-            border: 1px solid rgba(3, 166, 109, 0.5);
-        }
-        .medium-confidence-demo {
-            background: rgba(240, 185, 11, 0.3);
-            color: #f0b90b;
-            border: 1px solid rgba(240, 185, 11, 0.5);
-        }
-        .low-confidence-demo {
-            background: rgba(207, 48, 74, 0.3);
-            color: #cf304a;
+            color: var(--negative);
             border: 1px solid rgba(207, 48, 74, 0.5);
         }
         
@@ -480,10 +372,9 @@
         .list {
             border-radius: 16px;
             padding: 25px;
-            background: rgba(30, 32, 38, 0.8);
-            border: 1px solid #2b2f36;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
         }
         .list-header {
             display: flex;
@@ -499,20 +390,20 @@
         .list-title {
             font-size: 20px;
             font-weight: 700;
-            color: #f0b90b;
+            color: var(--accent);
         }
         .count-badge {
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 15px;
             font-weight: bold;
-            background: linear-gradient(90deg, #f0b90b 0%, #ffd166 100%);
+            background: linear-gradient(90deg, var(--accent) 0%, #ffd166 100%);
             color: #1e2026;
         }
         .list-desc {
             font-size: 14px;
             margin-bottom: 20px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
             line-height: 1.7;
         }
 
@@ -526,7 +417,7 @@
             padding: 20px;
             margin-bottom: 15px;
             background: rgba(28, 31, 38, 0.6);
-            border: 1px solid #2b2f36;
+            border: 1px solid var(--border);
             transition: all 0.3s;
         }
         .coin-item:hover {
@@ -548,7 +439,7 @@
         .coin-name {
             font-size: 18px;
             font-weight: 700;
-            color: #f0b90b;
+            color: var(--accent);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -557,7 +448,7 @@
             width: 28px;
             height: 28px;
             border-radius: 50%;
-            background: #2b2f36;
+            background: var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -565,7 +456,7 @@
         }
         .symbol-usdt {
             font-size: 14px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
         }
         .coin-info {
             display: flex;
@@ -582,16 +473,16 @@
         }
         .stat-label {
             margin-right: 6px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
         }
         .stat-value {
             font-weight: 600;
         }
         .positive {
-            color: #03a66d;
+            color: var(--positive);
         }
         .negative {
-            color: #cf304a;
+            color: var(--negative);
         }
         
         .short-term-active {
@@ -606,7 +497,7 @@
             padding: 4px 12px;
             border-radius: 12px;
             font-weight: bold;
-            color: #f0b90b;
+            color: var(--accent);
             border: 1px solid rgba(240, 185, 11, 0.3);
         }
 
@@ -635,17 +526,22 @@
         }
         
         .status-tag-up {
-            color: #03a66d;
-            border-color: #03a66d;
+            color: var(--positive);
+            border-color: var(--positive);
             background: rgba(3, 166, 109, 0.2);
         }
         .status-tag-down {
-            color: #cf304a;
-            border-color: #cf304a;
+            color: var(--negative);
+            border-color: var(--negative);
             background: rgba(207, 48, 74, 0.2);
         }
+        .status-tag-neutral {
+            color: var(--text-secondary);
+            border-color: var(--text-secondary);
+            background: rgba(154, 161, 171, 0.2);
+        }
         .status-tag-chart-open {
-            border-color: #f0b90b;
+            border-color: var(--accent);
             background: rgba(240, 185, 11, 0.2);
             box-shadow: 0 0 10px rgba(240, 185, 11, 0.3);
         }
@@ -656,13 +552,13 @@
             padding: 15px;
             height: 220px;
             background: rgba(26, 29, 36, 0.8);
-            border: 1px solid #2b2f36;
+            border: 1px solid var(--border);
         }
         .chart-title {
             text-align: center;
             font-size: 15px;
             margin-bottom: 10px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
             font-weight: 600;
         }
         .chart-placeholder {
@@ -671,7 +567,7 @@
             align-items: center;
             justify-content: center;
             font-size: 15px;
-            color: #9aa1ab;
+            color: var(--text-secondary);
             flex-direction: column;
             gap: 15px;
         }
@@ -682,7 +578,7 @@
         .chart-error {
             text-align: center;
             padding: 20px;
-            color: #cf304a;
+            color: var(--negative);
             font-weight: 600;
         }
 
@@ -744,7 +640,7 @@
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background: #03a66d;
+            background: var(--positive);
             margin-right: 8px;
             animation: pulse 1.5s infinite;
         }
@@ -752,14 +648,14 @@
         footer {
             text-align: center;
             padding: 30px 0;
-            color: #9aa1ab;
+            color: var(--text-secondary);
             font-size: 14px;
             margin-top: 40px;
         }
     </style>
 </head>
 <body>
-    <div id="app" class="container">
+    <div id="app" class="container" :class="{'light-theme': !darkMode}">
         <!-- 标题区域 -->
         <div class="header">
             <div class="title-section">
@@ -779,8 +675,8 @@
                     <span v-if="!loading">刷新数据</span>
                     <span v-else>刷新中...</span>
                 </button>
-                <button class="theme-toggle">
-                    🌙
+                <button class="theme-toggle" @click="toggleTheme">
+                    {{ darkMode ? '🌙' : '☀️' }}
                 </button>
             </div>
         </div>
@@ -895,56 +791,22 @@
                         </tbody>
                     </table>
                     
-                    <!-- 置信度和强度说明 -->
+                    <!-- 强度说明提示 -->
                     <div class="strength-explanation">
                         <div class="explanation-title">
                             <i>📝</i> 阻力位/支撑位分析说明
                         </div>
-                        <div class="explanation-grid">
-                            <div class="explanation-card">
-                                <div class="explanation-card-title">
-                                    <i>📏</i> 强度分析
-                                </div>
-                                <div class="explanation-item">
-                                    <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-weak"></span></span>
-                                    <span class="explanation-text">弱 (0-40%) - 阻力/支撑作用有限</span>
-                                </div>
-                                <div class="explanation-item">
-                                    <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-medium"></span></span>
-                                    <span class="explanation-text">中 (40-70%) - 有一定阻力/支撑作用</span>
-                                </div>
-                                <div class="explanation-item">
-                                    <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-strong"></span></span>
-                                    <span class="explanation-text">强 (70-100%) - 强阻力/支撑作用</span>
-                                </div>
-                            </div>
-                            
-                            <div class="explanation-card">
-                                <div class="explanation-card-title">
-                                    <i>🔍</i> 置信度分析
-                                </div>
-                                <div class="confidence-demo">
-                                    <span class="confidence-demo-box high-confidence-demo">高</span>
-                                    <div>
-                                        <div>高置信度 (80-100%)</div>
-                                        <div class="stat-label">多个指标共振，历史验证有效</div>
-                                    </div>
-                                </div>
-                                <div class="confidence-demo">
-                                    <span class="confidence-demo-box medium-confidence-demo">中</span>
-                                    <div>
-                                        <div>中置信度 (50-80%)</div>
-                                        <div class="stat-label">部分指标共振，需谨慎验证</div>
-                                    </div>
-                                </div>
-                                <div class="confidence-demo">
-                                    <span class="confidence-demo-box low-confidence-demo">低</span>
-                                    <div>
-                                        <div>低置信度 (0-50%)</div>
-                                        <div class="stat-label">少数指标指示，需进一步验证</div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="explanation-item">
+                            <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-weak"></span></span>
+                            <span class="explanation-text">弱 (0-40%) - 阻力/支撑作用有限</span>
+                        </div>
+                        <div class="explanation-item">
+                            <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-medium"></span></span>
+                            <span class="explanation-text">中 (40-70%) - 有一定阻力/支撑作用</span>
+                        </div>
+                        <div class="explanation-item">
+                            <span class="strength-demo-bar"><span class="strength-demo-fill strength-demo-fill-strong"></span></span>
+                            <span class="explanation-text">强 (70-100%) - 强阻力/支撑作用</span>
                         </div>
                     </div>
                 </div>
@@ -1150,71 +1012,28 @@
             new Vue({
                 el: '#app',
                 data: {
-                    lastUpdated: "2023-11-15 14:30:45",
-                    nextAnalysisTime: "2023-11-15 14:35:00",
-                    dailyRising: [
-                        {symbol: "BTCUSDT", oi: 24567890, change: 3.5, period_status: {'1d': true, '4h': true, '1h': true}, period_count: 3},
-                        {symbol: "ETHUSDT", oi: 18765432, change: 2.8, period_status: {'1d': true, '4h': false, '1h': true}, period_count: 2},
-                        {symbol: "SOLUSDT", oi: 12345678, change: 5.2, period_status: {'1d': true, '4h': true, '1h': false}, period_count: 2}
-                    ],
-                    shortTermActive: [
-                        {symbol: "SOLUSDT", oi: 9876543, ratio: 2.1},
-                        {symbol: "DOGEUSDT", oi: 5678901, ratio: 1.8},
-                        {symbol: "AVAXUSDT", oi: 3456789, ratio: 1.7}
-                    ],
-                    allCycleRising: [
-                        {symbol: "BNBUSDT", oi: 12345678, change: 4.2, period_status: {'1d': true, '4h': true, '1h': true, '15m': true}, period_count: 4},
-                        {symbol: "XRPUSDT", oi: 8765432, change: 3.1, period_status: {'1d': true, '4h': true, '1h': true, '15m': true}, period_count: 4}
-                    ],
+                    lastUpdated: null,
+                    nextAnalysisTime: null,
+                    dailyRising: [],
+                    shortTermActive: [],
+                    allCycleRising: [],
                     activeChart: {
                         symbol: null,
                         period: null
                     },
                     resistanceQuery: 'BTC',
-                    queryResult: {
-                        symbol: "BTCUSDT",
-                        levels: {
-                            '1d': {
-                                resistance: [
-                                    {price: 37850.25, strength: 0.85, distance_percent: 2.5, sources: 5, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer']},
-                                    {price: 38210.75, strength: 0.65, distance_percent: 3.8, sources: 3, source_types: ['fib_other', 'ema_100', 'bb_upper']}
-                                ],
-                                support: [
-                                    {price: 36520.50, strength: 0.78, distance_percent: -1.2, sources: 4, source_types: ['ema_50', 'bb_lower', 'volume_profile', 'orderbook']},
-                                    {price: 36045.25, strength: 0.92, distance_percent: -2.8, sources: 6, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer', 'bb_lower']}
-                                ]
-                            },
-                            '4h': {
-                                resistance: [
-                                    {price: 37680.30, strength: 0.72, distance_percent: 1.8, sources: 4, source_types: ['ema_100', 'bb_upper', 'volume_profile', 'integer']},
-                                    {price: 38025.40, strength: 0.88, distance_percent: 3.2, sources: 5, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'bb_upper']}
-                                ],
-                                support: [
-                                    {price: 36890.20, strength: 0.65, distance_percent: -0.5, sources: 3, source_types: ['ema_50', 'bb_lower', 'fib_other']},
-                                    {price: 36575.10, strength: 0.95, distance_percent: -2.0, sources: 7, source_types: ['fib_0.618', 'ema_200', 'volume_profile', 'orderbook', 'integer', 'bb_lower', 'ema_100']}
-                                ]
-                            },
-                            '1h': {
-                                resistance: [
-                                    {price: 37420.50, strength: 0.68, distance_percent: 0.9, sources: 3, source_types: ['bb_upper', 'volume_profile', 'integer']}
-                                ],
-                                support: [
-                                    {price: 37015.75, strength: 0.82, distance_percent: -0.5, sources: 4, source_types: ['ema_50', 'bb_lower', 'volume_profile', 'orderbook']},
-                                    {price: 36785.30, strength: 0.75, distance_percent: -1.8, sources: 3, source_types: ['fib_other', 'ema_100', 'bb_lower']}
-                                ]
-                            }
-                        },
-                        current_price: 37085.25
-                    },
+                    queryResult: null,
                     queryLoading: false,
                     chartDataCache: {},
                     loading: false,
-                    dataLoading: false,
+                    dataLoading: true,
                     error: null,
-                    statusMessage: "数据加载成功，共7个币种",
+                    statusMessage: "正在加载数据...",
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
-                    isResistanceCollapsed: false
+                    isResistanceCollapsed: true,
+                    darkMode: true,
+                    refreshInterval: null
                 },
                 computed: {
                     sortedDailyRising() {
@@ -1248,6 +1067,10 @@
                     }
                 },
                 methods: {
+                    toggleTheme() {
+                        this.darkMode = !this.darkMode;
+                        localStorage.setItem('darkMode', this.darkMode);
+                    },
                     toggleResistanceSection() {
                         this.isResistanceCollapsed = !this.isResistanceCollapsed;
                     },
@@ -1287,6 +1110,9 @@
                         else if (status === false) {
                             classes.push('status-tag-down');
                         }
+                        else {
+                            classes.push('status-tag-neutral');
+                        }
                         
                         if (isActive) {
                             classes.push('status-tag-chart-open');
@@ -1298,11 +1124,27 @@
                         this.activeChart.symbol = symbol;
                         this.activeChart.period = period;
                     },
-                    queryResistanceLevels() {
+                    async queryResistanceLevels() {
+                        if (!this.resistanceQuery) return;
+                        
                         this.queryLoading = true;
-                        setTimeout(() => {
+                        const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
+                        
+                        try {
+                            const response = await axios.get(`/api/resistance_levels/${symbol}`);
+                            if (response.data.error) {
+                                this.queryResult = null;
+                                this.statusMessage = `查询失败: ${response.data.error}`;
+                            } else {
+                                this.queryResult = response.data;
+                                this.statusMessage = `已加载 ${symbol} 阻力位数据`;
+                            }
+                        } catch (error) {
+                            console.error('阻力位查询失败:', error);
+                            this.statusMessage = `查询失败: ${error.message}`;
+                        } finally {
                             this.queryLoading = false;
-                        }, 1000);
+                        }
                     },
                     formatSymbolInput() {
                         this.resistanceQuery = this.resistanceQuery.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1316,12 +1158,54 @@
                     formatSymbol(symbol) {
                         return symbol.replace('USDT', '');
                     },
-                    fetchData() {
+                    async fetchData() {
                         this.loading = true;
-                        setTimeout(() => {
+                        this.dataLoading = true;
+                        this.statusMessage = "正在刷新数据...";
+                        
+                        try {
+                            const response = await axios.get('/api/data');
+                            const data = response.data;
+                            
+                            this.lastUpdated = data.last_updated;
+                            this.nextAnalysisTime = data.next_analysis_time;
+                            this.dailyRising = data.daily_rising || [];
+                            this.shortTermActive = data.short_term_active || [];
+                            this.allCycleRising = data.all_cycle_rising || [];
+                            
+                            const total = this.dailyRising.length + this.shortTermActive.length + this.allCycleRising.length;
+                            this.statusMessage = `数据已刷新，共 ${total} 个币种`;
+                            this.error = null;
+                        } catch (error) {
+                            console.error('数据加载失败:', error);
+                            this.error = `数据加载失败: ${error.message}`;
+                            this.statusMessage = this.error;
+                        } finally {
                             this.loading = false;
-                            this.statusMessage = "数据已刷新";
-                        }, 1500);
+                            this.dataLoading = false;
+                        }
+                    },
+                    initAutoRefresh() {
+                        // 每5分钟刷新一次
+                        this.refreshInterval = setInterval(() => {
+                            this.fetchData();
+                        }, 5 * 60 * 1000);
+                    }
+                },
+                created() {
+                    // 加载主题偏好
+                    const savedTheme = localStorage.getItem('darkMode');
+                    if (savedTheme !== null) {
+                        this.darkMode = JSON.parse(savedTheme);
+                    }
+                    
+                    // 初始加载数据
+                    this.fetchData();
+                    this.initAutoRefresh();
+                },
+                beforeDestroy() {
+                    if (this.refreshInterval) {
+                        clearInterval(this.refreshInterval);
                     }
                 }
             });
