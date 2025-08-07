@@ -444,12 +444,14 @@ def calculate_resistance_levels(symbol):
                     
                     strength = min(1.0, level_scores[best_level]['score'] / 30.0)
                     
-                    merged_levels.append({
-                        'price': best_level,
-                        'strength': strength,
-                        'sources': len(merged_sources),
-                        'source_types': list(merged_sources)
-                    })
+                    # 过滤掉强度为0的级别
+                    if strength > 0:
+                        merged_levels.append({
+                            'price': best_level,
+                            'strength': strength,
+                            'sources': len(merged_sources),
+                            'source_types': list(merged_sources)
+                        })
                     i = j
                 
                 merged_levels.sort(key=lambda x: x['strength'], reverse=True)
@@ -457,7 +459,7 @@ def calculate_resistance_levels(symbol):
                 resistance = []
                 support = []
                 
-                for level in merged_levels[:5]:
+                for level in merged_levels:
                     price = level['price']
                     if current_price and price > current_price:
                         distance_percent = (price - current_price) / current_price * 100
@@ -481,6 +483,7 @@ def calculate_resistance_levels(symbol):
                 resistance.sort(key=lambda x: x['strength'], reverse=True)
                 support.sort(key=lambda x: x['strength'], reverse=True)
                 
+                # 只保留前3个阻力位和支撑位
                 interval_levels[interval] = {
                     'resistance': resistance[:3],
                     'support': support[:3]
