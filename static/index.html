@@ -161,7 +161,13 @@
             justify-content: space-between;
             align-items: center;
             padding: 18px 22px;
+            cursor: pointer;
             background-color: rgba(43, 47, 54, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .resistance-header:hover {
+            background-color: rgba(59, 64, 72, 0.05);
         }
         
         .resistance-title {
@@ -173,8 +179,9 @@
             color: var(--accent);
         }
         
-        .resistance-content {
-            padding: 22px;
+        /* 搜索框区域 - 始终显示 */
+        .resistance-search {
+            padding: 0 22px 22px 22px;
         }
         
         .query-container {
@@ -829,15 +836,18 @@
             <span v-else>{{ statusMessage }}</span>
         </div>
 
-        <!-- 阻力位查询区域 - 默认展开 -->
+        <!-- 阻力位查询区域 - 搜索框始终显示 -->
         <div class="resistance-query fade-in">
-            <div class="resistance-header">
+            <!-- 标题部分（可点击折叠数据） -->
+            <div class="resistance-header" @click="isResistanceCollapsed = !isResistanceCollapsed">
                 <div class="resistance-title">
                     <i class="fas fa-search"></i> 阻力位/支撑位分析
                 </div>
+                <i class="fas fa-chevron-down" :class="{'rotate-180': !isResistanceCollapsed}"></i>
             </div>
             
-            <div class="resistance-content">
+            <!-- 搜索框部分（始终显示） -->
+            <div class="resistance-search">
                 <div class="query-container">
                     <input 
                         type="text" 
@@ -855,7 +865,10 @@
                         <i class="fas fa-search"></i> 查询
                     </button>
                 </div>
-
+            </div>
+            
+            <!-- 数据内容区域（可折叠） -->
+            <div class="resistance-content" v-if="!isResistanceCollapsed">
                 <div v-if="queryResult" class="resistance-result">
                     <div v-if="queryResult.current_price" class="current-price">
                         <i class="fas fa-dollar-sign"></i> 当前价格: {{ queryResult.current_price.toFixed(4) }}
@@ -1182,6 +1195,7 @@
                     statusMessage: "正在加载数据...",
                     periods: ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'],
                     chartErrors: {},
+                    isResistanceCollapsed: false,
                     darkMode: true,
                     refreshInterval: null,
                     loadingSeconds: 0,
@@ -1444,6 +1458,9 @@
                             if (!this.queryResult || !this.queryResult.levels) {
                                 throw new Error('未获取到阻力位数据');
                             }
+                            
+                            // 确保数据部分展开
+                            this.isResistanceCollapsed = false;
                             
                             this.statusMessage = `${symbol}阻力位数据已加载`;
                         } catch (error) {
