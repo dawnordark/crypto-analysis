@@ -220,74 +220,48 @@
             background-color: #e6ac00;
         }
         
-        /* 优化阻力位支撑位显示 - 单行布局 */
-        .resistance-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 15px;
+        /* 阻力位支撑位表格样式 */
+        .resistance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
         }
         
-        .resistance-card {
-            background-color: var(--bg-secondary);
-            border-radius: 8px;
-            padding: 15px;
-            border: 1px solid var(--border);
-        }
-        
-        .resistance-card-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
-        }
-        
-        .resistance-card-title {
-            font-weight: 600;
+        .resistance-table th {
+            background-color: rgba(240, 185, 11, 0.1);
             color: var(--accent);
-            font-size: 15px;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
         }
         
-        .level-group {
-            display: flex;
-            gap: 15px;
+        .resistance-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
         }
         
-        .resistance-group, .support-group {
-            flex: 1;
+        .resistance-table tr:last-child td {
+            border-bottom: none;
         }
         
-        .group-title {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        .resistance-table tr:hover {
+            background-color: rgba(240, 185, 11, 0.05);
         }
         
-        .level-items {
+        .resistance-levels {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
         
-        .level-item {
-            padding: 8px 12px;
+        .resistance-item, .support-item {
+            padding: 10px;
             border-radius: 6px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            cursor: default;
             font-size: 14px;
-            border: 1px solid rgba(0,0,0,0.1);
-            transition: all 0.2s ease;
-        }
-        
-        .level-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
         }
         
         .resistance-item {
@@ -300,70 +274,83 @@
             border-left: 3px solid var(--positive);
         }
         
+        .level-details {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 100%;
+        }
+        
         .level-price {
             font-weight: 600;
             font-size: 15px;
             display: flex;
-            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
         }
         
-        .price-value {
-            color: var(--text-primary);
-        }
-        
-        .confidence-value {
+        .level-stats {
+            display: flex;
+            gap: 15px;
             font-size: 13px;
-            color: var(--text-secondary);
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
             display: flex;
             align-items: center;
-            gap: 4px;
-        }
-        
-        .strength-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 4px;
-            font-size: 13px;
-        }
-        
-        .strength-label {
-            color: var(--text-secondary);
+            gap: 5px;
         }
         
         .strength-value {
-            font-weight: 600;
             padding: 2px 8px;
             border-radius: 10px;
             font-size: 12px;
+            font-weight: 600;
         }
         
         .strength-high {
-            background-color: var(--strength-high);
+            background-color: #03a66d;
             color: #fff;
         }
         
         .strength-medium {
-            background-color: var(--strength-medium);
+            background-color: #f0b90b;
             color: #333;
         }
         
         .strength-low {
-            background-color: var(--strength-low);
-            color: #333;
-        }
-        
-        .distance-value {
-            font-weight: 500;
-            font-size: 13px;
+            background-color: #cf304a;
+            color: #fff;
         }
         
         .distance-positive {
-            color: var(--positive);
+            color: #03a66d;
         }
         
         .distance-negative {
-            color: var(--negative);
+            color: #cf304a;
+        }
+        
+        .confidence-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .confidence-high {
+            background-color: #03a66d;
+        }
+        
+        .confidence-medium {
+            background-color: #f0b90b;
+        }
+        
+        .confidence-low {
+            background-color: #cf304a;
         }
         
         .no-data {
@@ -733,8 +720,9 @@
                 flex-direction: column;
             }
             
-            .resistance-grid {
-                grid-template-columns: 1fr;
+            .resistance-table {
+                display: block;
+                overflow-x: auto;
             }
             
             .short-term-stats {
@@ -810,85 +798,83 @@
                         <i class="fas fa-dollar-sign"></i> 当前价格: {{ queryResult.current_price.toFixed(4) }}
                     </div>
                     
-                    <!-- 优化后的阻力位支撑位显示 - 网格布局 -->
-                    <div class="resistance-grid">
-                        <div v-for="(intervalData, intervalName) in visibleResistanceLevels" 
-                             :key="intervalName" 
-                             class="resistance-card">
-                            <div class="resistance-card-header">
-                                <i class="fas fa-chart-area"></i>
-                                <div class="resistance-card-title">{{ intervalName.toUpperCase() }} 周期</div>
-                            </div>
-                            
-                            <div class="level-group">
-                                <!-- 阻力位组 -->
-                                <div class="resistance-group">
-                                    <div class="group-title">
-                                        <i class="fas fa-arrow-up"></i> 阻力位
-                                    </div>
-                                    <div class="level-items">
-                                        <div v-if="!intervalData.resistance || intervalData.resistance.length === 0" class="no-data">无阻力位数据</div>
+                    <!-- 优化后的阻力位支撑位表格 -->
+                    <table class="resistance-table">
+                        <thead>
+                            <tr>
+                                <th>周期</th>
+                                <th>阻力位</th>
+                                <th>支撑位</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(intervalData, intervalName) in visibleResistanceLevels" :key="intervalName">
+                                <td>{{ intervalName.toUpperCase() }}</td>
+                                <td>
+                                    <div v-if="!intervalData.resistance || intervalData.resistance.length === 0" class="no-data">无阻力位数据</div>
+                                    <div v-else class="resistance-levels">
                                         <div v-for="(resistance, idx) in intervalData.resistance" 
                                              :key="'resistance-'+intervalName+'-'+idx" 
-                                             class="level-item resistance-item"
+                                             class="resistance-item"
                                              :title="getLevelTooltip(resistance, 'resistance')">
-                                            <div class="level-price">
-                                                <span class="price-value">{{ resistance.price.toFixed(4) }}</span>
-                                                <span class="confidence-value">
-                                                    <i class="fas fa-circle" :style="{color: getConfidenceColor(resistance.strength)}"></i>
-                                                    {{ Math.round(resistance.strength * 100) }}%
-                                                </span>
-                                            </div>
-                                            
-                                            <div class="strength-info">
-                                                <span class="strength-label">强度:</span>
-                                                <span class="strength-value" :class="getStrengthClass(resistance.strength)">
-                                                    {{ Math.round(resistance.strength * 100) }}%
-                                                </span>
-                                            </div>
-                                            
-                                            <div class="distance-value distance-positive">
-                                                +{{ resistance.distance_percent.toFixed(1) }}% (高于当前价)
+                                            <div class="level-details">
+                                                <div class="level-price">
+                                                    <span class="confidence-dot" :class="getConfidenceClass(resistance.strength)"></span>
+                                                    {{ resistance.price.toFixed(4) }}
+                                                </div>
+                                                <div class="level-stats">
+                                                    <div class="stat-item">
+                                                        <span>强度:</span>
+                                                        <span class="strength-value" :class="getStrengthClass(resistance.strength)">
+                                                            {{ Math.round(resistance.strength * 100) }}%
+                                                        </span>
+                                                    </div>
+                                                    <div class="stat-item distance-positive">
+                                                        +{{ resistance.distance_percent.toFixed(1) }}%
+                                                    </div>
+                                                    <div class="stat-item">
+                                                        <span>置信度:</span>
+                                                        <span>{{ resistance.strength.toFixed(2) }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                
-                                <!-- 支撑位组 -->
-                                <div class="support-group">
-                                    <div class="group-title">
-                                        <i class="fas fa-arrow-down"></i> 支撑位
-                                    </div>
-                                    <div class="level-items">
-                                        <div v-if="!intervalData.support || intervalData.support.length === 0" class="no-data">无支撑位数据</div>
+                                </td>
+                                <td>
+                                    <div v-if="!intervalData.support || intervalData.support.length === 0" class="no-data">无支撑位数据</div>
+                                    <div v-else class="resistance-levels">
                                         <div v-for="(support, idx) in intervalData.support" 
                                              :key="'support-'+intervalName+'-'+idx" 
-                                             class="level-item support-item"
+                                             class="support-item"
                                              :title="getLevelTooltip(support, 'support')">
-                                            <div class="level-price">
-                                                <span class="price-value">{{ support.price.toFixed(4) }}</span>
-                                                <span class="confidence-value">
-                                                    <i class="fas fa-circle" :style="{color: getConfidenceColor(support.strength)}"></i>
-                                                    {{ Math.round(support.strength * 100) }}%
-                                                </span>
-                                            </div>
-                                            
-                                            <div class="strength-info">
-                                                <span class="strength-label">强度:</span>
-                                                <span class="strength-value" :class="getStrengthClass(support.strength)">
-                                                    {{ Math.round(support.strength * 100) }}%
-                                                </span>
-                                            </div>
-                                            
-                                            <div class="distance-value distance-negative">
-                                                {{ support.distance_percent.toFixed(1) }}% (低于当前价)
+                                            <div class="level-details">
+                                                <div class="level-price">
+                                                    <span class="confidence-dot" :class="getConfidenceClass(support.strength)"></span>
+                                                    {{ support.price.toFixed(4) }}
+                                                </div>
+                                                <div class="level-stats">
+                                                    <div class="stat-item">
+                                                        <span>强度:</span>
+                                                        <span class="strength-value" :class="getStrengthClass(support.strength)">
+                                                            {{ Math.round(support.strength * 100) }}%
+                                                        </span>
+                                                    </div>
+                                                    <div class="stat-item distance-negative">
+                                                        {{ support.distance_percent.toFixed(1) }}%
+                                                    </div>
+                                                    <div class="stat-item">
+                                                        <span>置信度:</span>
+                                                        <span>{{ support.strength.toFixed(2) }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                     
                     <!-- 强度与置信度说明 -->
                     <div class="level-explanation">
@@ -1158,10 +1144,10 @@
                 },
                 methods: {
                     // 获取置信度颜色
-                    getConfidenceColor(strength) {
-                        if (strength > 0.7) return '#03a66d'; // 绿色
-                        if (strength > 0.3) return '#f0b90b'; // 黄色
-                        return '#cf304a'; // 红色
+                    getConfidenceClass(strength) {
+                        if (strength > 0.7) return 'confidence-high';
+                        if (strength > 0.3) return 'confidence-medium';
+                        return 'confidence-low';
                     },
                     
                     // 获取强度分类
