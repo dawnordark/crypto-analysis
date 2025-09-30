@@ -221,7 +221,7 @@
             background-color: #e6ac00;
         }
         
-        /* 优化后的阻力位支撑位布局 */
+        /* 阻力位支撑位紧凑布局 */
         .resistance-compact-container {
             margin-top: 20px;
         }
@@ -232,22 +232,24 @@
             padding: 12px 15px;
             border: 1px solid var(--border);
             margin-bottom: 10px;
+            font-size: 13px;
         }
         
         .compact-period-header {
             font-weight: 600;
             color: var(--accent);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 14px;
         }
         
-        .compact-levels-container {
+        /* 优化后的紧凑布局 - 阻力位和支撑位在同一行显示 */
+        .compact-levels-row {
             display: flex;
-            gap: 20px;
             flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 8px;
         }
         
         .compact-level-group {
@@ -255,54 +257,52 @@
             min-width: 200px;
         }
         
-        .compact-level-title {
-            font-size: 13px;
+        .compact-level-type {
+            font-size: 12px;
             font-weight: 600;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
             display: flex;
             align-items: center;
-            gap: 5px;
-        }
-        
-        .resistance-title {
-            color: var(--negative);
-        }
-        
-        .support-title {
-            color: var(--positive);
+            gap: 4px;
         }
         
         .compact-level-items {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
         }
         
         .compact-level-item {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 8px 10px;
-            border-radius: 6px;
-            background-color: rgba(255, 255, 255, 0.5);
-            border: 1px solid var(--border);
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: default;
             transition: all 0.2s ease;
         }
         
         .compact-level-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            transform: translateY(-1px);
         }
         
-        .price-section {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
+        .resistance-item {
+            background-color: rgba(207, 48, 74, 0.1);
+            border: 1px solid rgba(207, 48, 74, 0.3);
         }
         
-        .price-value {
-            font-weight: 700;
-            font-size: 14px;
+        .support-item {
+            background-color: rgba(3, 166, 109, 0.1);
+            border: 1px solid rgba(3, 166, 109, 0.3);
+        }
+        
+        .price-tag {
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
         }
         
         .resistance-price {
@@ -313,90 +313,99 @@
             color: var(--positive);
         }
         
-        .distance-value {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-top: 2px;
-        }
-        
-        .info-section {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 4px;
-        }
-        
-        .strength-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .strength-bar {
-            width: 60px;
-            height: 6px;
-            background-color: #e0e0e0;
+        .compact-strength, 
+        .compact-distance, 
+        .compact-tests {
+            padding: 2px 4px;
             border-radius: 3px;
-            overflow: hidden;
-        }
-        
-        .strength-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 0.3s ease;
-        }
-        
-        .strength-high .strength-fill {
-            background-color: var(--strength-high);
-            width: 90%;
-        }
-        
-        .strength-medium .strength-fill {
-            background-color: var(--strength-medium);
-            width: 60%;
-        }
-        
-        .strength-low .strength-fill {
-            background-color: var(--strength-low);
-            width: 30%;
-        }
-        
-        .strength-text {
-            font-size: 11px;
             font-weight: 600;
-            min-width: 30px;
-            text-align: right;
+            position: relative;
+            cursor: help;
         }
         
-        .strength-high .strength-text {
-            color: var(--strength-high);
+        .compact-strength:hover .strength-tooltip,
+        .compact-distance:hover .distance-tooltip,
+        .compact-tests:hover .tests-tooltip {
+            display: block;
         }
         
-        .strength-medium .strength-text {
-            color: var(--strength-medium);
+        .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(30, 32, 38, 0.9);
+            color: #eaecef;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            min-width: 120px;
+            z-index: 100;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         
-        .strength-low .strength-text {
-            color: var(--strength-low);
+        .strength-high {
+            background-color: rgba(77, 255, 77, 0.2);
+            color: #03a66d;
         }
         
-        .test-count {
-            font-size: 10px;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 3px;
+        .strength-medium {
+            background-color: rgba(255, 210, 77, 0.2);
+            color: #f0b90b;
+        }
+        
+        .strength-low {
+            background-color: rgba(255, 77, 77, 0.2);
+            color: #cf304a;
+        }
+        
+        .confidence-high {
+            background-color: rgba(77, 255, 77, 0.2);
+            color: #03a66d;
+        }
+        
+        .confidence-medium {
+            background-color: rgba(255, 210, 77, 0.2);
+            color: #f0b90b;
+        }
+        
+        .confidence-low {
+            background-color: rgba(255, 77, 77, 0.2);
+            color: #cf304a;
+        }
+        
+        .distance-positive {
+            background-color: rgba(255, 77, 77, 0.2);
+            color: #cf304a;
+        }
+        
+        .distance-negative {
+            background-color: rgba(77, 255, 77, 0.2);
+            color: #03a66d;
+        }
+        
+        .tests-high {
+            background-color: rgba(77, 77, 255, 0.2);
+            color: #4d4dff;
+        }
+        
+        .tests-medium {
+            background-color: rgba(77, 150, 255, 0.2);
+            color: #4d96ff;
+        }
+        
+        .tests-low {
+            background-color: rgba(77, 200, 255, 0.2);
+            color: #4dc8ff;
         }
         
         .no-data {
             color: var(--text-secondary);
             font-style: italic;
             font-size: 12px;
-            padding: 10px;
-            text-align: center;
-            background-color: rgba(255,255,255,0.5);
-            border-radius: 6px;
-            border: 1px dashed var(--border);
+            padding: 4px;
         }
 
         .level-explanation {
@@ -718,6 +727,13 @@
             animation: pulse 1.5s infinite;
         }
         
+        .no-data {
+            color: var(--text-secondary);
+            font-style: italic;
+            padding: 10px;
+            text-align: center;
+        }
+        
         /* 旋转箭头 */
         .rotate-180 {
             transform: rotate(180deg);
@@ -726,6 +742,26 @@
         
         .fa-chevron-down {
             transition: transform 0.3s ease;
+        }
+        
+        /* 展开/折叠按钮 */
+        .expand-toggle {
+            margin-top: 15px;
+            padding: 10px;
+            text-align: center;
+            background-color: rgba(240, 185, 11, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--accent);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .expand-toggle:hover {
+            background-color: rgba(240, 185, 11, 0.2);
         }
         
         @media (max-width: 768px) {
@@ -752,13 +788,12 @@
                 flex-direction: column;
             }
             
-            .compact-levels-container {
+            .compact-level-group {
                 flex-direction: column;
-                gap: 15px;
             }
             
-            .compact-level-group {
-                min-width: 100%;
+            .compact-level-item {
+                flex-wrap: wrap;
             }
             
             .short-term-stats {
@@ -839,7 +874,7 @@
                         <i class="fas fa-dollar-sign"></i> 当前价格: {{ queryResult.current_price.toFixed(4) }}
                     </div>
                     
-                    <!-- 优化后的紧凑布局 - 单行显示 -->
+                    <!-- 优化后的紧凑布局 - 阻力位和支撑位在同一行显示 -->
                     <div class="resistance-compact-container">
                         <div v-for="(intervalData, intervalName) in queryResult.levels" 
                              :key="intervalName" 
@@ -850,36 +885,43 @@
                                 <span>{{ intervalName.toUpperCase() }}阻力位/支撑位：</span>
                             </div>
                             
-                            <!-- 优化后的阻力位和支撑位布局 -->
-                            <div class="compact-levels-container">
+                            <!-- 阻力位和支撑位在同一行显示 -->
+                            <div class="compact-levels-row">
                                 <!-- 阻力位 -->
                                 <div class="compact-level-group">
-                                    <div class="compact-level-title resistance-title">
-                                        <i class="fas fa-arrow-down"></i> 阻力位
+                                    <div class="compact-level-type">
+                                        <i class="fas fa-arrow-down" style="color: var(--negative);"></i>
+                                        <span>阻力位</span>
                                     </div>
                                     <div class="compact-level-items">
                                         <template v-if="!intervalData.resistance || intervalData.resistance.length === 0">
-                                            <div class="no-data">无阻力位数据</div>
+                                            <span class="no-data">无阻力位数据</span>
                                         </template>
                                         <template v-else>
                                             <div v-for="(resistance, idx) in intervalData.resistance.slice(0, 3)" 
                                                  :key="'resistance-'+intervalName+'-'+idx" 
-                                                 class="compact-level-item">
-                                                 <div class="price-section">
-                                                     <div class="price-value resistance-price">{{ resistance.price.toFixed(4) }}</div>
-                                                     <div class="distance-value">+{{ resistance.distance_percent.toFixed(1) }}%</div>
-                                                 </div>
-                                                 <div class="info-section">
-                                                     <div class="strength-indicator" :class="getStrengthClass(resistance.strength)">
-                                                         <div class="strength-bar">
-                                                             <div class="strength-fill"></div>
-                                                         </div>
-                                                         <div class="strength-text">{{ Math.round(resistance.strength * 100) }}%</div>
+                                                 class="compact-level-item resistance-item">
+                                                 <span class="price-tag resistance-price">{{ resistance.price.toFixed(4) }}</span>
+                                                 <span class="compact-distance distance-positive">
+                                                     +{{ resistance.distance_percent.toFixed(1) }}%
+                                                     <div class="tooltip distance-tooltip">
+                                                         <div>距离当前价格: +{{ resistance.distance_percent.toFixed(1) }}%</div>
                                                      </div>
-                                                     <div class="test-count" v-if="resistance.test_count">
-                                                         <i class="fas fa-retweet"></i> {{ resistance.test_count }}次测试
+                                                 </span>
+                                                 <span class="compact-strength" :class="getStrengthClass(resistance.strength)">
+                                                     {{ Math.round(resistance.strength * 100) }}%
+                                                     <div class="tooltip strength-tooltip">
+                                                         <div>强度: {{ Math.round(resistance.strength * 100) }}%</div>
+                                                         <div>基于价格反应计算</div>
                                                      </div>
-                                                 </div>
+                                                 </span>
+                                                 <span class="compact-tests" :class="getTestsClass(resistance.test_count)">
+                                                     {{ resistance.test_count }}次
+                                                     <div class="tooltip tests-tooltip">
+                                                         <div>测试次数: {{ resistance.test_count }}</div>
+                                                         <div>价格在该区域被测试的次数</div>
+                                                     </div>
+                                                 </span>
                                             </div>
                                         </template>
                                     </div>
@@ -887,32 +929,39 @@
                                 
                                 <!-- 支撑位 -->
                                 <div class="compact-level-group">
-                                    <div class="compact-level-title support-title">
-                                        <i class="fas fa-arrow-up"></i> 支撑位
+                                    <div class="compact-level-type">
+                                        <i class="fas fa-arrow-up" style="color: var(--positive);"></i>
+                                        <span>支撑位</span>
                                     </div>
                                     <div class="compact-level-items">
                                         <template v-if="!intervalData.support || intervalData.support.length === 0">
-                                            <div class="no-data">无支撑位数据</div>
+                                            <span class="no-data">无支撑位数据</span>
                                         </template>
                                         <template v-else>
                                             <div v-for="(support, idx) in intervalData.support.slice(0, 3)" 
                                                  :key="'support-'+intervalName+'-'+idx" 
-                                                 class="compact-level-item">
-                                                 <div class="price-section">
-                                                     <div class="price-value support-price">{{ support.price.toFixed(4) }}</div>
-                                                     <div class="distance-value">{{ support.distance_percent.toFixed(1) }}%</div>
-                                                 </div>
-                                                 <div class="info-section">
-                                                     <div class="strength-indicator" :class="getStrengthClass(support.strength)">
-                                                         <div class="strength-bar">
-                                                             <div class="strength-fill"></div>
-                                                         </div>
-                                                         <div class="strength-text">{{ Math.round(support.strength * 100) }}%</div>
+                                                 class="compact-level-item support-item">
+                                                 <span class="price-tag support-price">{{ support.price.toFixed(4) }}</span>
+                                                 <span class="compact-distance distance-negative">
+                                                     {{ support.distance_percent.toFixed(1) }}%
+                                                     <div class="tooltip distance-tooltip">
+                                                         <div>距离当前价格: {{ support.distance_percent.toFixed(1) }}%</div>
                                                      </div>
-                                                     <div class="test-count" v-if="support.test_count">
-                                                         <i class="fas fa-retweet"></i> {{ support.test_count }}次测试
+                                                 </span>
+                                                 <span class="compact-strength" :class="getStrengthClass(support.strength)">
+                                                     {{ Math.round(support.strength * 100) }}%
+                                                     <div class="tooltip strength-tooltip">
+                                                         <div>强度: {{ Math.round(support.strength * 100) }}%</div>
+                                                         <div>基于价格反应计算</div>
                                                      </div>
-                                                 </div>
+                                                 </span>
+                                                 <span class="compact-tests" :class="getTestsClass(support.test_count)">
+                                                     {{ support.test_count }}次
+                                                     <div class="tooltip tests-tooltip">
+                                                         <div>测试次数: {{ support.test_count }}</div>
+                                                         <div>价格在该区域被测试的次数</div>
+                                                     </div>
+                                                 </span>
                                             </div>
                                         </template>
                                     </div>
@@ -923,36 +972,21 @@
                     
                     <!-- 强度与置信度说明 -->
                     <div class="level-explanation">
-                        <div class="explanation-title"><i class="fas fa-info-circle"></i> 强度说明</div>
+                        <div class="explanation-title"><i class="fas fa-info-circle"></i> 阻力位/支撑位说明</div>
                         <div class="explanation-content">
-                            <p><strong>强度</strong>：基于价格在该位置的测试次数和反弹/回落力度计算</p>
-                            <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <div class="strength-indicator strength-low">
-                                        <div class="strength-bar">
-                                            <div class="strength-fill"></div>
-                                        </div>
-                                        <div class="strength-text">低</div>
-                                    </div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <div class="strength-indicator strength-medium">
-                                        <div class="strength-bar">
-                                            <div class="strength-fill"></div>
-                                        </div>
-                                        <div class="strength-text">中</div>
-                                    </div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px;">
-                                    <div class="strength-indicator strength-high">
-                                        <div class="strength-bar">
-                                            <div class="strength-fill"></div>
-                                        </div>
-                                        <div class="strength-text">高</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <p style="margin-top: 8px;"><strong>距离</strong>：表示该价格与当前价格的百分比距离</p>
+                            <p><strong>强度</strong>：基于价格反应计算，数值越高表示阻力/支撑力度越强</p>
+                            <p>
+                                <span class="compact-strength strength-low" style="margin:0 5px">低 (<30%)</span>
+                                <span class="compact-strength strength-medium" style="margin:0 5px">中 (30%-70%)</span>
+                                <span class="compact-strength strength-high" style="margin:0 5px">高 (>70%)</span>
+                            </p>
+                            <p><strong>测试次数</strong>：价格在该区域被测试的次数，次数越多越可靠</p>
+                            <p>
+                                <span class="compact-tests tests-low" style="margin:0 5px">少 (3-5次)</span>
+                                <span class="compact-tests tests-medium" style="margin:0 5px">中 (6-8次)</span>
+                                <span class="compact-tests tests-high" style="margin:0 5px">多 (>8次)</span>
+                            </p>
+                            <p><strong>距离</strong>：表示该价格与当前价格的百分比距离</p>
                         </div>
                     </div>
                 </div>
@@ -1122,7 +1156,7 @@
                             <i class="fas fa-box-open"></i>
                             <span>暂无短期活跃币种</span>
                         </div>
-                        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
+        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
                             <!-- 优化后的短期活跃币种显示 -->
                             <div class="short-term-item">
                                 <div class="short-term-name">
@@ -1204,11 +1238,25 @@
                     }
                 },
                 methods: {
+                    // 获取置信度颜色
+                    getConfidenceClass(value) {
+                        if (value > 0.7) return 'confidence-high';
+                        if (value > 0.3) return 'confidence-medium';
+                        return 'confidence-low';
+                    },
+                    
                     // 获取强度分类
                     getStrengthClass(value) {
                         if (value > 0.7) return 'strength-high';
                         if (value > 0.3) return 'strength-medium';
                         return 'strength-low';
+                    },
+                    
+                    // 获取测试次数分类
+                    getTestsClass(value) {
+                        if (value > 8) return 'tests-high';
+                        if (value > 5) return 'tests-medium';
+                        return 'tests-low';
                     },
                     
                     // 获取活跃度分类
