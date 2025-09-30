@@ -313,7 +313,6 @@
             color: var(--positive);
         }
         
-        .compact-strength, 
         .compact-distance, 
         .compact-tests {
             padding: 2px 4px;
@@ -323,7 +322,6 @@
             cursor: help;
         }
         
-        .compact-strength:hover .strength-tooltip,
         .compact-distance:hover .distance-tooltip,
         .compact-tests:hover .tests-tooltip {
             display: block;
@@ -344,36 +342,6 @@
             z-index: 100;
             white-space: nowrap;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        
-        .strength-high {
-            background-color: rgba(77, 255, 77, 0.2);
-            color: #03a66d;
-        }
-        
-        .strength-medium {
-            background-color: rgba(255, 210, 77, 0.2);
-            color: #f0b90b;
-        }
-        
-        .strength-low {
-            background-color: rgba(255, 77, 77, 0.2);
-            color: #cf304a;
-        }
-        
-        .confidence-high {
-            background-color: rgba(77, 255, 77, 0.2);
-            color: #03a66d;
-        }
-        
-        .confidence-medium {
-            background-color: rgba(255, 210, 77, 0.2);
-            color: #f0b90b;
-        }
-        
-        .confidence-low {
-            background-color: rgba(255, 77, 77, 0.2);
-            color: #cf304a;
         }
         
         .distance-positive {
@@ -908,13 +876,6 @@
                                                          <div>距离当前价格: +{{ resistance.distance_percent.toFixed(1) }}%</div>
                                                      </div>
                                                  </span>
-                                                 <span class="compact-strength" :class="getStrengthClass(resistance.strength)">
-                                                     {{ Math.round(resistance.strength * 100) }}%
-                                                     <div class="tooltip strength-tooltip">
-                                                         <div>强度: {{ Math.round(resistance.strength * 100) }}%</div>
-                                                         <div>基于价格反应计算</div>
-                                                     </div>
-                                                 </span>
                                                  <span class="compact-tests" :class="getTestsClass(resistance.test_count)">
                                                      {{ resistance.test_count }}次
                                                      <div class="tooltip tests-tooltip">
@@ -948,13 +909,6 @@
                                                          <div>距离当前价格: {{ support.distance_percent.toFixed(1) }}%</div>
                                                      </div>
                                                  </span>
-                                                 <span class="compact-strength" :class="getStrengthClass(support.strength)">
-                                                     {{ Math.round(support.strength * 100) }}%
-                                                     <div class="tooltip strength-tooltip">
-                                                         <div>强度: {{ Math.round(support.strength * 100) }}%</div>
-                                                         <div>基于价格反应计算</div>
-                                                     </div>
-                                                 </span>
                                                  <span class="compact-tests" :class="getTestsClass(support.test_count)">
                                                      {{ support.test_count }}次
                                                      <div class="tooltip tests-tooltip">
@@ -970,16 +924,12 @@
                         </div>
                     </div>
                     
-                    <!-- 强度与置信度说明 -->
+                    <!-- 阻力位/支撑位说明 -->
                     <div class="level-explanation">
                         <div class="explanation-title"><i class="fas fa-info-circle"></i> 阻力位/支撑位说明</div>
                         <div class="explanation-content">
-                            <p><strong>强度</strong>：基于价格反应计算，数值越高表示阻力/支撑力度越强</p>
-                            <p>
-                                <span class="compact-strength strength-low" style="margin:0 5px">低 (<30%)</span>
-                                <span class="compact-strength strength-medium" style="margin:0 5px">中 (30%-70%)</span>
-                                <span class="compact-strength strength-high" style="margin:0 5px">高 (>70%)</span>
-                            </p>
+                            <p><strong>阻力位</strong>：价格多次上涨至此区域后回落，显示高于当前价格的值</p>
+                            <p><strong>支撑位</strong>：价格多次下跌至此区域后反弹，显示低于当前价格的值</p>
                             <p><strong>测试次数</strong>：价格在该区域被测试的次数，次数越多越可靠</p>
                             <p>
                                 <span class="compact-tests tests-low" style="margin:0 5px">少 (3-5次)</span>
@@ -1238,20 +1188,6 @@
                     }
                 },
                 methods: {
-                    // 获取置信度颜色
-                    getConfidenceClass(value) {
-                        if (value > 0.7) return 'confidence-high';
-                        if (value > 0.3) return 'confidence-medium';
-                        return 'confidence-low';
-                    },
-                    
-                    // 获取强度分类
-                    getStrengthClass(value) {
-                        if (value > 0.7) return 'strength-high';
-                        if (value > 0.3) return 'strength-medium';
-                        return 'strength-low';
-                    },
-                    
                     // 获取测试次数分类
                     getTestsClass(value) {
                         if (value > 8) return 'tests-high';
@@ -1279,9 +1215,6 @@
                             document.documentElement.style.setProperty('--text-primary', '#eaecef');
                             document.documentElement.style.setProperty('--text-secondary', '#848e9c');
                             document.documentElement.style.setProperty('--border', '#2b2f36');
-                            document.documentElement.style.setProperty('--strength-high', '#4dff4d');
-                            document.documentElement.style.setProperty('--strength-medium', '#ffd24d');
-                            document.documentElement.style.setProperty('--strength-low', '#ff4d4d');
                         } else {
                             document.documentElement.style.setProperty('--bg-primary', '#ffffff');
                             document.documentElement.style.setProperty('--bg-secondary', '#f8f9fa');
@@ -1289,9 +1222,6 @@
                             document.documentElement.style.setProperty('--text-primary', '#1e2026');
                             document.documentElement.style.setProperty('--text-secondary', '#707a8a');
                             document.documentElement.style.setProperty('--border', '#e6e8ea');
-                            document.documentElement.style.setProperty('--strength-high', '#4dff4d');
-                            document.documentElement.style.setProperty('--strength-medium', '#ffd24d');
-                            document.documentElement.style.setProperty('--strength-low', '#ff4d4d');
                         }
                     },
                     closeChart() {
