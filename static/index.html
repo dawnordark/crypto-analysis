@@ -27,9 +27,6 @@
             --negative: #cf304a;
             --border: #e6e8ea;
             --card-shadow: none;
-            --strength-high: #4dff4d;
-            --strength-medium: #ffd24d;
-            --strength-low: #ff4d4d;
         }
         
         body {
@@ -859,14 +856,14 @@
                                 <div class="compact-level-group">
                                     <div class="compact-level-type">
                                         <i class="fas fa-arrow-down" style="color: var(--negative);"></i>
-                                        <span>阻力位</span>
+                                        <span>阻力位 (高于当前价格)</span>
                                     </div>
                                     <div class="compact-level-items">
                                         <template v-if="!intervalData.resistance || intervalData.resistance.length === 0">
                                             <span class="no-data">无阻力位数据</span>
                                         </template>
                                         <template v-else>
-                                            <div v-for="(resistance, idx) in intervalData.resistance.slice(0, 3)" 
+                                            <div v-for="(resistance, idx) in getValidResistanceLevels(intervalData.resistance, queryResult.current_price)" 
                                                  :key="'resistance-'+intervalName+'-'+idx" 
                                                  class="compact-level-item resistance-item">
                                                  <span class="price-tag resistance-price">{{ resistance.price.toFixed(4) }}</span>
@@ -892,14 +889,14 @@
                                 <div class="compact-level-group">
                                     <div class="compact-level-type">
                                         <i class="fas fa-arrow-up" style="color: var(--positive);"></i>
-                                        <span>支撑位</span>
+                                        <span>支撑位 (低于当前价格)</span>
                                     </div>
                                     <div class="compact-level-items">
                                         <template v-if="!intervalData.support || intervalData.support.length === 0">
                                             <span class="no-data">无支撑位数据</span>
                                         </template>
                                         <template v-else>
-                                            <div v-for="(support, idx) in intervalData.support.slice(0, 3)" 
+                                            <div v-for="(support, idx) in getValidSupportLevels(intervalData.support, queryResult.current_price)" 
                                                  :key="'support-'+intervalName+'-'+idx" 
                                                  class="compact-level-item support-item">
                                                  <span class="price-tag support-price">{{ support.price.toFixed(4) }}</span>
@@ -1188,6 +1185,22 @@
                     }
                 },
                 methods: {
+                    // 获取有效的阻力位数据（高于当前价格）
+                    getValidResistanceLevels(resistanceLevels, currentPrice) {
+                        if (!resistanceLevels || !currentPrice) return [];
+                        return resistanceLevels
+                            .filter(level => level.price > currentPrice)
+                            .slice(0, 3); // 只返回前3个
+                    },
+                    
+                    // 获取有效的支撑位数据（低于当前价格）
+                    getValidSupportLevels(supportLevels, currentPrice) {
+                        if (!supportLevels || !currentPrice) return [];
+                        return supportLevels
+                            .filter(level => level.price < currentPrice)
+                            .slice(0, 3); // 只返回前3个
+                    },
+                    
                     // 获取测试次数分类
                     getTestsClass(value) {
                         if (value > 8) return 'tests-high';
