@@ -65,7 +65,7 @@ API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 client = None
 
-# 数据缓存
+# 数据缓存 - 优化缓存结构
 data_cache = {
     "last_updated": "从未更新",
     "daily_rising": [],
@@ -76,10 +76,26 @@ data_cache = {
 }
 
 current_data_cache = data_cache.copy()
+
+# 优化的缓存结构
 oi_data_cache = {}
 resistance_cache = {}
-RESISTANCE_CACHE_EXPIRATION = 24 * 3600
-OI_CACHE_EXPIRATION = 5 * 60
+symbol_volume_cache = {}
+
+# 缓存过期时间配置
+RESISTANCE_CACHE_EXPIRATION = 24 * 3600  # 24小时
+OI_CACHE_EXPIRATION = {
+    '5m': 5 * 60,      # 5分钟
+    '15m': 15 * 60,    # 15分钟
+    '30m': 30 * 60,    # 30分钟
+    '1h': 60 * 60,     # 1小时
+    '2h': 2 * 60 * 60, # 2小时
+    '4h': 4 * 60 * 60, # 4小时
+    '6h': 6 * 60 * 60, # 6小时
+    '12h': 12 * 60 * 60, # 12小时
+    '1d': 24 * 60 * 60   # 24小时
+}
+VOLUME_CACHE_EXPIRATION = 5 * 60  # 5分钟
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
@@ -152,7 +168,63 @@ def get_next_update_time(period):
 
     return next_update
 
+def cleanup_cache():
+    """清理不符合条件的缓存数据"""
+    try:
+        current_time = datetime.now(timezone.utc)
+        cleaned_count = 0
+        
+        # 清理持仓量缓存
+        for cache_key in list(oi_data_cache.keys()):
+            cached_data = oi_data_cache[cache_key]
+            if 'expiration' in cached_data and cached_data['expiration'] <= current_time:
+                del oi_data_cache[cache_key]
+                cleaned_count += 1
+        
+        # 清理低交易量币种的阻力位缓存
+        for cache_key in list(resistance_cache.keys()):
+            symbol = cache_key.replace('_resistance', '')
+            if symbol in symbol_volume_cache:
+                volume_data = symbol_volume_cache[symbol]
+                if (volume_data.get('expiration', current_time) <= current_time or 
+                    volume_data.get('volume', 0) < 10000000):  # 1000万USDT
+                    del resistance_cache[cache_key]
+                    cleaned_count += 1
+        
+        logger.info(f"🧹 缓存清理完成，清理了 {cleaned_count} 个过期或无效条目")
+        return cleaned_count
+    except Exception as e:
+        logger.error(f"❌ 缓存清理失败: {str(e)}")
+        return 0
+
+def get_symbol_volume(symbol):
+    """获取币种交易量并缓存"""
+    try:
+        current_time = datetime.now(timezone.utc)
+        
+        if symbol in symbol_volume_cache:
+            cached_data = symbol_volume_cache[symbol]
+            if cached_data['expiration'] > current_time:
+                return cached_data['volume']
+        
+        if client is None and not init_client():
+            return 0
+            
+        ticker = client.futures_ticker(symbol=symbol)
+        volume = float(ticker.get('quoteVolume', 0))
+        
+        symbol_volume_cache[symbol] = {
+            'volume': volume,
+            'expiration': current_time + timedelta(seconds=VOLUME_CACHE_EXPIRATION)
+        }
+        
+        return volume
+    except Exception as e:
+        logger.error(f"❌ 获取{symbol}交易量失败: {str(e)}")
+        return 0
+
 def get_open_interest(symbol, period, use_cache=True):
+    """获取持仓量数据，支持智能缓存"""
     try:
         if not re.match(r"^[A-Z0-9]{1,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
@@ -165,12 +237,22 @@ def get_open_interest(symbol, period, use_cache=True):
         current_time = datetime.now(timezone.utc)
         cache_key = f"{symbol}_{period}"
         
+        # 检查缓存
         if use_cache and cache_key in oi_data_cache:
             cached_data = oi_data_cache[cache_key]
             if 'expiration' in cached_data and cached_data['expiration'] > current_time:
                 logger.debug(f"📈 使用缓存数据: {symbol} {period}")
                 return cached_data['data']
+            
+            # 缓存过期但还在获取新数据的时间窗口内，暂时使用缓存
+            next_update_time = get_next_update_time(period)
+            time_until_update = (next_update_time - current_time).total_seconds()
+            
+            if time_until_update > 0 and time_until_update < 300:  # 5分钟内
+                logger.info(f"⏳ {symbol} {period} 缓存过期，但接近更新时间，暂时使用缓存")
+                return cached_data['data']
 
+        # 获取新数据
         logger.info(f"📡 请求持仓量数据: symbol={symbol}, period={period}")
         url = "https://fapi.binance.com/futures/data/openInterestHist"
         params = {'symbol': symbol, 'period': period, 'limit': 30}
@@ -180,6 +262,9 @@ def get_open_interest(symbol, period, use_cache=True):
 
         if response.status_code != 200:
             logger.error(f"❌ 获取{symbol}的{period}持仓量失败: HTTP {response.status_code}")
+            # 返回缓存数据（如果有）
+            if cache_key in oi_data_cache:
+                return oi_data_cache[cache_key]['data']
             return {'series': [], 'timestamps': []}
 
         data = response.json()
@@ -187,6 +272,9 @@ def get_open_interest(symbol, period, use_cache=True):
 
         if not isinstance(data, list) or len(data) == 0:
             logger.warning(f"⚠️ {symbol}的{period}持仓量数据为空")
+            # 返回缓存数据（如果有）
+            if cache_key in oi_data_cache:
+                return oi_data_cache[cache_key]['data']
             return {'series': [], 'timestamps': []}
             
         data.sort(key=lambda x: x['timestamp'])
@@ -195,6 +283,9 @@ def get_open_interest(symbol, period, use_cache=True):
 
         if len(oi_series) < 30:
             logger.warning(f"⚠️ {symbol}的{period}持仓量数据不足30个点")
+            # 返回缓存数据（如果有）
+            if cache_key in oi_data_cache:
+                return oi_data_cache[cache_key]['data']
             return {'series': [], 'timestamps': []}
             
         oi_data = {
@@ -202,7 +293,8 @@ def get_open_interest(symbol, period, use_cache=True):
             'timestamps': timestamps
         }
         
-        expiration = current_time + timedelta(seconds=OI_CACHE_EXPIRATION)
+        # 设置缓存过期时间
+        expiration = current_time + timedelta(seconds=OI_CACHE_EXPIRATION.get(period, 5*60))
         oi_data_cache[cache_key] = {
             'data': oi_data,
             'expiration': expiration
@@ -212,6 +304,9 @@ def get_open_interest(symbol, period, use_cache=True):
         return oi_data
     except Exception as e:
         logger.error(f"❌ 获取{symbol}的{period}持仓量失败: {str(e)}")
+        # 返回缓存数据（如果有）
+        if cache_key in oi_data_cache:
+            return oi_data_cache[cache_key]['data']
         logger.error(traceback.format_exc())
         return {'series': [], 'timestamps': []}
 
@@ -437,6 +532,17 @@ def calculate_resistance_levels(symbol):
 def analyze_symbol(symbol):
     try:
         logger.info(f"🔍 开始分析币种: {symbol}")
+        
+        # 检查交易量，过滤低交易量币种
+        volume = get_symbol_volume(symbol)
+        if volume < 10000000:  # 1000万USDT
+            logger.info(f"⏭️ 跳过低交易量币种: {symbol} (交易量: {volume:.0f})")
+            return {
+                'symbol': symbol,
+                'period_status': {p: False for p in VALID_PERIODS},
+                'period_count': 0
+            }
+
         symbol_result = {
             'symbol': symbol,
             'daily_rising': None,
@@ -530,6 +636,10 @@ def analyze_symbol(symbol):
 def analyze_trends():
     start_time = time.time()
     logger.info("🔍 开始分析币种趋势...")
+    
+    # 清理过期缓存
+    cleanup_cache()
+    
     symbols = get_high_volume_symbols()
     
     if not symbols:
@@ -857,7 +967,12 @@ def health_check():
             'binance': binance_status,
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
             'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
-            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S")
+            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
+            'cache_stats': {
+                'oi_cache_size': len(oi_data_cache),
+                'resistance_cache_size': len(resistance_cache),
+                'volume_cache_size': len(symbol_volume_cache)
+            }
         })
     except Exception as e:
         return jsonify({
