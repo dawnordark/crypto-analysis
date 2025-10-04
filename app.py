@@ -20,57 +20,25 @@ import queue
 import logging
 import urllib3
 import numpy as np
-import sqlite3
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
 from flask_cors import CORS
-from collections import OrderedDict
-from contextlib import contextmanager
-from functools import wraps
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 配置类
-class Config:
-    PORT = int(os.environ.get("PORT", 9600))
-    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
-    API_KEY = os.environ.get('BINANCE_API_KEY', '')
-    API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
-    
-    # 缓存配置
-    CACHE_CONFIG = {
-        'oi': {
-            '5m': 5 * 60, '15m': 15 * 60, '30m': 30 * 60,
-            '1h': 60 * 60, '2h': 2 * 60 * 60, '4h': 4 * 60 * 60,
-            '6h': 6 * 60 * 60, '12h': 12 * 60 * 60, '1d': 24 * 60 * 60
-        },
-        'resistance': 24 * 3600,
-        'volume': 5 * 60
-    }
-    
-    # 分析配置
-    VOLUME_THRESHOLD = 10000000  # 1000万USDT
-    MAX_WORKERS = 10
-    REQUEST_TIMEOUT = 30
-    MAX_RETRIES = 3
-    RETRY_DELAY = 5
-
-config = Config()
-
 # 设置日志级别
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 root_logger = logging.getLogger()
-root_logger.setLevel(getattr(logging, config.LOG_LEVEL))
+root_logger.setLevel(getattr(logging, LOG_LEVEL))
 
 # 创建日志处理器
 console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(getattr(logging, config.LOG_LEVEL))
+console_handler.setLevel(getattr(logging, LOG_LEVEL))
 file_handler = logging.FileHandler('app.log')
-file_handler.setLevel(getattr(logging, config.LOG_LEVEL))
+file_handler.setLevel(getattr(logging, LOG_LEVEL))
 
 # 日志格式
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -82,7 +50,7 @@ root_logger.addHandler(console_handler)
 root_logger.addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
-logger.info(f"✅ 日志级别设置为: {config.LOG_LEVEL}")
+logger.info(f"✅ 日志级别设置为: {LOG_LEVEL}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'), static_url_path='/static')
@@ -93,9 +61,11 @@ CORS(app, resources={
 })
 
 # Binance API 配置
+API_KEY = os.environ.get('BINANCE_API_KEY', '')
+API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 client = None
 
-# 数据缓存 - 优化缓存结构
+# 数据缓存
 data_cache = {
     "last_updated": "从未更新",
     "daily_rising": [],
@@ -106,50 +76,14 @@ data_cache = {
 }
 
 current_data_cache = data_cache.copy()
-
-# LRU缓存实现
-class LRUCache:
-    def __init__(self, capacity: int):
-        self.cache = OrderedDict()
-        self.capacity = capacity
-        self.lock = threading.RLock()
-    
-    def get(self, key):
-        with self.lock:
-            if key not in self.cache:
-                return None
-            self.cache.move_to_end(key)
-            return self.cache[key]
-    
-    def put(self, key, value):
-        with self.lock:
-            if key in self.cache:
-                self.cache.move_to_end(key)
-            self.cache[key] = value
-            if len(self.cache) > self.capacity:
-                self.cache.popitem(last=False)
-    
-    def clear_expired(self, expiration_check_func):
-        with self.lock:
-            expired_keys = [
-                key for key, value in self.cache.items()
-                if expiration_check_func(value)
-            ]
-            for key in expired_keys:
-                del self.cache[key]
-            return len(expired_keys)
-    
-    def __len__(self):
-        return len(self.cache)
-
-# 优化的缓存结构
-oi_data_cache = LRUCache(capacity=1000)
-resistance_cache = LRUCache(capacity=500)
-symbol_volume_cache = LRUCache(capacity=500)
+oi_data_cache = {}
+resistance_cache = {}
+RESISTANCE_CACHE_EXPIRATION = 24 * 3600
+OI_CACHE_EXPIRATION = 5 * 60
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
-executor = ThreadPoolExecutor(max_workers=config.MAX_WORKERS)
+executor = ThreadPoolExecutor(max_workers=10)
 
 # 只保留有效的9个周期
 PERIOD_MINUTES = {
@@ -167,125 +101,48 @@ PERIOD_MINUTES = {
 VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 RESISTANCE_INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 
-# 性能监控装饰器
-def timing_decorator(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        try:
-            result = func(*args, **kwargs)
-            return result
-        finally:
-            execution_time = time.time() - start_time
-            if execution_time > 1.0:  # 记录超过1秒的操作
-                logger.warning(f"{func.__name__} 执行时间: {execution_time:.2f}秒")
-    return wrapper
-
-# 数据库管理
-class AnalysisDatabase:
-    def __init__(self, db_path="analysis.db"):
-        self.db_path = db_path
-        self._init_db()
-    
-    def _init_db(self):
-        with self._get_connection() as conn:
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS analysis_results (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    symbol TEXT NOT NULL,
-                    period TEXT NOT NULL,
-                    oi_value REAL,
-                    is_highest BOOLEAN,
-                    analysis_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(symbol, period, analysis_time)
-                )
-            ''')
-            
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS resistance_levels (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    symbol TEXT NOT NULL,
-                    interval TEXT NOT NULL,
-                    level_type TEXT NOT NULL,
-                    price REAL,
-                    strength REAL,
-                    test_count INTEGER,
-                    analysis_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-    
-    @contextmanager
-    def _get_connection(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
-    
-    def save_analysis_result(self, symbol, period, oi_value, is_highest):
-        with self._get_connection() as conn:
-            conn.execute('''
-                INSERT INTO analysis_results (symbol, period, oi_value, is_highest)
-                VALUES (?, ?, ?, ?)
-            ''', (symbol, period, oi_value, is_highest))
-
-# 创建数据库实例
-db = AnalysisDatabase()
-
-# Binance客户端单例
-class BinanceClient:
-    _instance = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._client = None
-            cls._instance._initialized = False
-        return cls._instance
-    
-    def initialize(self):
-        if not self._initialized and config.API_KEY and config.API_SECRET:
-            max_retries = config.MAX_RETRIES
-            retry_delay = config.RETRY_DELAY
-            
-            for attempt in range(max_retries):
-                try:
-                    logger.info(f"🔧 尝试初始化Binance客户端 (第{attempt+1}次)...")
-                    self._client = Client(
-                        api_key=config.API_KEY, 
-                        api_secret=config.API_SECRET,
-                        requests_params={'timeout': config.REQUEST_TIMEOUT}
-                    )
-                    
-                    server_time = self._client.get_server_time()
-                    logger.info(f"✅ Binance客户端初始化成功，服务器时间: {datetime.fromtimestamp(server_time['serverTime']/1000)}")
-                    self._initialized = True
-                    return True
-                except Exception as e:
-                    logger.error(f"❌ 初始化Binance客户端失败: {str(e)}")
-                    if attempt < max_retries - 1:
-                        logger.info(f"🔄 {retry_delay}秒后重试初始化客户端...")
-                        time.sleep(retry_delay)
-            logger.critical("🔥 无法初始化Binance客户端，已达到最大重试次数")
-        return self._initialized
-    
-    @property
-    def client(self):
-        if not self._initialized:
-            if not self.initialize():
-                raise RuntimeError("Binance client not initialized")
-        return self._client
-
-# 创建Binance客户端实例
-binance_client = BinanceClient()
+# 指标权重配置
+INDICATOR_WEIGHTS = {
+    'fib_0.618': 1.5,
+    'ema_200': 1.4,
+    'ema_100': 1.2,
+    'bb_upper': 1.1,
+    'bb_lower': 1.1,
+    'fib_other': 1.0,
+    'ema_50': 0.9,
+    'integer': 0.8,
+    'volume_profile': 1.8,
+    'orderbook': 2.0
+}
 
 def init_client():
-    return binance_client.initialize()
+    global client
+    max_retries = 5
+    retry_delay = 5
+    
+    if not API_KEY or not API_SECRET:
+        logger.error("❌ Binance API密钥未设置")
+        return False
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"🔧 尝试初始化Binance客户端 (第{attempt+1}次)...")
+            client = Client(
+                api_key=API_KEY, 
+                api_secret=API_SECRET,
+                requests_params={'timeout': 30}
+            )
+            
+            server_time = client.get_server_time()
+            logger.info(f"✅ Binance客户端初始化成功，服务器时间: {datetime.fromtimestamp(server_time['serverTime']/1000)}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ 初始化Binance客户端失败: {str(e)}")
+            if attempt < max_retries - 1:
+                logger.info(f"🔄 {retry_delay}秒后重试初始化客户端...")
+                time.sleep(retry_delay)
+    logger.critical("🔥 无法初始化Binance客户端，已达到最大重试次数")
+    return False
 
 def get_next_update_time(period):
     tz_shanghai = timezone(timedelta(hours=8))
@@ -309,74 +166,7 @@ def get_next_update_time(period):
 
     return next_update
 
-def cleanup_cache():
-    """清理不符合条件的缓存数据"""
-    try:
-        current_time = datetime.now(timezone.utc)
-        cleaned_count = 0
-        
-        # 清理持仓量缓存
-        def oi_expiration_check(cached_data):
-            return 'expiration' in cached_data and cached_data['expiration'] <= current_time
-        
-        cleaned_count += oi_data_cache.clear_expired(oi_expiration_check)
-        
-        # 清理低交易量币种的阻力位缓存
-        for cache_key in list(resistance_cache.cache.keys()):
-            symbol = cache_key.replace('_resistance', '')
-            volume_data = symbol_volume_cache.get(symbol)
-            if volume_data and (volume_data.get('expiration', current_time) <= current_time or 
-                volume_data.get('volume', 0) < config.VOLUME_THRESHOLD):
-                resistance_cache.cache.pop(cache_key, None)
-                cleaned_count += 1
-        
-        logger.info(f"🧹 缓存清理完成，清理了 {cleaned_count} 个过期或无效条目")
-        return cleaned_count
-    except Exception as e:
-        logger.error(f"❌ 缓存清理失败: {str(e)}")
-        return 0
-
-@timing_decorator
-def get_symbol_volume(symbol):
-    """获取币种交易量并缓存"""
-    try:
-        current_time = datetime.now(timezone.utc)
-        
-        cached_data = symbol_volume_cache.get(symbol)
-        if cached_data and cached_data['expiration'] > current_time:
-            return cached_data['volume']
-        
-        if not binance_client.initialize():
-            return 0
-            
-        ticker = binance_client.client.futures_ticker(symbol=symbol)
-        volume = float(ticker.get('quoteVolume', 0))
-        
-        symbol_volume_cache.put(symbol, {
-            'volume': volume,
-            'expiration': current_time + timedelta(seconds=config.CACHE_CONFIG['volume'])
-        })
-        
-        return volume
-    except Exception as e:
-        logger.error(f"❌ 获取{symbol}交易量失败: {str(e)}")
-        return 0
-
-def get_open_interest_with_retry(symbol, period, max_retries=3):
-    """带重试机制的持仓量获取"""
-    for attempt in range(max_retries):
-        try:
-            return get_open_interest(symbol, period)
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-            if attempt == max_retries - 1:
-                raise
-            wait_time = (attempt + 1) * 2  # 指数退避
-            logger.warning(f"第{attempt+1}次重试获取{symbol}的{period}持仓量，等待{wait_time}秒")
-            time.sleep(wait_time)
-
-@timing_decorator
 def get_open_interest(symbol, period, use_cache=True):
-    """获取持仓量数据，支持智能缓存"""
     try:
         if not re.match(r"^[A-Z0-9]{1,10}USDT$", symbol):
             logger.warning(f"⚠️ 无效的币种名称: {symbol}")
@@ -389,46 +179,21 @@ def get_open_interest(symbol, period, use_cache=True):
         current_time = datetime.now(timezone.utc)
         cache_key = f"{symbol}_{period}"
         
-        # 检查缓存
-        if use_cache:
-            cached_data = oi_data_cache.get(cache_key)
-            if cached_data and 'expiration' in cached_data and cached_data['expiration'] > current_time:
+        if use_cache and cache_key in oi_data_cache:
+            cached_data = oi_data_cache[cache_key]
+            if 'expiration' in cached_data and cached_data['expiration'] > current_time:
                 logger.debug(f"📈 使用缓存数据: {symbol} {period}")
                 return cached_data['data']
-            
-            # 缓存过期但还在获取新数据的时间窗口内，暂时使用缓存
-            next_update_time = get_next_update_time(period)
-            time_until_update = (next_update_time - current_time).total_seconds()
-            
-            if time_until_update > 0 and time_until_update < 300 and cached_data:  # 5分钟内
-                logger.info(f"⏳ {symbol} {period} 缓存过期，但接近更新时间，暂时使用缓存")
-                return cached_data['data']
 
-        # 获取新数据
         logger.info(f"📡 请求持仓量数据: symbol={symbol}, period={period}")
         url = "https://fapi.binance.com/futures/data/openInterestHist"
         params = {'symbol': symbol, 'period': period, 'limit': 30}
 
-        # 使用会话和重试策略
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=10)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        
-        response = session.get(url, params=params, timeout=15)
+        response = requests.get(url, params=params, timeout=15)
         logger.debug(f"📡 响应状态: {response.status_code}")
 
         if response.status_code != 200:
             logger.error(f"❌ 获取{symbol}的{period}持仓量失败: HTTP {response.status_code}")
-            # 返回缓存数据（如果有）
-            cached_data = oi_data_cache.get(cache_key)
-            if cached_data:
-                return cached_data['data']
             return {'series': [], 'timestamps': []}
 
         data = response.json()
@@ -436,10 +201,6 @@ def get_open_interest(symbol, period, use_cache=True):
 
         if not isinstance(data, list) or len(data) == 0:
             logger.warning(f"⚠️ {symbol}的{period}持仓量数据为空")
-            # 返回缓存数据（如果有）
-            cached_data = oi_data_cache.get(cache_key)
-            if cached_data:
-                return cached_data['data']
             return {'series': [], 'timestamps': []}
             
         data.sort(key=lambda x: x['timestamp'])
@@ -448,10 +209,6 @@ def get_open_interest(symbol, period, use_cache=True):
 
         if len(oi_series) < 30:
             logger.warning(f"⚠️ {symbol}的{period}持仓量数据不足30个点")
-            # 返回缓存数据（如果有）
-            cached_data = oi_data_cache.get(cache_key)
-            if cached_data:
-                return cached_data['data']
             return {'series': [], 'timestamps': []}
             
         oi_data = {
@@ -459,27 +216,16 @@ def get_open_interest(symbol, period, use_cache=True):
             'timestamps': timestamps
         }
         
-        # 设置缓存过期时间
-        expiration = current_time + timedelta(seconds=config.CACHE_CONFIG['oi'].get(period, 5*60))
-        oi_data_cache.put(cache_key, {
+        expiration = current_time + timedelta(seconds=OI_CACHE_EXPIRATION)
+        oi_data_cache[cache_key] = {
             'data': oi_data,
             'expiration': expiration
-        })
-
-        # 保存到数据库
-        try:
-            db.save_analysis_result(symbol, period, oi_series[-1] if oi_series else 0, True)
-        except Exception as e:
-            logger.warning(f"保存分析结果到数据库失败: {str(e)}")
+        }
 
         logger.info(f"📈 获取新数据: {symbol} {period} ({len(oi_series)}点)")
         return oi_data
     except Exception as e:
         logger.error(f"❌ 获取{symbol}的{period}持仓量失败: {str(e)}")
-        # 返回缓存数据（如果有）
-        cached_data = oi_data_cache.get(cache_key)
-        if cached_data:
-            return cached_data['data']
         logger.error(traceback.format_exc())
         return {'series': [], 'timestamps': []}
 
@@ -493,152 +239,101 @@ def is_latest_highest(oi_data):
     
     return latest_value > max(prev_data) if prev_data else False
 
-@timing_decorator
-def detect_price_reaction_levels(symbol, interval):
-    """基于价格反应检测阻力位和支撑位"""
+def add_volume_profile(symbol, interval):
     try:
-        logger.info(f"📊 分析价格反应: {symbol} {interval}")
-        
-        # 获取K线数据
-        klines = binance_client.client.futures_klines(symbol=symbol, interval=interval, limit=200)
+        klines = client.futures_klines(symbol=symbol, interval=interval, limit=500)
         if not klines or len(klines) < 100:
-            return [], []
+            return []
         
-        high_prices = [float(k[2]) for k in klines]
-        low_prices = [float(k[3]) for k in klines]
-        close_prices = [float(k[4]) for k in klines]
+        prices = [float(k[4]) for k in klines]
+        volumes = [float(k[5]) for k in klines]
         
-        # 检测局部高点和低点
-        resistance_levels = []
-        support_levels = []
+        price_range = max(prices) - min(prices)
+        bin_size = price_range / 20
         
-        # 检测阻力位（价格多次上涨至此区域后回落）
-        for i in range(2, len(high_prices)-2):
-            if (high_prices[i] > high_prices[i-1] and 
-                high_prices[i] > high_prices[i-2] and 
-                high_prices[i] > high_prices[i+1] and 
-                high_prices[i] > high_prices[i+2]):
-                
-                # 检查该价格区域是否多次被测试
-                test_count = 0
-                price_tolerance = high_prices[i] * 0.002  # 0.2%的容差范围
-                
-                for j in range(len(high_prices)):
-                    if abs(high_prices[j] - high_prices[i]) <= price_tolerance:
-                        test_count += 1
-                
-                # 如果被测试多次且价格回落，则认为是阻力位
-                if test_count >= 3:
-                    # 计算强度基于测试次数和回落幅度
-                    decline_after_test = 0
-                    for j in range(i, min(i+5, len(close_prices))):
-                        if close_prices[j] < high_prices[i]:
-                            decline_after_test += 1
-                    
-                    strength = min(1.0, (test_count * 0.2 + decline_after_test * 0.1))
-                    
-                    resistance_levels.append({
-                        'price': high_prices[i],
-                        'strength': round(strength, 2),
-                        'test_count': test_count,
-                        'type': 'price_reaction'
-                    })
+        volume_profile = {}
+        for i in range(len(prices)):
+            bin_key = round(prices[i] / bin_size) * bin_size
+            volume_profile[bin_key] = volume_profile.get(bin_key, 0) + volumes[i]
         
-        # 检测支撑位（价格多次下跌至此区域后反弹）
-        for i in range(2, len(low_prices)-2):
-            if (low_prices[i] < low_prices[i-1] and 
-                low_prices[i] < low_prices[i-2] and 
-                low_prices[i] < low_prices[i+1] and 
-                low_prices[i] < low_prices[i+2]):
-                
-                # 检查该价格区域是否多次被测试
-                test_count = 0
-                price_tolerance = low_prices[i] * 0.002  # 0.2%的容差范围
-                
-                for j in range(len(low_prices)):
-                    if abs(low_prices[j] - low_prices[i]) <= price_tolerance:
-                        test_count += 1
-                
-                # 如果被测试多次且价格反弹，则认为是支撑位
-                if test_count >= 3:
-                    # 计算强度基于测试次数和反弹幅度
-                    rise_after_test = 0
-                    for j in range(i, min(i+5, len(close_prices))):
-                        if close_prices[j] > low_prices[i]:
-                            rise_after_test += 1
-                    
-                    strength = min(1.0, (test_count * 0.2 + rise_after_test * 0.1))
-                    
-                    support_levels.append({
-                        'price': low_prices[i],
-                        'strength': round(strength, 2),
-                        'test_count': test_count,
-                        'type': 'price_reaction'
-                    })
-        
-        # 合并相近的水平
-        resistance_levels = merge_similar_levels(resistance_levels)
-        support_levels = merge_similar_levels(support_levels)
-        
-        # 按强度排序并返回前5个
-        resistance_levels.sort(key=lambda x: x['strength'], reverse=True)
-        support_levels.sort(key=lambda x: x['strength'], reverse=True)
-        
-        return resistance_levels[:5], support_levels[:5]
-        
+        sorted_profile = sorted(volume_profile.items(), key=lambda x: x[1], reverse=True)
+        return [item[0] for item in sorted_profile[:3]]
+    
     except Exception as e:
-        logger.error(f"价格反应分析失败: {str(e)}")
-        return [], []
-
-def merge_similar_levels(levels):
-    """合并相近的价格水平"""
-    if not levels:
+        logger.error(f"成交量剖面分析失败: {str(e)}")
         return []
-    
-    merged = []
-    levels.sort(key=lambda x: x['price'])
-    
-    i = 0
-    while i < len(levels):
-        current = levels[i]
-        group = [current]
-        
-        j = i + 1
-        while j < len(levels) and abs(levels[j]['price'] - current['price']) <= current['price'] * 0.005:
-            group.append(levels[j])
-            j += 1
-        
-        # 选择组中强度最高的水平
-        best_level = max(group, key=lambda x: x['strength'])
-        # 合并测试次数
-        total_tests = sum(level['test_count'] for level in group)
-        best_level['test_count'] = total_tests
-        # 重新计算强度
-        best_level['strength'] = min(1.0, best_level['strength'] * (1 + 0.1 * (len(group) - 1)))
-        
-        merged.append(best_level)
-        i = j
-    
-    return merged
 
-@timing_decorator
+def get_orderbook_liquidity(symbol):
+    try:
+        orderbook = client.futures_order_book(symbol=symbol, limit=50)
+        bids = orderbook['bids']
+        asks = orderbook['asks']
+        
+        liquidity_levels = []
+        
+        ask_levels = {}
+        for price, qty in asks:
+            price_key = round(float(price), 2)
+            ask_levels[price_key] = ask_levels.get(price_key, 0) + float(qty)
+        
+        sorted_asks = sorted(ask_levels.items(), key=lambda x: x[1], reverse=True)
+        liquidity_levels.extend([price for price, qty in sorted_asks[:3]])
+        
+        bid_levels = {}
+        for price, qty in bids:
+            price_key = round(float(price), 2)
+            bid_levels[price_key] = bid_levels.get(price_key, 0) + float(qty)
+        
+        sorted_bids = sorted(bid_levels.items(), key=lambda x: x[1], reverse=True)
+        liquidity_levels.extend([price for price, qty in sorted_bids[:3]])
+        
+        return liquidity_levels
+    
+    except Exception as e:
+        logger.error(f"订单簿分析失败: {str(e)}")
+        return []
+
+def calculate_ema(data, period):
+    """指数移动平均计算"""
+    if len(data) < period:
+        return np.nan
+    
+    alpha = 2 / (period + 1)
+    weights = np.array([(1 - alpha) ** i for i in range(period)][::-1])
+    weights /= weights.sum()
+    
+    return np.dot(data[-period:], weights)
+
+def calculate_bollinger(data, period=20, num_std=2):
+    """布林带计算"""
+    if len(data) < period:
+        return np.nan, np.nan
+    
+    ma = np.mean(data[-period:])
+    std = np.std(data[-period:])
+    
+    upper = ma + (std * num_std)
+    lower = ma - (std * num_std)
+    return upper, lower
+
 def calculate_resistance_levels(symbol):
     try:
         logger.info(f"📊 计算阻力位: {symbol}")
         now = time.time()
         
         cache_key = f"{symbol}_resistance"
-        cached_data = resistance_cache.get(cache_key)
-        if cached_data and cached_data['expiration'] > now:
-            logger.debug(f"📊 使用缓存的阻力位数据: {symbol}")
-            return cached_data['levels']
+        if cache_key in resistance_cache:
+            cache_data = resistance_cache[cache_key]
+            if cache_data['expiration'] > now:
+                logger.debug(f"📊 使用缓存的阻力位数据: {symbol}")
+                return cache_data['levels']
         
-        if not binance_client.initialize():
+        if client is None and not init_client():
             logger.error("❌ 无法初始化Binance客户端，无法计算阻力位")
             return {'resistance': {}, 'support': {}, 'current_price': 0}
         
         try:
-            ticker = binance_client.client.futures_symbol_ticker(symbol=symbol)
+            ticker = client.futures_symbol_ticker(symbol=symbol)
             current_price = float(ticker['price'])
             logger.info(f"📊 {symbol}当前价格: {current_price}")
         except Exception as e:
@@ -646,43 +341,155 @@ def calculate_resistance_levels(symbol):
             current_price = None
         
         interval_levels = {}
+        volume_profile_levels = add_volume_profile(symbol, '1d')
+        orderbook_levels = get_orderbook_liquidity(symbol)
         
         for interval in RESISTANCE_INTERVALS:
             try:
-                logger.info(f"📊 分析价格反应: {symbol} {interval}")
-                resistance_levels, support_levels = detect_price_reaction_levels(symbol, interval)
+                logger.info(f"📊 获取K线数据: {symbol} {interval}")
+                klines = client.futures_klines(symbol=symbol, interval=interval, limit=100)
                 
-                # 计算距离当前价格的百分比
-                resistance_with_distance = []
-                support_with_distance = []
+                if not klines or len(klines) < 50:
+                    logger.warning(f"⚠️ {symbol}在{interval}的K线数据不足")
+                    continue
+
+                high_prices = [float(k[2]) for k in klines]
+                low_prices = [float(k[3]) for k in klines]
+                close_prices = [float(k[4]) for k in klines]
+                open_prices = [float(k[1]) for k in klines]
                 
+                closes = np.array(close_prices)
+                
+                # 使用内置函数计算技术指标
+                logger.info("📊 使用内置函数计算技术指标")
+                ema50 = calculate_ema(closes, 50)
+                ema100 = calculate_ema(closes, 100)
+                ema200 = calculate_ema(closes, 200)
+                bb_upper, bb_lower = calculate_bollinger(closes, 20, 2)
+                
+                recent_high = max(high_prices)
+                recent_low = min(low_prices)
+                fib_618 = recent_high - (recent_high - recent_low) * 0.618
+                fib_other = [
+                    recent_high - (recent_high - recent_low) * r 
+                    for r in [0.236, 0.382, 0.5, 0.786]
+                ]
+                
+                levels_with_type = []
+                levels_with_type.append(('fib_0.618', fib_618))
+                for level in fib_other:
+                    levels_with_type.append(('fib_other', level))
+                
+                levels_with_type.append(('ema_50', ema50))
+                levels_with_type.append(('ema_100', ema100))
+                levels_with_type.append(('ema_200', ema200))
+                levels_with_type.append(('bb_upper', bb_upper))
+                levels_with_type.append(('bb_lower', bb_lower))
+                
+                # 修复括号错误
                 if current_price and current_price > 0:
-                    for level in resistance_levels:
-                        distance_percent = (level['price'] - current_price) / current_price * 100
-                        resistance_with_distance.append({
-                            'price': round(level['price'], 4),
-                            'strength': level['strength'],
-                            'distance_percent': round(distance_percent, 2),
-                            'test_count': level['test_count'],
-                            'type': level['type']
-                        })
+                    try:
+                        # 修复括号问题
+                        exponent = math.floor(math.log10(current_price))
+                        adjusted_exponent = max(0, exponent - 1)
+                        base = 10 ** adjusted_exponent
+                        integer_level = round(current_price / base) * base
+                        levels_with_type.append(('integer', integer_level))
+                    except Exception as e:
+                        logger.error(f"计算心理整数位失败: {str(e)}")
+                
+                for level in volume_profile_levels:
+                    levels_with_type.append(('volume_profile', level))
+                
+                for level in orderbook_levels:
+                    levels_with_type.append(('orderbook', level))
+                
+                level_scores = {}
+                tolerance = current_price * 0.005 if current_price else 0.01
+                
+                for level_type, level_value in levels_with_type:
+                    level_value = round(level_value, 4)
+                    if level_value not in level_scores:
+                        level_scores[level_value] = {
+                            'score': 0.0,
+                            'sources': set()
+                        }
+                    level_scores[level_value]['sources'].add(level_type)
+                
+                for i, (level_type1, level_value1) in enumerate(levels_with_type):
+                    level_value1 = round(level_value1, 4)
+                    for j, (level_type2, level_value2) in enumerate(levels_with_type):
+                        if i == j: 
+                            continue
+                        if abs(level_value1 - level_value2) <= tolerance:
+                            weight1 = INDICATOR_WEIGHTS.get(level_type1, 1.0)
+                            weight2 = INDICATOR_WEIGHTS.get(level_type2, 1.0)
+                            level_scores[level_value1]['score'] += weight1 * weight2
+                
+                merged_levels = []
+                sorted_levels = sorted(level_scores.keys())
+                i = 0
+                while i < len(sorted_levels):
+                    current = sorted_levels[i]
+                    group = [current]
+                    j = i + 1
+                    while j < len(sorted_levels) and sorted_levels[j] - current <= tolerance:
+                        group.append(sorted_levels[j])
+                        j += 1
                     
-                    for level in support_levels:
-                        distance_percent = (level['price'] - current_price) / current_price * 100
-                        support_with_distance.append({
-                            'price': round(level['price'], 4),
-                            'strength': level['strength'],
+                    best_level = max(group, key=lambda x: level_scores[x]['score'])
+                    merged_sources = set()
+                    for level in group:
+                        merged_sources |= level_scores[level]['sources']
+                    
+                    strength = min(1.0, level_scores[best_level]['score'] / 30.0)
+                    
+                    # 过滤掉强度为0的级别
+                    if strength > 0:
+                        merged_levels.append({
+                            'price': best_level,
+                            'strength': strength,
+                            'sources': len(merged_sources),
+                            'source_types': list(merged_sources)
+                        })
+                    i = j
+                
+                merged_levels.sort(key=lambda x: x['strength'], reverse=True)
+                
+                resistance = []
+                support = []
+                
+                for level in merged_levels:
+                    price = level['price']
+                    if current_price and price > current_price:
+                        distance_percent = (price - current_price) / current_price * 100
+                        resistance.append({
+                            'price': price,
+                            'strength': round(level['strength'], 2),
                             'distance_percent': round(distance_percent, 2),
-                            'test_count': level['test_count'],
-                            'type': level['type']
+                            'sources': level['sources'],
+                            'source_types': level['source_types']
+                        })
+                    elif current_price and price < current_price:
+                        distance_percent = (price - current_price) / current_price * 100
+                        support.append({
+                            'price': price,
+                            'strength': round(level['strength'], 2),
+                            'distance_percent': round(distance_percent, 2),
+                            'sources': level['sources'],
+                            'source_types': level['source_types']
                         })
                 
+                resistance.sort(key=lambda x: x['strength'], reverse=True)
+                support.sort(key=lambda x: x['strength'], reverse=True)
+                
+                # 只保留前3个阻力位和支撑位
                 interval_levels[interval] = {
-                    'resistance': resistance_with_distance[:3],  # 只返回前3个
-                    'support': support_with_distance[:3]         # 只返回前3个
+                    'resistance': resistance[:3],
+                    'support': support[:3]
                 }
                 
-                logger.info(f"📊 {symbol}在{interval}的有效阻力位: {len(resistance_with_distance)}个, 支撑位: {len(support_with_distance)}个")
+                logger.info(f"📊 {symbol}在{interval}的有效阻力位: {resistance[:3]}, 支撑位: {support[:3]}")
                 
             except Exception as e:
                 logger.error(f"计算{symbol}在{interval}的阻力位失败: {str(e)}")
@@ -690,34 +497,24 @@ def calculate_resistance_levels(symbol):
 
         levels = {
             'levels': interval_levels,
-            'current_price': current_price or 0
+            'current_price': current_price or 0,
+            'volume_profile_levels': volume_profile_levels,
+            'orderbook_levels': orderbook_levels
         }
         
-        resistance_cache.put(cache_key, {
+        resistance_cache[cache_key] = {
             'levels': levels,
-            'expiration': now + config.CACHE_CONFIG['resistance']
-        })
+            'expiration': now + RESISTANCE_CACHE_EXPIRATION
+        }
         return levels
     except Exception as e:
         logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
         logger.error(traceback.format_exc())
         return {'levels': {}, 'current_price': 0}
 
-@timing_decorator
 def analyze_symbol(symbol):
     try:
         logger.info(f"🔍 开始分析币种: {symbol}")
-        
-        # 检查交易量，过滤低交易量币种
-        volume = get_symbol_volume(symbol)
-        if volume < config.VOLUME_THRESHOLD:
-            logger.info(f"⏭️ 跳过低交易量币种: {symbol} (交易量: {volume:.0f})")
-            return {
-                'symbol': symbol,
-                'period_status': {p: False for p in VALID_PERIODS},
-                'period_count': 0
-            }
-
         symbol_result = {
             'symbol': symbol,
             'daily_rising': None,
@@ -727,7 +524,7 @@ def analyze_symbol(symbol):
             'period_count': 0
         }
 
-        daily_oi = get_open_interest_with_retry(symbol, '1d')
+        daily_oi = get_open_interest(symbol, '1d')
         daily_series = daily_oi.get('series', [])
         
         if len(daily_series) >= 30:
@@ -753,7 +550,7 @@ def analyze_symbol(symbol):
                     if period == '1d':
                         continue
                         
-                    oi_data = get_open_interest_with_retry(symbol, period)
+                    oi_data = get_open_interest(symbol, period)
                     oi_series = oi_data.get('series', [])
                     
                     status = len(oi_series) >= 30 and is_latest_highest(oi_series)
@@ -778,7 +575,7 @@ def analyze_symbol(symbol):
                     symbol_result['daily_rising']['period_status'] = symbol_result['period_status'].copy()
                     symbol_result['daily_rising']['period_count'] = symbol_result['period_count']
 
-        min5_oi = get_open_interest_with_retry(symbol, '5m')
+        min5_oi = get_open_interest(symbol, '5m')
         min5_series = min5_oi.get('series', [])
         
         if len(min5_series) >= 30 and len(daily_series) >= 30:
@@ -808,14 +605,9 @@ def analyze_symbol(symbol):
             'period_count': 0
         }
 
-@timing_decorator
 def analyze_trends():
     start_time = time.time()
     logger.info("🔍 开始分析币种趋势...")
-    
-    # 清理过期缓存
-    cleanup_cache()
-    
     symbols = get_high_volume_symbols()
     
     if not symbols:
@@ -861,15 +653,15 @@ def analyze_trends():
     }
 
 def get_high_volume_symbols():
-    if not binance_client.initialize():
+    if client is None and not init_client():
         logger.error("❌ 无法连接API")
         return []
 
     try:
         logger.info("📊 获取高交易量币种...")
-        tickers = binance_client.client.futures_ticker()
+        tickers = client.futures_ticker()
         filtered = [
-            t for t in tickers if float(t.get('quoteVolume', 0)) > config.VOLUME_THRESHOLD
+            t for t in tickers if float(t.get('quoteVolume', 0)) > 10000000
             and t.get('symbol', '').endswith('USDT')
         ]
         logger.info(f"📊 找到 {len(filtered)} 个高交易量币种")
@@ -1116,7 +908,7 @@ def get_oi_chart_data(symbol, period):
             return jsonify({'error': 'Unsupported period'}), 400
 
         logger.info(f"📈 获取持仓量图表数据: symbol={symbol}, period={period}")
-        oi_data = get_open_interest_with_retry(symbol, period, use_cache=True)
+        oi_data = get_open_interest(symbol, period, use_cache=True)
         return jsonify({
             'data': oi_data.get('series', []),
             'timestamps': oi_data.get('timestamps', [])
@@ -1129,9 +921,9 @@ def get_oi_chart_data(symbol, period):
 def health_check():
     try:
         binance_status = 'ok'
-        if binance_client._initialized:
+        if client:
             try:
-                binance_client.client.get_server_time()
+                client.get_server_time()
             except:
                 binance_status = 'error'
         else:
@@ -1143,35 +935,13 @@ def health_check():
             'binance': binance_status,
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
             'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
-            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
-            'cache_stats': {
-                'oi_cache_size': len(oi_data_cache),
-                'resistance_cache_size': len(resistance_cache),
-                'volume_cache_size': len(symbol_volume_cache)
-            },
-            'config': {
-                'volume_threshold': config.VOLUME_THRESHOLD,
-                'max_workers': config.MAX_WORKERS
-            }
+            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S")
         })
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
             'error': str(e)
         }), 500
-
-@app.route('/api/status')
-def status():
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'version': '1.0.0',
-        'cache_stats': {
-            'oi_cache': len(oi_data_cache),
-            'resistance_cache': len(resistance_cache),
-            'volume_cache': len(symbol_volume_cache)
-        }
-    })
 
 def start_background_threads():
     static_path = app.static_folder
@@ -1183,7 +953,7 @@ def start_background_threads():
         with open(index_path, 'w') as f:
             f.write("<html><body><h1>请将前端文件放入static目录</h1></body></html>")
     
-    if not binance_client.initialize():
+    if not init_client():
         logger.critical("❌ 无法初始化客户端")
         return False
     
@@ -1215,15 +985,17 @@ def start_background_threads():
     return True
 
 if __name__ == '__main__':
+    PORT = int(os.environ.get("PORT", 9600))
+    
     logger.info("=" * 50)
     logger.info(f"🚀 启动加密货币持仓量分析服务")
-    logger.info(f"🔑 API密钥: {config.API_KEY[:5]}...{config.API_KEY[-3:] if config.API_KEY else '未设置'}")
-    logger.info(f"🌐 服务端口: {config.PORT}")
-    logger.info("💾 数据存储: 内存存储 + SQLite持久化")
+    logger.info(f"🔑 API密钥: {API_KEY[:5]}...{API_KEY[-3:] if API_KEY else '未设置'}")
+    logger.info(f"🌐 服务端口: {PORT}")
+    logger.info("💾 数据存储: 内存存储 (无持久化)")
     logger.info("=" * 50)
     
     if start_background_threads():
         logger.info("🚀 启动服务器...")
-        app.run(host='0.0.0.0', port=config.PORT, debug=False)
+        app.run(host='0.0.0.0', port=PORT, debug=False)
     else:
         logger.critical("🔥 无法启动服务，请检查错误日志")
