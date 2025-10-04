@@ -99,7 +99,8 @@ PERIOD_MINUTES = {
 }
 
 VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
-RESISTANCE_INTERVALS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
+# 只保留1分钟、15分钟和日线
+RESISTANCE_INTERVALS = ['1m', '15m', '1d']
 
 # 指标权重配置
 INDICATOR_WEIGHTS = {
@@ -110,9 +111,7 @@ INDICATOR_WEIGHTS = {
     'bb_lower': 1.1,
     'fib_other': 1.0,
     'ema_50': 0.9,
-    'integer': 0.8,
-    'volume_profile': 1.8,
-    'orderbook': 2.0
+    'integer': 0.8
 }
 
 def init_client():
@@ -239,60 +238,6 @@ def is_latest_highest(oi_data):
     
     return latest_value > max(prev_data) if prev_data else False
 
-def add_volume_profile(symbol, interval):
-    try:
-        klines = client.futures_klines(symbol=symbol, interval=interval, limit=500)
-        if not klines or len(klines) < 100:
-            return []
-        
-        prices = [float(k[4]) for k in klines]
-        volumes = [float(k[5]) for k in klines]
-        
-        price_range = max(prices) - min(prices)
-        bin_size = price_range / 20
-        
-        volume_profile = {}
-        for i in range(len(prices)):
-            bin_key = round(prices[i] / bin_size) * bin_size
-            volume_profile[bin_key] = volume_profile.get(bin_key, 0) + volumes[i]
-        
-        sorted_profile = sorted(volume_profile.items(), key=lambda x: x[1], reverse=True)
-        return [item[0] for item in sorted_profile[:3]]
-    
-    except Exception as e:
-        logger.error(f"成交量剖面分析失败: {str(e)}")
-        return []
-
-def get_orderbook_liquidity(symbol):
-    try:
-        orderbook = client.futures_order_book(symbol=symbol, limit=50)
-        bids = orderbook['bids']
-        asks = orderbook['asks']
-        
-        liquidity_levels = []
-        
-        ask_levels = {}
-        for price, qty in asks:
-            price_key = round(float(price), 2)
-            ask_levels[price_key] = ask_levels.get(price_key, 0) + float(qty)
-        
-        sorted_asks = sorted(ask_levels.items(), key=lambda x: x[1], reverse=True)
-        liquidity_levels.extend([price for price, qty in sorted_asks[:3]])
-        
-        bid_levels = {}
-        for price, qty in bids:
-            price_key = round(float(price), 2)
-            bid_levels[price_key] = bid_levels.get(price_key, 0) + float(qty)
-        
-        sorted_bids = sorted(bid_levels.items(), key=lambda x: x[1], reverse=True)
-        liquidity_levels.extend([price for price, qty in sorted_bids[:3]])
-        
-        return liquidity_levels
-    
-    except Exception as e:
-        logger.error(f"订单簿分析失败: {str(e)}")
-        return []
-
 def calculate_ema(data, period):
     """指数移动平均计算"""
     if len(data) < period:
@@ -330,7 +275,7 @@ def calculate_resistance_levels(symbol):
         
         if client is None and not init_client():
             logger.error("❌ 无法初始化Binance客户端，无法计算阻力位")
-            return {'resistance': {}, 'support': {}, 'current_price': 0}
+            return {'levels': {}, 'current_price': 0}
         
         try:
             ticker = client.futures_symbol_ticker(symbol=symbol)
@@ -341,9 +286,8 @@ def calculate_resistance_levels(symbol):
             current_price = None
         
         interval_levels = {}
-        volume_profile_levels = add_volume_profile(symbol, '1d')
-        orderbook_levels = get_orderbook_liquidity(symbol)
         
+        # 只计算1分钟、15分钟和日线的阻力位
         for interval in RESISTANCE_INTERVALS:
             try:
                 logger.info(f"📊 获取K线数据: {symbol} {interval}")
@@ -356,7 +300,6 @@ def calculate_resistance_levels(symbol):
                 high_prices = [float(k[2]) for k in klines]
                 low_prices = [float(k[3]) for k in klines]
                 close_prices = [float(k[4]) for k in klines]
-                open_prices = [float(k[1]) for k in klines]
                 
                 closes = np.array(close_prices)
                 
@@ -380,16 +323,20 @@ def calculate_resistance_levels(symbol):
                 for level in fib_other:
                     levels_with_type.append(('fib_other', level))
                 
-                levels_with_type.append(('ema_50', ema50))
-                levels_with_type.append(('ema_100', ema100))
-                levels_with_type.append(('ema_200', ema200))
-                levels_with_type.append(('bb_upper', bb_upper))
-                levels_with_type.append(('bb_lower', bb_lower))
+                if not np.isnan(ema50):
+                    levels_with_type.append(('ema_50', ema50))
+                if not np.isnan(ema100):
+                    levels_with_type.append(('ema_100', ema100))
+                if not np.isnan(ema200):
+                    levels_with_type.append(('ema_200', ema200))
+                if not np.isnan(bb_upper):
+                    levels_with_type.append(('bb_upper', bb_upper))
+                if not np.isnan(bb_lower):
+                    levels_with_type.append(('bb_lower', bb_lower))
                 
-                # 修复括号错误
+                # 计算心理整数位
                 if current_price and current_price > 0:
                     try:
-                        # 修复括号问题
                         exponent = math.floor(math.log10(current_price))
                         adjusted_exponent = max(0, exponent - 1)
                         base = 10 ** adjusted_exponent
@@ -398,16 +345,12 @@ def calculate_resistance_levels(symbol):
                     except Exception as e:
                         logger.error(f"计算心理整数位失败: {str(e)}")
                 
-                for level in volume_profile_levels:
-                    levels_with_type.append(('volume_profile', level))
-                
-                for level in orderbook_levels:
-                    levels_with_type.append(('orderbook', level))
-                
                 level_scores = {}
                 tolerance = current_price * 0.005 if current_price else 0.01
                 
                 for level_type, level_value in levels_with_type:
+                    if np.isnan(level_value):
+                        continue
                     level_value = round(level_value, 4)
                     if level_value not in level_scores:
                         level_scores[level_value] = {
@@ -417,9 +360,11 @@ def calculate_resistance_levels(symbol):
                     level_scores[level_value]['sources'].add(level_type)
                 
                 for i, (level_type1, level_value1) in enumerate(levels_with_type):
+                    if np.isnan(level_value1):
+                        continue
                     level_value1 = round(level_value1, 4)
                     for j, (level_type2, level_value2) in enumerate(levels_with_type):
-                        if i == j: 
+                        if i == j or np.isnan(level_value2):
                             continue
                         if abs(level_value1 - level_value2) <= tolerance:
                             weight1 = INDICATOR_WEIGHTS.get(level_type1, 1.0)
@@ -456,6 +401,7 @@ def calculate_resistance_levels(symbol):
                 
                 merged_levels.sort(key=lambda x: x['strength'], reverse=True)
                 
+                # 阻力位只显示高于现价的，支撑位只显示低于现价的
                 resistance = []
                 support = []
                 
@@ -489,7 +435,7 @@ def calculate_resistance_levels(symbol):
                     'support': support[:3]
                 }
                 
-                logger.info(f"📊 {symbol}在{interval}的有效阻力位: {resistance[:3]}, 支撑位: {support[:3]}")
+                logger.info(f"📊 {symbol}在{interval}的有效阻力位: {len(resistance)}个, 支撑位: {len(support)}个")
                 
             except Exception as e:
                 logger.error(f"计算{symbol}在{interval}的阻力位失败: {str(e)}")
@@ -497,9 +443,7 @@ def calculate_resistance_levels(symbol):
 
         levels = {
             'levels': interval_levels,
-            'current_price': current_price or 0,
-            'volume_profile_levels': volume_profile_levels,
-            'orderbook_levels': orderbook_levels
+            'current_price': current_price or 0
         }
         
         resistance_cache[cache_key] = {
