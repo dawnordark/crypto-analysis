@@ -25,8 +25,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
 from binance.client import Client
 from flask_cors import CORS
-from functools import wraps
-from collections import defaultdict
 
 # 禁用不必要的警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -83,11 +81,6 @@ resistance_cache = {}
 RESISTANCE_CACHE_EXPIRATION = 24 * 3600
 OI_CACHE_EXPIRATION = 5 * 60
 
-# 请求频率限制
-request_timestamps = defaultdict(list)
-RATE_LIMIT_WINDOW = 60  # 60秒窗口
-RATE_LIMIT_MAX_REQUESTS = 30  # 最大请求数
-
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
 executor = ThreadPoolExecutor(max_workers=10)
@@ -121,32 +114,6 @@ INDICATOR_WEIGHTS = {
     'volume_profile': 1.8,
     'orderbook': 2.0
 }
-
-def rate_limit(f):
-    """请求频率限制装饰器"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        client_ip = request.remote_addr
-        now = time.time()
-        
-        # 清理过期的时间戳
-        request_timestamps[client_ip] = [
-            timestamp for timestamp in request_timestamps[client_ip] 
-            if now - timestamp < RATE_LIMIT_WINDOW
-        ]
-        
-        # 检查是否超过限制
-        if len(request_timestamps[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
-            return jsonify({
-                'error': '请求频率过高，请稍后再试',
-                'retry_after': RATE_LIMIT_WINDOW
-            }), 429
-        
-        # 记录当前请求时间
-        request_timestamps[client_ip].append(now)
-        
-        return f(*args, **kwargs)
-    return decorated_function
 
 def init_client():
     global client
@@ -257,9 +224,6 @@ def get_open_interest(symbol, period, use_cache=True):
 
         logger.info(f"📈 获取新数据: {symbol} {period} ({len(oi_series)}点)")
         return oi_data
-    except requests.exceptions.Timeout:
-        logger.error(f"❌ 获取{symbol}的{period}持仓量超时")
-        return {'series': [], 'timestamps': []}
     except Exception as e:
         logger.error(f"❌ 获取{symbol}的{period}持仓量失败: {str(e)}")
         logger.error(traceback.format_exc())
@@ -366,7 +330,7 @@ def calculate_resistance_levels(symbol):
         
         if client is None and not init_client():
             logger.error("❌ 无法初始化Binance客户端，无法计算阻力位")
-            return {'levels': {}, 'current_price': 0}
+            return {'resistance': {}, 'support': {}, 'current_price': 0}
         
         try:
             ticker = client.futures_symbol_ticker(symbol=symbol)
@@ -810,38 +774,6 @@ def schedule_analysis():
         logger.info(f"⏳ 下次分析将在 {wait_time:.1f} 秒后 ({next_time.strftime('%Y-%m-%d %H:%M:%S')})")
         time.sleep(wait_time)
 
-def cleanup_cache():
-    """清理过期缓存"""
-    try:
-        current_time = datetime.now(timezone.utc)
-        
-        # 清理持仓量缓存
-        expired_oi_keys = []
-        for key, data in oi_data_cache.items():
-            if 'expiration' in data and data['expiration'] < current_time:
-                expired_oi_keys.append(key)
-        
-        for key in expired_oi_keys:
-            del oi_data_cache[key]
-        
-        if expired_oi_keys:
-            logger.info(f"🧹 清理了 {len(expired_oi_keys)} 个过期持仓量缓存")
-        
-        # 清理阻力位缓存
-        expired_resistance_keys = []
-        for key, data in resistance_cache.items():
-            if 'expiration' in data and data['expiration'] < current_time:
-                expired_resistance_keys.append(key)
-        
-        for key in expired_resistance_keys:
-            del resistance_cache[key]
-        
-        if expired_resistance_keys:
-            logger.info(f"🧹 清理了 {len(expired_resistance_keys)} 个过期阻力位缓存")
-            
-    except Exception as e:
-        logger.error(f"❌ 缓存清理失败: {str(e)}")
-
 # API路由
 @app.route('/')
 def index():
@@ -856,7 +788,6 @@ def static_files(filename):
     return send_from_directory(app.static_folder, filename)
 
 @app.route('/api/data', methods=['GET'])
-@rate_limit
 def get_data():
     global current_data_cache
     try:
@@ -938,7 +869,6 @@ def get_data():
         })
 
 @app.route('/api/resistance_levels/<symbol>', methods=['GET'])
-@rate_limit
 def get_resistance_levels(symbol):
     try:
         if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
@@ -967,7 +897,6 @@ def get_resistance_levels(symbol):
         }), 500
 
 @app.route('/api/oi_chart/<symbol>/<period>', methods=['GET'])
-@rate_limit
 def get_oi_chart_data(symbol, period):
     try:
         if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
@@ -1001,37 +930,18 @@ def health_check():
             binance_status = 'not initialized'
         
         tz_shanghai = timezone(timedelta(hours=8))
-        
-        # 缓存状态
-        oi_cache_size = len(oi_data_cache)
-        resistance_cache_size = len(resistance_cache)
-        
         return jsonify({
             'status': 'healthy',
             'binance': binance_status,
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
             'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
-            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
-            'cache': {
-                'oi_data': oi_cache_size,
-                'resistance_levels': resistance_cache_size
-            },
-            'memory_usage': f"{sys.getsizeof(data_cache) + sys.getsizeof(oi_data_cache) + sys.getsizeof(resistance_cache)} bytes"
+            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S")
         })
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
             'error': str(e)
         }), 500
-
-@app.route('/api/cache/cleanup', methods=['POST'])
-def cleanup_cache_endpoint():
-    """手动清理缓存端点"""
-    try:
-        cleanup_cache()
-        return jsonify({'message': '缓存清理完成'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 def start_background_threads():
     static_path = app.static_folder
@@ -1066,16 +976,6 @@ def start_background_threads():
     scheduler_thread = threading.Thread(target=schedule_analysis, name="AnalysisScheduler")
     scheduler_thread.daemon = True
     scheduler_thread.start()
-    
-    # 添加缓存清理线程
-    def cache_cleanup_worker():
-        while True:
-            time.sleep(3600)  # 每小时清理一次
-            cleanup_cache()
-    
-    cache_thread = threading.Thread(target=cache_cleanup_worker, name="CacheCleanup")
-    cache_thread.daemon = True
-    cache_thread.start()
     
     # 添加初始分析任务
     analysis_queue.put("ANALYZE")
