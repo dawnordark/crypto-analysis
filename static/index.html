@@ -147,18 +147,6 @@
             gap: 10px;
         }
         
-        .data-status.error {
-            background-color: rgba(207, 48, 74, 0.1);
-            color: var(--negative);
-            border-left-color: var(--negative);
-        }
-        
-        .data-status.success {
-            background-color: rgba(3, 166, 109, 0.1);
-            color: var(--positive);
-            border-left-color: var(--positive);
-        }
-        
         /* 阻力位查询区域 */
         .resistance-query {
             background-color: var(--bg-card);
@@ -231,11 +219,6 @@
         
         .query-btn:hover {
             background-color: #e6ac00;
-        }
-        
-        .query-btn:disabled {
-            background-color: var(--text-secondary);
-            cursor: not-allowed;
         }
         
         /* 阻力位支撑位紧凑布局 */
@@ -801,8 +784,8 @@
         </div>
         
         <!-- 数据状态指示器 -->
-        <div class="data-status fade-in" :class="{'error': error, 'success': !error && !dataLoading && !loading}">
-            <i :class="getStatusIcon()"></i>
+        <div class="data-status fade-in">
+            <i class="fas fa-info-circle"></i>
             <span v-if="dataLoading && !error">数据加载中，已等待 {{loadingSeconds}} 秒...</span>
             <span v-else-if="loading">正在刷新数据...</span>
             <span v-else-if="error">{{ error }}</span>
@@ -829,16 +812,13 @@
                         v-model="resistanceQuery"
                         @input="formatSymbolInput"
                         @keyup.enter="queryResistanceLevels"
-                        :disabled="queryLoading"
                     >
                     <button 
                         class="query-btn" 
                         @click="queryResistanceLevels"
-                        :disabled="queryLoading || !resistanceQuery.trim()"
+                        :disabled="queryLoading"
                     >
-                        <i class="fas fa-search"></i> 
-                        <span v-if="queryLoading">查询中...</span>
-                        <span v-else>查询</span>
+                        <i class="fas fa-search"></i> 查询
                     </button>
                 </div>
             </div>
@@ -955,10 +935,6 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     <span>正在加载阻力位数据...</span>
                 </div>
-                <div v-else-if="queryError" class="chart-error">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>{{ queryError }}</span>
-                </div>
             </div>
         </div>
         
@@ -1024,10 +1000,7 @@
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </div>
-                                    <div v-if="chartErrors[coin.symbol + '-' + activeChart.period]" class="chart-error">
-                                        {{ chartErrors[coin.symbol + '-' + activeChart.period] }}
-                                    </div>
-                                    <canvas v-else :id="'chart-' + coin.symbol + '-' + activeChart.period"></canvas>
+                                    <canvas :id="'chart-' + coin.symbol + '-' + activeChart.period"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -1095,10 +1068,7 @@
                                             <i class="fas fa-times"></i>
                                         </button>
                                     </div>
-                                    <div v-if="chartErrors[coin.symbol + '-' + activeChart.period]" class="chart-error">
-                                        {{ chartErrors[coin.symbol + '-' + activeChart.period] }}
-                                    </div>
-                                    <canvas v-else :id="'chart-' + coin.symbol + '-' + activeChart.period"></canvas>
+                                    <canvas :id="'chart-' + coin.symbol + '-' + activeChart.period"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -1127,7 +1097,7 @@
                             <i class="fas fa-box-open"></i>
                             <span>暂无短期活跃币种</span>
                         </div>
-                        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
+        <div v-else v-for="coin in sortedShortTermActive" :key="coin.symbol + 'short'">
                             <!-- 优化后的短期活跃币种显示 -->
                             <div class="short-term-item">
                                 <div class="short-term-name">
@@ -1153,7 +1123,7 @@
         </div>
         
         <footer>
-            <p>合约分析 &copy; 2025 | 基于多周期持仓量分析</p>
+            <p>币安风格合约分析系统 &copy; 2023 | 基于多周期持仓量分析</p>
             <p>数据更新时间: {{ lastUpdated || '加载中...' }}</p>
         </footer>
     </div>
@@ -1174,7 +1144,6 @@
                     resistanceQuery: '',
                     queryResult: null,
                     queryLoading: false,
-                    queryError: null,
                     chartDataCache: {},
                     loading: false,
                     dataLoading: true,
@@ -1210,14 +1179,6 @@
                     }
                 },
                 methods: {
-                    // 获取状态图标
-                    getStatusIcon() {
-                        if (this.error) return 'fas fa-exclamation-triangle';
-                        if (this.dataLoading || this.loading) return 'fas fa-spinner fa-spin';
-                        if (this.queryLoading) return 'fas fa-spinner fa-spin';
-                        return 'fas fa-info-circle';
-                    },
-                    
                     // 获取置信度颜色
                     getConfidenceClass(value) {
                         if (value > 0.7) return 'confidence-high';
@@ -1317,19 +1278,12 @@
                         
                         const ctx = canvas.getContext('2d');
                         
-                        // 销毁现有图表
                         if (canvas.chart) {
                             canvas.chart.destroy();
-                            canvas.chart = null;
                         }
                         
-                        // 清除错误状态
-                        this.$delete(this.chartErrors, `${symbol}-${period}`);
-                        
                         try {
-                            const response = await axios.get(`/api/oi_chart/${symbol}/${period}`, {
-                                timeout: 10000
-                            });
+                            const response = await axios.get(`/api/oi_chart/${symbol}/${period}`);
                             const chartData = response.data;
                             
                             if (!chartData.data || chartData.data.length === 0) {
@@ -1395,7 +1349,7 @@
                                             }
                                         },
                                         y: {
-                                            min: Math.max(0, minVal - range * 0.1),
+                                            min: minVal - range * 0.1,
                                             max: maxVal + range * 0.1,
                                             grid: {
                                                 color: 'rgba(43, 47, 54, 0.1)',
@@ -1422,22 +1376,18 @@
                             });
                         } catch (error) {
                             console.error('图表渲染失败:', error);
-                            const errorMessage = error.response ? error.response.data.error : error.message;
-                            this.$set(this.chartErrors, `${symbol}-${period}`, `图表加载失败: ${errorMessage}`);
+                            this.chartErrors[`${symbol}-${period}`] = `图表加载失败: ${error.message}`;
                         }
                     },
                     async queryResistanceLevels() {
-                        if (!this.resistanceQuery.trim()) return;
+                        if (!this.resistanceQuery) return;
                         
                         this.queryLoading = true;
                         this.queryResult = null;
-                        this.queryError = null;
                         const symbol = this.resistanceQuery.toUpperCase() + 'USDT';
                         
                         try {
-                            const response = await axios.get(`/api/resistance_levels/${symbol}`, {
-                                timeout: 15000
-                            });
+                            const response = await axios.get(`/api/resistance_levels/${symbol}`);
                             this.queryResult = response.data;
                             
                             if (!this.queryResult || !this.queryResult.levels) {
@@ -1450,8 +1400,7 @@
                             this.statusMessage = `${symbol}阻力位数据已加载`;
                         } catch (error) {
                             console.error('阻力位查询失败:', error);
-                            this.queryError = error.response ? error.response.data.error : error.message;
-                            this.statusMessage = `查询失败: ${this.queryError}`;
+                            this.statusMessage = `查询失败: ${error.message}`;
                         } finally {
                             this.queryLoading = false;
                         }
@@ -1475,9 +1424,8 @@
                         this.loading = true;
                         this.dataLoading = true;
                         this.statusMessage = "正在刷新数据...";
-                        this.error = null;
                         
-                        axios.get('/api/data', { timeout: 30000 })
+                        axios.get('/api/data')
                             .then(response => {
                                 this.processData(response.data);
                             })
@@ -1503,7 +1451,7 @@
                     },
                     handleDataError(error) {
                         console.error('数据加载失败:', error);
-                        this.error = `数据加载失败: ${error.response ? error.response.data.error : error.message}`;
+                        this.error = `数据加载失败: ${error.message}`;
                         this.statusMessage = this.error;
                         this.loading = false;
                         this.dataLoading = false;
@@ -1532,13 +1480,6 @@
                     if (this.loadingTimer) {
                         clearInterval(this.loadingTimer);
                     }
-                    
-                    // 清理所有图表实例
-                    document.querySelectorAll('canvas').forEach(canvas => {
-                        if (canvas.chart) {
-                            canvas.chart.destroy();
-                        }
-                    });
                 }
             });
         });
