@@ -113,37 +113,26 @@ def init_client():
     logger.critical("🔥 无法初始化Binance客户端")
     return False
 
-def get_next_update_time(period):
-    """计算下次更新时间"""
+def get_next_analysis_time():
+    """计算下次分析时间（5分钟周期+45秒延迟）"""
     tz_shanghai = timezone(timedelta(hours=8))
     now = datetime.now(tz_shanghai)
-    minutes = PERIOD_MINUTES.get(period, 5)
     
-    if period.endswith('m'):
-        period_minutes = int(period[:-1])
-        current_minute = now.minute
-        current_period_minute = (current_minute // period_minutes) * period_minutes
-        
-        base_time = now.replace(minute=current_period_minute, second=0, microsecond=0)
-        next_update = base_time + timedelta(minutes=period_minutes, seconds=60)
-        
-        if next_update < now:
-            next_update += timedelta(minutes=period_minutes)
-    elif period.endswith('h'):
-        period_hours = int(period[:-1])
-        current_hour = now.hour
-        current_period_hour = (current_hour // period_hours) * period_hours
-        
-        base_time = now.replace(hour=current_period_hour, minute=0, second=0, microsecond=0)
-        next_update = base_time + timedelta(hours=period_hours, seconds=60)
-        
-        if next_update < now:
-            next_update += timedelta(hours=period_hours)
-    else:
-        base_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        next_update = base_time + timedelta(days=1, seconds=60)
-
-    return next_update
+    # 计算当前5分钟周期的开始时间
+    current_minute = now.minute
+    current_period_minute = (current_minute // 5) * 5
+    
+    # 当前5分钟周期的结束时间
+    current_period_end = now.replace(minute=current_period_minute, second=0, microsecond=0) + timedelta(minutes=5)
+    
+    # 下次分析时间 = 当前周期结束时间 + 45秒延迟
+    next_analysis = current_period_end + timedelta(seconds=45)
+    
+    # 如果下次分析时间已经过去，则计算下一个周期
+    if next_analysis <= now:
+        next_analysis = current_period_end + timedelta(minutes=5, seconds=45)
+    
+    return next_analysis
 
 def get_open_interest(symbol, period, use_cache=True):
     """获取持仓量数据"""
@@ -490,7 +479,7 @@ def analyze_trends():
         'all_cycle_rising': all_cycle_rising,
         'analysis_time': analysis_time,
         'last_updated': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
-        'next_analysis_time': get_next_update_time('5m').strftime("%Y-%m-%d %H:%M:%S")
+        'next_analysis_time': get_next_analysis_time().strftime("%Y-%m-%d %H:%M:%S")
     }
 
 def analysis_worker():
@@ -535,9 +524,12 @@ def analysis_worker():
             analysis_duration = (datetime.now(timezone.utc) - analysis_start).total_seconds()
             logger.info(f"⏱️ 分析耗时: {analysis_duration:.2f}秒")
             
-            next_time = get_next_update_time('5m')
-            wait_seconds = max(60, (next_time - datetime.now(timezone.utc)).total_seconds())
-            logger.info(f"⏳ 下次分析将在 {wait_seconds:.1f} 秒后")
+            # 计算下次分析时间（5分钟周期+45秒延迟）
+            next_analysis = get_next_analysis_time()
+            wait_seconds = max(5, (next_analysis - datetime.now(timezone.utc)).total_seconds())
+            
+            logger.info(f"⏳ 下次分析时间: {next_analysis.strftime('%H:%M:%S')}")
+            logger.info(f"⏳ 等待时间: {wait_seconds:.1f} 秒")
             
             time.sleep(wait_seconds)
             analysis_queue.task_done()
@@ -564,7 +556,7 @@ def start_background_threads():
         "short_term_active": [],
         "all_cycle_rising": [],
         "analysis_time": 0,
-        "next_analysis_time": get_next_update_time('5m').strftime("%Y-%m-%d %H:%M:%S")
+        "next_analysis_time": get_next_analysis_time().strftime("%Y-%m-%d %H:%M:%S")
     }
     
     # 延迟启动分析线程（避免阻塞应用启动）
@@ -666,7 +658,7 @@ def get_data():
             'short_term_active': [],
             'all_cycle_rising': [],
             'analysis_time': 0,
-            'next_analysis_time': get_next_update_time('5m').strftime("%Y-%m-%d %H:%M:%S")
+            'next_analysis_time': get_next_analysis_time().strftime("%Y-%m-%d %H:%M:%S")
         })
 
 @app.route('/api/resistance_levels/<symbol>', methods=['GET'])
