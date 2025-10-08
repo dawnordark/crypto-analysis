@@ -66,7 +66,7 @@ OI_CACHE_EXPIRATION = 5 * 60
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
-executor = ThreadPoolExecutor(max_workers=3)  # 减少工作线程数
+executor = ThreadPoolExecutor(max_workers=5)  # 增加工作线程数以处理更多币种
 
 # 周期配置
 PERIOD_MINUTES = {
@@ -155,7 +155,7 @@ def get_open_interest(symbol, period, use_cache=True):
             if 'expiration' in cached_data and cached_data['expiration'] > current_time:
                 return cached_data['data']
 
-        logger.info(f"📡 请求持仓量数据: {symbol} {period}")
+        logger.debug(f"📡 请求持仓量数据: {symbol} {period}")
         url = "https://fapi.binance.com/futures/data/openInterestHist"
         params = {'symbol': symbol, 'period': period, 'limit': 30}
 
@@ -427,18 +427,19 @@ def analyze_symbol(symbol):
         }
 
 def get_high_volume_symbols():
-    """获取高交易量币种"""
+    """获取高交易量币种 - 移除数量限制"""
     if client is None and not init_client():
         logger.warning("❌ 无法获取高交易量币种：客户端未初始化")
         return []
 
     try:
         tickers = client.futures_ticker()
+        # 移除数量限制，返回所有符合条件的币种
         filtered = [
             t for t in tickers if float(t.get('quoteVolume', 0)) > 10000000
             and t.get('symbol', '').endswith('USDT')
         ]
-        symbols = [t['symbol'] for t in filtered[:20]]  # 限制币种数量
+        symbols = [t['symbol'] for t in filtered]  # 移除 [:20] 限制
         logger.info(f"📊 获取到 {len(symbols)} 个高交易量币种")
         return symbols
     except Exception as e:
@@ -460,19 +461,32 @@ def analyze_trends():
     short_term_active = []
     all_cycle_rising = []
 
-    futures = [executor.submit(analyze_symbol, symbol) for symbol in symbols]
+    logger.info(f"📊 开始分析 {len(symbols)} 个币种...")
     
-    for future in as_completed(futures):
-        try:
-            result = future.result()
-            if result.get('daily_rising'):
-                daily_rising.append(result['daily_rising'])
-            if result.get('short_term_active'):
-                short_term_active.append(result['short_term_active'])
-            if result.get('all_cycle_rising'):
-                all_cycle_rising.append(result['all_cycle_rising'])
-        except Exception as e:
-            logger.error(f"❌ 处理币种时出错: {str(e)}")
+    # 分批处理币种，避免一次性创建过多线程
+    batch_size = 20
+    batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
+    
+    for batch_num, batch in enumerate(batches):
+        logger.info(f"📦 处理批次 {batch_num + 1}/{len(batches)} ({len(batch)} 个币种)")
+        
+        futures = [executor.submit(analyze_symbol, symbol) for symbol in batch]
+        
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                if result.get('daily_rising'):
+                    daily_rising.append(result['daily_rising'])
+                if result.get('short_term_active'):
+                    short_term_active.append(result['short_term_active'])
+                if result.get('all_cycle_rising'):
+                    all_cycle_rising.append(result['all_cycle_rising'])
+            except Exception as e:
+                logger.error(f"❌ 处理币种时出错: {str(e)}")
+        
+        # 批次之间短暂休息，避免API限制
+        if batch_num < len(batches) - 1:
+            time.sleep(1)
 
     daily_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
     short_term_active.sort(key=lambda x: x.get('ratio', 0), reverse=True)
@@ -480,6 +494,7 @@ def analyze_trends():
 
     analysis_time = time.time() - start_time
     logger.info(f"📊 分析完成: 日线上涨 {len(daily_rising)}个, 短期活跃 {len(short_term_active)}个, 全部周期上涨 {len(all_cycle_rising)}个")
+    logger.info(f"⏱️ 总分析时间: {analysis_time:.2f}秒")
 
     tz_shanghai = timezone(timedelta(hours=8))
     return {
