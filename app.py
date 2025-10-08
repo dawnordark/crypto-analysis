@@ -77,6 +77,10 @@ PERIOD_MINUTES = {
 VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d']
 RESISTANCE_INTERVALS = ['1m', '15m', '1d']
 
+# 分析线程状态
+analysis_thread_running = False
+analysis_thread = None
+
 def init_client():
     """初始化 Binance 客户端"""
     global client
@@ -425,6 +429,7 @@ def analyze_symbol(symbol):
 def get_high_volume_symbols():
     """获取高交易量币种"""
     if client is None and not init_client():
+        logger.warning("❌ 无法获取高交易量币种：客户端未初始化")
         return []
 
     try:
@@ -433,7 +438,9 @@ def get_high_volume_symbols():
             t for t in tickers if float(t.get('quoteVolume', 0)) > 10000000
             and t.get('symbol', '').endswith('USDT')
         ]
-        return [t['symbol'] for t in filtered[:20]]  # 限制币种数量
+        symbols = [t['symbol'] for t in filtered[:20]]  # 限制币种数量
+        logger.info(f"📊 获取到 {len(symbols)} 个高交易量币种")
+        return symbols
     except Exception as e:
         logger.error(f"❌ 获取高交易量币种失败: {str(e)}")
         return []
@@ -442,9 +449,11 @@ def analyze_trends():
     """分析趋势"""
     start_time = time.time()
     logger.info("🔍 开始分析币种趋势...")
+    
     symbols = get_high_volume_symbols()
     
     if not symbols:
+        logger.warning("⚠️ 没有获取到高交易量币种，返回空数据")
         return data_cache
 
     daily_rising = []
@@ -484,17 +493,29 @@ def analyze_trends():
 
 def analysis_worker():
     """分析工作线程"""
-    global data_cache, current_data_cache
+    global data_cache, current_data_cache, analysis_thread_running
+    
     logger.info("🔧 数据分析线程启动")
-
-    while True:
+    analysis_thread_running = True
+    
+    while analysis_thread_running:
         try:
-            task = analysis_queue.get()
-            if task == "STOP":
-                logger.info("🛑 收到停止信号，结束分析线程")
-                analysis_queue.task_done()
+            # 等待到下一个分析时间
+            next_analysis = get_next_analysis_time()
+            wait_seconds = max(5, (next_analysis - datetime.now(timezone.utc)).total_seconds())
+            
+            logger.info(f"⏳ 下次分析时间: {next_analysis.strftime('%H:%M:%S')}")
+            logger.info(f"⏳ 等待时间: {wait_seconds:.1f} 秒")
+            
+            # 等待期间检查停止信号
+            wait_start = time.time()
+            while time.time() - wait_start < wait_seconds and analysis_thread_running:
+                time.sleep(1)
+            
+            if not analysis_thread_running:
                 break
-
+                
+            # 执行分析
             analysis_start = datetime.now(timezone.utc)
             logger.info(f"⏱️ 开始更新数据...")
 
@@ -524,21 +545,17 @@ def analysis_worker():
             analysis_duration = (datetime.now(timezone.utc) - analysis_start).total_seconds()
             logger.info(f"⏱️ 分析耗时: {analysis_duration:.2f}秒")
             
-            # 计算下次分析时间（5分钟周期+45秒延迟）
-            next_analysis = get_next_analysis_time()
-            wait_seconds = max(5, (next_analysis - datetime.now(timezone.utc)).total_seconds())
-            
-            logger.info(f"⏳ 下次分析时间: {next_analysis.strftime('%H:%M:%S')}")
-            logger.info(f"⏳ 等待时间: {wait_seconds:.1f} 秒")
-            
-            time.sleep(wait_seconds)
-            analysis_queue.task_done()
         except Exception as e:
             logger.error(f"❌ 分析失败: {str(e)}")
-            analysis_queue.task_done()
+            # 出错后等待一段时间再继续
+            time.sleep(60)
+    
+    logger.info("🛑 分析线程已停止")
 
 def start_background_threads():
     """启动后台线程"""
+    global analysis_thread
+    
     static_path = app.static_folder
     if not os.path.exists(static_path):
         os.makedirs(static_path)
@@ -563,19 +580,22 @@ def start_background_threads():
     def delayed_start():
         time.sleep(10)  # 等待10秒让应用先启动
         
+        logger.info("🔄 开始初始化分析组件...")
+        
         # 初始化客户端
         if not init_client():
             logger.error("❌ 无法初始化客户端，部分功能可能不可用")
+            # 即使客户端初始化失败，也继续启动分析线程，但会返回空数据
+        else:
+            logger.info("✅ 客户端初始化成功")
         
         # 启动分析线程
-        worker_thread = threading.Thread(target=analysis_worker, name="AnalysisWorker")
-        worker_thread.daemon = True
-        worker_thread.start()
+        global analysis_thread
+        analysis_thread = threading.Thread(target=analysis_worker, name="AnalysisWorker")
+        analysis_thread.daemon = True
+        analysis_thread.start()
         
-        # 提交初始分析任务
-        time.sleep(5)
-        analysis_queue.put("ANALYZE")
-        logger.info("🔄 已提交初始分析任务")
+        logger.info("🔄 分析线程已启动，将在下一个5分钟周期+45秒后开始分析")
     
     start_thread = threading.Thread(target=delayed_start)
     start_thread.daemon = True
@@ -714,6 +734,7 @@ def health_check():
         return jsonify({
             'status': 'healthy',
             'binance': binance_status,
+            'analysis_thread_running': analysis_thread_running,
             'last_updated': current_data_cache.get('last_updated', 'N/A'),
             'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
             'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
@@ -730,8 +751,38 @@ def status():
     """简化状态检查"""
     return jsonify({
         'status': 'running',
+        'analysis_thread_running': analysis_thread_running,
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/api/trigger-analysis', methods=['POST'])
+def trigger_analysis():
+    """手动触发分析（用于调试）"""
+    try:
+        logger.info("🔄 手动触发分析...")
+        result = analyze_trends()
+        
+        global current_data_cache
+        current_data_cache = {
+            "last_updated": result['last_updated'],
+            "daily_rising": result['daily_rising'],
+            "short_term_active": result['short_term_active'],
+            "all_cycle_rising": result['all_cycle_rising'],
+            "analysis_time": result['analysis_time'],
+            "next_analysis_time": result['next_analysis_time']
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'message': '分析完成',
+            'last_updated': result['last_updated']
+        })
+    except Exception as e:
+        logger.error(f"❌ 手动分析失败: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 if __name__ == '__main__':
     PORT = int(os.environ.get("PORT", 10000))
