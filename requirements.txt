@@ -3,4 +3,4 @@ flask-cors==4.0.0
 python-binance==1.0.24
 requests==2.32.3
 numpy==1.26.4
-pandas==2.2.2  # 添加 pandas 以增强技术指标计算
+pandas==2.1.4  # 添加 pandas 以增强技术指标计算
