@@ -684,7 +684,145 @@ def get_open_interest(symbol, period, use_cache=True):
         logger.error(f"❌ 同步获取{symbol}的{period}持仓量失败: {str(e)}")
         return {'series': [], 'timestamps': []}
 
-# 其他函数保持不变...
+# 阻力位支撑位分析函数
+def calculate_support_resistance_levels(symbol, interval, klines):
+    """计算支撑位和阻力位"""
+    try:
+        if not klines or len(klines) < 20:
+            return {'resistance': [], 'support': []}
+        
+        # 提取收盘价
+        closes = [float(k[4]) for k in klines]
+        
+        # 计算价格水平及其被测试次数
+        price_levels = {}
+        tolerance = 0.001
+        
+        for i in range(1, len(closes)-1):
+            current_close = closes[i]
+            
+            # 寻找局部高点和低点
+            is_local_high = closes[i] > closes[i-1] and closes[i] > closes[i+1]
+            is_local_low = closes[i] < closes[i-1] and closes[i] < closes[i+1]
+            
+            # 四舍五入到合适的精度
+            if current_close > 100:
+                rounded_price = round(current_close, 1)
+            elif current_close > 10:
+                rounded_price = round(current_close, 2)
+            elif current_close > 1:
+                rounded_price = round(current_close, 3)
+            else:
+                rounded_price = round(current_close, 4)
+            
+            # 检查是否接近现有价格水平
+            found_existing = False
+            for existing_price in price_levels.keys():
+                if abs(existing_price - rounded_price) / existing_price <= tolerance:
+                    price_levels[existing_price]['count'] += 1
+                    if is_local_high:
+                        price_levels[existing_price]['resistance_tests'] += 1
+                    if is_local_low:
+                        price_levels[existing_price]['support_tests'] += 1
+                    found_existing = True
+                    break
+            
+            if not found_existing:
+                price_levels[rounded_price] = {
+                    'count': 1,
+                    'resistance_tests': 1 if is_local_high else 0,
+                    'support_tests': 1 if is_local_low else 0
+                }
+        
+        # 获取当前价格
+        current_price = closes[-1] if closes else 0
+        
+        # 分离阻力位和支撑位
+        resistance_levels = []
+        support_levels = []
+        
+        for price, data in price_levels.items():
+            if data['resistance_tests'] > 0 or data['support_tests'] > 0:
+                total_tests = data['resistance_tests'] + data['support_tests']
+                strength = min(1.0, total_tests / 10.0)
+                
+                level_data = {
+                    'price': price,
+                    'strength': round(strength, 2),
+                    'test_count': total_tests,
+                    'resistance_tests': data['resistance_tests'],
+                    'support_tests': data['support_tests'],
+                    'distance_percent': round(((price - current_price) / current_price * 100), 2) if current_price > 0 else 0
+                }
+                
+                if price > current_price and data['resistance_tests'] > 0:
+                    resistance_levels.append(level_data)
+                elif price < current_price and data['support_tests'] > 0:
+                    support_levels.append(level_data)
+        
+        # 按被测试次数排序，只保留前3个
+        resistance_levels.sort(key=lambda x: x['test_count'], reverse=True)
+        support_levels.sort(key=lambda x: x['test_count'], reverse=True)
+        
+        return {
+            'resistance': resistance_levels[:3],
+            'support': support_levels[:3]
+        }
+        
+    except Exception as e:
+        logger.error(f"计算支撑阻力位失败 {symbol} {interval}: {str(e)}")
+        return {'resistance': [], 'support': []}
+
+def calculate_resistance_levels(symbol):
+    """计算阻力位"""
+    try:
+        logger.info(f"📊 计算阻力位: {symbol}")
+        now = time.time()
+        
+        cache_key = f"{symbol}_resistance"
+        if cache_key in resistance_cache:
+            cache_data = resistance_cache[cache_key]
+            if cache_data['expiration'] > now:
+                return cache_data['levels']
+        
+        if client is None and not init_client():
+            return {'levels': {}, 'current_price': 0}
+        
+        try:
+            ticker = client.futures_symbol_ticker(symbol=symbol)
+            current_price = float(ticker['price'])
+        except Exception:
+            current_price = None
+        
+        interval_levels = {}
+        
+        for interval in RESISTANCE_INTERVALS:
+            try:
+                klines = client.futures_klines(symbol=symbol, interval=interval, limit=100)
+                
+                if not klines or len(klines) < 20:
+                    continue
+
+                levels = calculate_support_resistance_levels(symbol, interval, klines)
+                interval_levels[interval] = levels
+                
+            except Exception as e:
+                logger.error(f"计算{symbol}在{interval}的阻力位失败: {str(e)}")
+
+        levels = {
+            'levels': interval_levels,
+            'current_price': current_price or 0
+        }
+        
+        resistance_cache[cache_key] = {
+            'levels': levels,
+            'expiration': now + RESISTANCE_CACHE_EXPIRATION
+        }
+        return levels
+    except Exception as e:
+        logger.error(f"计算{symbol}的阻力位失败: {str(e)}")
+        return {'levels': {}, 'current_price': 0}
+
 def analysis_worker():
     """分析工作线程"""
     global data_cache, current_data_cache, analysis_thread_running
@@ -798,7 +936,7 @@ def start_background_threads():
     logger.info("✅ 后台线程启动成功")
     return True
 
-# API路由和其他函数保持不变...
+# API路由
 @app.route('/')
 def index():
     try:
@@ -875,7 +1013,108 @@ def get_data():
             'next_analysis_time': get_next_analysis_time().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-# 其他API路由保持不变...
+@app.route('/api/resistance_levels/<symbol>', methods=['GET'])
+def get_resistance_levels(symbol):
+    try:
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+            return jsonify({'error': 'Invalid symbol format'}), 400
+
+        if not BINANCE_AVAILABLE:
+            return jsonify({'error': 'Binance client not available'}), 503
+
+        levels = calculate_resistance_levels(symbol)
+        
+        return jsonify(levels)
+    except Exception as e:
+        logger.error(f"❌ 获取阻力位数据失败: {symbol}, {str(e)}")
+        return jsonify({
+            'levels': {},
+            'current_price': 0,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/oi_chart/<symbol>/<period>', methods=['GET'])
+def get_oi_chart_data(symbol, period):
+    try:
+        if not re.match(r"^[A-Z0-9]{2,10}USDT$", symbol):
+            return jsonify({'error': 'Invalid symbol format'}), 400
+
+        if period not in VALID_PERIODS:
+            return jsonify({'error': 'Unsupported period'}), 400
+
+        oi_data = get_open_interest(symbol, period, use_cache=True)
+        return jsonify({
+            'data': oi_data.get('series', []),
+            'timestamps': oi_data.get('timestamps', [])
+        })
+    except Exception as e:
+        logger.error(f"❌ 获取持仓量图表数据失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    try:
+        binance_status = 'not initialized'
+        if client:
+            try:
+                client.get_server_time()
+                binance_status = 'ok'
+            except:
+                binance_status = 'error'
+        
+        tz_shanghai = timezone(timedelta(hours=8))
+        return jsonify({
+            'status': 'healthy',
+            'binance': binance_status,
+            'analysis_thread_running': analysis_thread_running,
+            'last_updated': current_data_cache.get('last_updated', 'N/A'),
+            'next_analysis_time': current_data_cache.get('next_analysis_time', 'N/A'),
+            'server_time': datetime.now(tz_shanghai).strftime("%Y-%m-%d %H:%M:%S"),
+            'environment': 'render' if IS_RENDER else 'local'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
+
+@app.route('/api/status', methods=['GET'])
+def status():
+    """简化状态检查"""
+    return jsonify({
+        'status': 'running',
+        'analysis_thread_running': analysis_thread_running,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/trigger-analysis', methods=['POST'])
+def trigger_analysis():
+    """手动触发分析（用于调试）"""
+    try:
+        logger.info("🔄 手动触发分析...")
+        result = analyze_trends()
+        
+        global current_data_cache
+        current_data_cache = {
+            "last_updated": result['last_updated'],
+            "daily_rising": result['daily_rising'],
+            "short_term_active": result['short_term_active'],
+            "all_cycle_rising": result['all_cycle_rising'],
+            "analysis_time": result['analysis_time'],
+            "next_analysis_time": result['next_analysis_time']
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'message': '分析完成',
+            'last_updated': result['last_updated']
+        })
+    except Exception as e:
+        logger.error(f"❌ 手动分析失败: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 if __name__ == '__main__':
     PORT = int(os.environ.get("PORT", 10000))
