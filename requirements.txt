@@ -1,6 +1,6 @@
-flask==3.0.3
-flask-cors==4.0.0
-python-binance==1.0.24
-requests==2.32.3
-numpy==1.26.4
-pandas==2.1.4  # 添加 pandas 以增强技术指标计算
+numpy==1.26.3
+requests==2.31.0
+Flask==2.3.3
+Flask-CORS==4.0.0
+python-binance==1.0.19
+urllib3==1.26.18
