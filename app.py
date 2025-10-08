@@ -66,7 +66,7 @@ OI_CACHE_EXPIRATION = 5 * 60
 
 # 使用队列进行线程间通信
 analysis_queue = queue.Queue()
-executor = ThreadPoolExecutor(max_workers=5)  # 增加工作线程数
+executor = ThreadPoolExecutor(max_workers=10)  # 增加工作线程数以支持并行处理
 
 # 周期配置
 PERIOD_MINUTES = {
@@ -317,7 +317,7 @@ def get_high_volume_symbols():
         return []
 
 def analyze_trends():
-    """优化后的趋势分析逻辑"""
+    """优化后的趋势分析逻辑 - 直接并行处理所有币种"""
     start_time = time.time()
     logger.info("🔍 开始优化分析币种趋势...")
     
@@ -328,67 +328,66 @@ def analyze_trends():
         logger.warning("⚠️ 没有获取到高交易量币种，返回空数据")
         return data_cache
 
+    logger.info(f"📊 开始并行分析 {len(symbols)} 个币种...")
+    
+    # 步骤2: 并行分析短期活跃币种
+    logger.info(f"🔄 并行分析短期活跃币种...")
+    short_term_start = time.time()
+    short_term_futures = [executor.submit(analyze_short_term_active, symbol) for symbol in symbols]
     short_term_active = []
-    daily_rising = []
+    
+    for future in as_completed(short_term_futures):
+        try:
+            result = future.result()
+            if result:
+                short_term_active.append(result)
+        except Exception as e:
+            logger.error(f"❌ 处理短期活跃币种时出错: {str(e)}")
+    
+    short_term_time = time.time() - short_term_start
+    logger.info(f"✅ 短期活跃分析完成: {len(short_term_active)}个, 耗时: {short_term_time:.2f}秒")
+    
+    # 步骤3: 并行分析日线上涨币种
+    logger.info(f"🔄 并行分析日线上涨币种...")
+    daily_start = time.time()
+    daily_futures = [executor.submit(analyze_daily_rising, symbol) for symbol in symbols]
+    daily_results = []
+    
+    for future in as_completed(daily_futures):
+        try:
+            result = future.result()
+            if result:
+                daily_results.append(result)
+        except Exception as e:
+            logger.error(f"❌ 处理日线上涨币种时出错: {str(e)}")
+    
+    daily_time = time.time() - daily_start
+    logger.info(f"✅ 日线上涨分析完成: {len(daily_results)}个, 耗时: {daily_time:.2f}秒")
+    
+    # 步骤4: 对日线上涨币种进行全部周期分析
+    logger.info(f"🔄 并行分析全部周期上涨币种...")
+    all_cycle_start = time.time()
+    all_cycle_futures = [executor.submit(analyze_all_cycle_rising, result['symbol'], result) for result in daily_results]
     all_cycle_rising = []
-
-    logger.info(f"📊 开始分析 {len(symbols)} 个币种...")
     
-    # 分批处理币种
-    batch_size = 20
-    batches = [symbols[i:i + batch_size] for i in range(0, len(symbols), batch_size)]
+    for future in as_completed(all_cycle_futures):
+        try:
+            result = future.result()
+            if result:
+                all_cycle_rising.append(result)
+        except Exception as e:
+            logger.error(f"❌ 处理全部周期上涨币种时出错: {str(e)}")
     
-    for batch_num, batch in enumerate(batches):
-        logger.info(f"📦 处理批次 {batch_num + 1}/{len(batches)} ({len(batch)} 个币种)")
-        
-        # 步骤2: 分析短期活跃币种
-        logger.info(f"🔄 分析短期活跃币种...")
-        short_term_futures = [executor.submit(analyze_short_term_active, symbol) for symbol in batch]
-        
-        for future in as_completed(short_term_futures):
-            try:
-                result = future.result()
-                if result:
-                    short_term_active.append(result)
-            except Exception as e:
-                logger.error(f"❌ 处理短期活跃币种时出错: {str(e)}")
-        
-        # 步骤3: 分析日线上涨币种
-        logger.info(f"🔄 分析日线上涨币种...")
-        daily_futures = [executor.submit(analyze_daily_rising, symbol) for symbol in batch]
-        daily_results = []
-        
-        for future in as_completed(daily_futures):
-            try:
-                result = future.result()
-                if result:
-                    daily_results.append(result)
-            except Exception as e:
-                logger.error(f"❌ 处理日线上涨币种时出错: {str(e)}")
-        
-        # 步骤4: 对日线上涨币种进行全部周期分析
-        logger.info(f"🔄 分析全部周期上涨币种...")
-        all_cycle_futures = [executor.submit(analyze_all_cycle_rising, result['symbol'], result) for result in daily_results]
-        
-        for future in as_completed(all_cycle_futures):
-            try:
-                result = future.result()
-                if result:
-                    all_cycle_rising.append(result)
-            except Exception as e:
-                logger.error(f"❌ 处理全部周期上涨币种时出错: {str(e)}")
-        
-        # 将日线上涨但非全部周期上涨的币种加入daily_rising
-        daily_rising_symbols = {r['symbol'] for r in daily_rising}
-        all_cycle_symbols = {r['symbol'] for r in all_cycle_rising}
-        
-        for result in daily_results:
-            if result['symbol'] not in all_cycle_symbols:
-                daily_rising.append(result)
-        
-        # 批次之间短暂休息
-        if batch_num < len(batches) - 1:
-            time.sleep(1)
+    all_cycle_time = time.time() - all_cycle_start
+    logger.info(f"✅ 全部周期分析完成: {len(all_cycle_rising)}个, 耗时: {all_cycle_time:.2f}秒")
+    
+    # 将日线上涨但非全部周期上涨的币种加入daily_rising
+    daily_rising = []
+    all_cycle_symbols = {r['symbol'] for r in all_cycle_rising}
+    
+    for result in daily_results:
+        if result['symbol'] not in all_cycle_symbols:
+            daily_rising.append(result)
 
     # 排序结果
     daily_rising.sort(key=lambda x: x.get('period_count', 0), reverse=True)
