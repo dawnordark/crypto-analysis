@@ -14,6 +14,9 @@ import logging
 import urllib3
 import asyncio
 import aiohttp
+import smtplib
+from email.mime.text import MimeText
+from email.mime.multipart import MimeMultipart
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
@@ -48,6 +51,14 @@ except ImportError as e:
 # Binance API 配置
 API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
+
+# 邮件配置
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+EMAIL_USER = os.environ.get('EMAIL_USER', '')
+EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', '')
+EMAIL_RECEIVERS = os.environ.get('EMAIL_RECEIVERS', '').split(',')  # 多个邮箱用逗号分隔
+
 client = None
 
 # 数据缓存
@@ -121,6 +132,71 @@ def init_client():
     
     logger.critical("🔥 无法初始化Binance客户端")
     return False
+
+def send_email_notification(all_cycle_rising_coins):
+    """发送邮件提醒"""
+    try:
+        if not EMAIL_USER or not EMAIL_PASSWORD or not EMAIL_RECEIVERS:
+            logger.warning("⚠️ 邮件配置不完整，跳过发送邮件")
+            return False
+        
+        if not all_cycle_rising_coins:
+            logger.info("📧 没有全部周期上涨的币种，不发送邮件")
+            return False
+        
+        # 准备邮件内容
+        subject = "出现全部周期上涨币种"
+        
+        # 构建币种列表
+        coin_list = "\n".join([f"• {coin['symbol']}" for coin in all_cycle_rising_coins])
+        
+        body = f"""
+发现 {len(all_cycle_rising_coins)} 个全部周期上涨的币种：
+
+{coin_list}
+
+分析时间: {datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")}
+        
+请注意：此提醒仅基于持仓量分析，投资有风险，请谨慎决策。
+        """
+        
+        # 创建邮件
+        msg = MimeMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = ", ".join(EMAIL_RECEIVERS)
+        msg['Subject'] = subject
+        
+        msg.attach(MimeText(body, 'plain', 'utf-8'))
+        
+        # 发送邮件
+        server = None
+        try:
+            if SMTP_PORT == 587:
+                # TLS 连接
+                server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+                server.starttls()
+            elif SMTP_PORT == 465:
+                # SSL 连接
+                server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
+            else:
+                server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+            
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_USER, EMAIL_RECEIVERS, msg.as_string())
+            server.quit()
+            
+            logger.info(f"✅ 邮件发送成功，收件人: {len(EMAIL_RECEIVERS)} 个")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ 邮件发送失败: {str(e)}")
+            if server:
+                server.quit()
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ 邮件通知处理失败: {str(e)}")
+        return False
 
 async def init_aio_session():
     """初始化异步HTTP会话"""
@@ -494,6 +570,20 @@ async def analyze_trends_async():
     logger.info(f"⏱️ 总分析时间: {analysis_time:.2f}秒")
 
     tz_shanghai = timezone(timedelta(hours=8))
+    
+    # 发送邮件提醒（如果有全部周期上涨的币种）
+    if all_cycle_rising:
+        logger.info(f"📧 检测到 {len(all_cycle_rising)} 个全部周期上涨币种，发送邮件提醒...")
+        # 在新线程中发送邮件，避免阻塞主分析流程
+        email_thread = threading.Thread(
+            target=send_email_notification, 
+            args=(all_cycle_rising,)
+        )
+        email_thread.daemon = True
+        email_thread.start()
+    else:
+        logger.info("📧 没有检测到全部周期上涨币种，不发送邮件")
+
     return {
         'daily_rising': final_daily_rising,
         'short_term_active': short_term_active,
@@ -618,6 +708,18 @@ def analyze_trends_sync_fallback():
     analysis_time = time.time() - start_time
     logger.info(f"📊 同步分析完成: 日线上涨 {len(daily_rising)}个, 短期活跃 {len(short_term_active)}个, 全部周期上涨 {len(all_cycle_rising)}个")
     logger.info(f"⏱️ 总分析时间: {analysis_time:.2f}秒")
+
+    # 发送邮件提醒（如果有全部周期上涨的币种）
+    if all_cycle_rising:
+        logger.info(f"📧 检测到 {len(all_cycle_rising)} 个全部周期上涨币种，发送邮件提醒...")
+        email_thread = threading.Thread(
+            target=send_email_notification, 
+            args=(all_cycle_rising,)
+        )
+        email_thread.daemon = True
+        email_thread.start()
+    else:
+        logger.info("📧 没有检测到全部周期上涨币种，不发送邮件")
 
     tz_shanghai = timezone(timedelta(hours=8))
     return {
