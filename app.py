@@ -15,8 +15,8 @@ import urllib3
 import asyncio
 import aiohttp
 import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, jsonify, send_from_directory
@@ -53,7 +53,7 @@ API_KEY = os.environ.get('BINANCE_API_KEY', '')
 API_SECRET = os.environ.get('BINANCE_API_SECRET', '')
 
 # 邮件配置
-SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.qq.com')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
 EMAIL_USER = os.environ.get('EMAIL_USER', '')
 EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', '')
@@ -161,12 +161,12 @@ def send_email_notification(all_cycle_rising_coins):
         """
         
         # 创建邮件
-        msg = MimeMultipart()
+        msg = MIMEMultipart()
         msg['From'] = EMAIL_USER
         msg['To'] = ", ".join(EMAIL_RECEIVERS)
         msg['Subject'] = subject
         
-        msg.attach(MimeText(body, 'plain', 'utf-8'))
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
         # 发送邮件
         server = None
